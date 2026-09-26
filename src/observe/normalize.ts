@@ -485,6 +485,29 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
   }
   const kept = drafts.filter((d) => !d.dropped);
 
+  // On web pages, a text field without any name takes the name of the one text label beside it (same line, to its
+  // left) or right above it — the `<label>` + field pattern whose association Android Chrome's tree drops (label as a
+  // TextView, field with only its placeholder). Ties or distant labels: no name. Native screens keep their tree names
+  // (their calibrated Jev rows depend on them).
+  for (const f of snapshot.surface === 'web' ? kept : []) {
+    if (f.name !== '' || (f.role !== 'input' && f.role !== 'secure-input')) continue;
+    const e = clip[f.i]!;
+    const gapTo = (l: Rect): number | null => {
+      const sameLine = Math.abs(e.y + e.height / 2 - (l.y + l.height / 2)) <= Math.max(l.height, e.height) / 2 && e.x >= l.x + l.width - 4;
+      if (sameLine) return e.x - (l.x + l.width) <= 3 * l.height ? Math.max(0, e.x - (l.x + l.width)) : null;
+      const below = e.x < l.x + l.width && e.x + e.width > l.x && e.y >= l.y + l.height - 4;
+      return below && e.y - (l.y + l.height) <= 2 * l.height ? Math.max(0, e.y - (l.y + l.height)) : null;
+    };
+    const labels = kept.flatMap((l) => {
+      const gap = l.role === 'text' && l.ownName && l.name !== '' ? gapTo(clip[l.i]!) : null;
+      return gap === null ? [] : [{ l, gap }];
+    });
+    labels.sort((a, b) => a.gap - b.gap);
+    if (labels.length === 0 || (labels.length > 1 && labels[1]!.gap === labels[0]!.gap)) continue;
+    f.name = labels[0]!.l.name;
+    f.stableName = labels[0]!.l.stableName;
+  }
+
   // Bottom tab strip heuristic (RN/Compose tabs expose plain clickable views): 3–6 sibling buttons with short labels,
   // equal top/height/width, touching the bottom 15% of the screen and spanning ≥60% of its width. Three-item rows must
   // all carry an icon so a dialog's text-only [취소][저장][삭제] button row is not mistaken for navigation. Desktop DOM

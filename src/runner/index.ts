@@ -5,7 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { PATHS } from '../core/config.ts';
 import type { EventSink } from '../core/events.ts';
 import { newRunId, sha256, writeJson, writeSecure } from '../core/fsx.ts';
-import { PLATFORMS } from '../core/platform.ts';
+import { PLATFORM_INFO, PLATFORMS } from '../core/platform.ts';
 import type { DeviceInfo, Driver, Platform, ScreenModel, Verdict, WebTarget } from '../core/types.ts';
 import { acquireDeviceLock, createDriver, pickDevice } from '../drivers/index.ts';
 import { JevClient } from '../jev/client.ts';
@@ -302,60 +302,72 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
     store.emit({ type: 'test.finished', runId, testId: r.id, platform: r.platform, verdict: r.verdict, reason: r.reason, durationMs: 0 });
   }
 
-  const perPlatform = await Promise.all(
-    [...slots.values()].map(async (slot): Promise<TestResult[]> => {
-      const mine = planned.filter((x) => x.platform === slot.platform);
-      const out: TestResult[] = [];
-      const skip = (test: LoadedTest, verdict: Verdict, code: string, reason: string) => {
-        const base = { id: test.id, name: test.spec.name, file: posixRel(d.root, test.file), app: test.spec.app, test };
-        const r = unrunResult(base, slot.platform, verdict, code, reason, slot.device, new EvidenceSanitizer(test.profile.redact));
-        store.emit({ type: 'test.finished', runId, testId: r.id, platform: r.platform, verdict, reason: r.reason, durationMs: 0 });
-        out.push(r);
-      };
-      if (slot.problem || !slot.device) {
-        for (const { test } of mine) skip(test, 'ERROR', slot.problem?.code ?? 'no_device', slot.problem?.reason ?? '기기 없음');
-        return out;
-      }
-      const device = slot.device;
-      const driver = d.createDriver(slot.platform, device.id);
-      try {
-        // One session per app: capabilities are app-specific.
-        const apps = [...new Set(mine.map((x) => x.test.spec.app))];
-        for (const app of apps) {
-          const group = mine.filter((x) => x.test.spec.app === app);
-          const target = appTarget(group[0]!.test.profile, slot.platform)!;
-          try {
-            await driver.open(target);
-          } catch (err) {
-            for (const { test } of group) skip(test, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`);
-            continue;
-          }
-          try {
-            for (const { test } of group) {
-              if (opts.signal?.aborted) {
-                skip(test, 'SKIPPED', 'cancelled', '실행이 취소되어 건너뜀');
-                continue;
-              }
-              const session = new TestSession(
-                { runId, store, clean: new EvidenceSanitizer(test.profile.redact), driver, device, clock: d.clock, jev, ocr: d.ocr, relFile: posixRel(d.root, test.file), signal: opts.signal },
-                test,
-                slot.platform,
-                target,
-              );
-              out.push(await session.run());
-            }
-          } finally {
-            await driver.close().catch(() => undefined);
-          }
+  const runSlot = async (slot: Slot): Promise<TestResult[]> => {
+    const mine = planned.filter((x) => x.platform === slot.platform);
+    const out: TestResult[] = [];
+    const skip = (test: LoadedTest, verdict: Verdict, code: string, reason: string) => {
+      const base = { id: test.id, name: test.spec.name, file: posixRel(d.root, test.file), app: test.spec.app, test };
+      const r = unrunResult(base, slot.platform, verdict, code, reason, slot.device, new EvidenceSanitizer(test.profile.redact));
+      store.emit({ type: 'test.finished', runId, testId: r.id, platform: r.platform, verdict, reason: r.reason, durationMs: 0 });
+      out.push(r);
+    };
+    if (slot.problem || !slot.device) {
+      for (const { test } of mine) skip(test, 'ERROR', slot.problem?.code ?? 'no_device', slot.problem?.reason ?? '기기 없음');
+      return out;
+    }
+    const device = slot.device;
+    const driver = d.createDriver(slot.platform, device.id);
+    try {
+      // One session per app: capabilities are app-specific.
+      const apps = [...new Set(mine.map((x) => x.test.spec.app))];
+      for (const app of apps) {
+        const group = mine.filter((x) => x.test.spec.app === app);
+        const target = appTarget(group[0]!.test.profile, slot.platform)!;
+        try {
+          await driver.open(target);
+        } catch (err) {
+          for (const { test } of group) skip(test, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`);
+          continue;
         }
-      } finally {
-        slot.lock?.release();
+        try {
+          for (const { test } of group) {
+            if (opts.signal?.aborted) {
+              skip(test, 'SKIPPED', 'cancelled', '실행이 취소되어 건너뜀');
+              continue;
+            }
+            const session = new TestSession(
+              { runId, store, clean: new EvidenceSanitizer(test.profile.redact), driver, device, clock: d.clock, jev, ocr: d.ocr, relFile: posixRel(d.root, test.file), signal: opts.signal },
+              test,
+              slot.platform,
+              target,
+            );
+            out.push(await session.run());
+          }
+        } finally {
+          await driver.close().catch(() => undefined);
+        }
       }
+    } finally {
+      slot.lock?.release();
+    }
+    return out;
+  };
+  // Desktop browsers share this Mac's display, pointer and keyboard focus, so they run one after another (measured:
+  // Safari's clicks had no effect while a Chrome window was in front of it); devices run in parallel.
+  const lanes = new Map<string, Slot[]>();
+  for (const slot of slots.values()) {
+    const lane = PLATFORM_INFO[slot.platform].host === 'desktop' ? 'desktop' : slot.platform;
+    lanes.set(lane, [...(lanes.get(lane) ?? []), slot]);
+  }
+  const perLane = await Promise.all(
+    [...lanes.values()].map(async (lane) => {
+      const out: TestResult[] = [];
+      for (const slot of lane) out.push(...(await runSlot(slot)));
       return out;
     }),
   );
 
-  const byKey = new Map(perPlatform.flat().map((r) => [`${r.id} ${r.platform}`, r]));
+  const byKey = new Map(perLane.flat().map((r) => [`${r.id} ${r.platform}`, r]));
   const ordered: TestResult[] = [];
   for (const test of loaded.tests) for (const p of requested) {
     const r = byKey.get(`${test.id} ${p}`);

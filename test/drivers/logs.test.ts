@@ -120,12 +120,13 @@ describe('android device log capture', () => {
         (await driver.crashArtifacts(app, from)).map((a) => a.content),
         [lines.slice(1).join('\n')],
       );
-      // `-T` is taken while startLogs runs: 30 s before "now" on the device clock (host − 5 s), within the arm window.
+      // `-T` is taken while startLogs runs: 30 s before "now" on the device clock (host − 5 s). The offset is measured
+      // from one `adb shell date` round trip, so it is exact only to half that trip; the arm window bounds the trip.
       const since = Number(fake.hostCalls().find((c) => c.includes('--pid=4242'))?.at(-2)) * 1000;
-      const skewSlackMs = 500;
+      const tripMs = armedTo - armedFrom;
       assert.ok(
-        since >= armedFrom - 5000 - 30_000 - skewSlackMs && since <= armedTo - 5000 - 30_000 + skewSlackMs,
-        `logcat -T ${since / 1000} is 30 s back in device time`,
+        since >= armedFrom - 5000 - 30_000 - tripMs && since <= armedTo - 5000 - 30_000 + tripMs,
+        `logcat -T ${since / 1000} is 30 s back in device time (arm window ${tripMs} ms)`,
       );
     } finally {
       await driver.close();

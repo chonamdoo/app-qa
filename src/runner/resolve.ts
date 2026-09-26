@@ -16,6 +16,21 @@ export interface TargetQuery {
   within?: string;
   nth?: number;
   near?: string;
+  /**
+   * What the step will do with the target. `edit` (type/clear) only ever acts on a text field, so equal labels narrow
+   * to editable candidates (a form's `<label>` and its field share one name); `act` (tap/longPress) prefers the one
+   * actionable candidate among equal labels over plain text.
+   */
+  purpose?: 'edit' | 'act';
+}
+
+const EDITABLE_ROLES: ReadonlySet<Candidate['role']> = new Set(['input', 'secure-input']);
+
+/** Equal matches narrowed by what the step does; never narrows to nothing. */
+function forPurpose(matches: Candidate[], purpose: TargetQuery['purpose']): Candidate[] {
+  const narrowed =
+    purpose === 'edit' ? matches.filter((c) => EDITABLE_ROLES.has(c.role)) : purpose === 'act' && matches.length > 1 ? matches.filter((c) => c.actionable) : matches;
+  return narrowed.length > 0 && (purpose === 'edit' || narrowed.length === 1) ? narrowed : matches;
 }
 
 export type Deterministic =
@@ -148,7 +163,7 @@ export function resolveDeterministic(model: ScreenModel, q: TargetQuery): Determ
   if (sel.text !== undefined || sel.desc !== undefined || sel.id !== undefined) {
     const matches = pool.filter((c) => selectorMatches(model, c, sel));
     if (matches.length === 0) return { kind: 'not_found', reason: `셀렉터(${targetText({ ...sel, intent: undefined })})와 일치하는 요소 없음` };
-    const ok = matches.filter((c) => stateMatches(c, sel.state));
+    const ok = forPurpose(matches.filter((c) => stateMatches(c, sel.state)), q.purpose);
     if (ok.length === 0) return { kind: 'not_found', reason: `셀렉터 일치 ${matches.length}개, 상태 조건 불일치 ${JSON.stringify(sel.state)}` };
     if (sel.intent === undefined || ok.length === 1 || q.nth !== undefined || q.near !== undefined) {
       const r = pick(model, ok, q, '셀렉터 일치');
@@ -160,7 +175,7 @@ export function resolveDeterministic(model: ScreenModel, q: TargetQuery): Determ
   const want = normLabel(intent);
   const labelled = pool.filter((c) => normLabel(c.name) === want);
   // A state filter narrows equal labels (e.g. the focused one of a label + input pair) before uniqueness is judged.
-  const ok = labelled.filter((c) => stateMatches(c, sel.state));
+  const ok = forPurpose(labelled.filter((c) => stateMatches(c, sel.state)), q.purpose);
   if (labelled.length > 0 && ok.length === 0) return { kind: 'not_found', reason: `라벨 일치 ${labelled.length}개, 상태 조건 불일치 ${JSON.stringify(sel.state)}` };
   if (ok.length === 1 || (ok.length > 1 && (q.nth !== undefined || q.near !== undefined))) {
     const r = pick(model, ok, q, '라벨 일치');

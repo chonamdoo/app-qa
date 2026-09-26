@@ -8,6 +8,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
 import { loadEnv, PATHS } from '../core/config.ts';
 import { ensureDir, sha256, writeJsonAtomic } from '../core/fsx.ts';
+import { acquireFileLock, FileLockedError } from '../core/lock.ts';
 import { START_SLACK_MS, systemProbe } from '../core/process.ts';
 import { AppiumClient } from './client.ts';
 import { childEnv, run } from './exec.ts';
@@ -148,13 +149,48 @@ async function reuseProblem(state: ServerState | null, port: number): Promise<st
   return null;
 }
 
+/** Startups in flight in this process, by port + state file: concurrent device slots share one spawn. */
+const starting = new Map<string, Promise<AppiumServer>>();
+
 /**
  * Returns a ready Appium server. A server already answering on the port is reused only when `reuseProblem` finds
  * nothing — it is never killed; otherwise this spawns `node node_modules/appium/index.js server` detached (survives
  * this CLI, logs to .qa/logs/appium.log) and records it in `stateFile` (default `.qa/appium.json`).
+ * Concurrent callers (device slots of one run, or two `qa` processes) never race to spawn: calls in this process share
+ * one startup, and across processes `.qa/locks/appium-<port>.lock` admits one starter while the others wait for it.
  */
-export async function ensureAppium(opts: { port?: number; timeoutMs?: number; stateFile?: string } = {}): Promise<AppiumServer> {
+export function ensureAppium(opts: { port?: number; timeoutMs?: number; stateFile?: string } = {}): Promise<AppiumServer> {
+  const key = `${opts.port ?? appiumPort()}|${opts.stateFile ?? STATE_FILE}`;
+  let pending = starting.get(key);
+  if (!pending) {
+    pending = startupLocked(opts).finally(() => starting.delete(key));
+    starting.set(key, pending);
+  }
+  return pending;
+}
+
+async function startupLocked(opts: { port?: number; timeoutMs?: number; stateFile?: string }): Promise<AppiumServer> {
   const port = opts.port ?? appiumPort();
+  const deadline = Date.now() + (opts.timeoutMs ?? 60_000);
+  const file = join(PATHS.locks, `appium-${port}.lock`);
+  for (;;) {
+    let lock;
+    try {
+      lock = acquireFileLock(file, { purpose: `Appium 서버(포트 ${port}) 시작` });
+    } catch (err) {
+      if (!(err instanceof FileLockedError) || Date.now() >= deadline) throw err;
+      await delay(250);
+      continue;
+    }
+    try {
+      return await startOrReuse(opts, port, deadline);
+    } finally {
+      lock.release();
+    }
+  }
+}
+
+async function startOrReuse(opts: { stateFile?: string }, port: number, deadline: number): Promise<AppiumServer> {
   const stateFile = opts.stateFile ?? STATE_FILE;
   const url = `http://127.0.0.1:${port}`;
   const existing = await probe(url);
@@ -192,7 +228,6 @@ export async function ensureAppium(opts: { port?: number; timeoutMs?: number; st
   child.unref();
   writeJsonAtomic(stateFile, { pid, port, startedAt: new Date().toISOString(), ...config } satisfies ServerState);
 
-  const deadline = Date.now() + (opts.timeoutMs ?? 60_000);
   while (Date.now() < deadline) {
     if (exited !== undefined) throw new Error(`Appium 서버가 시작 중 종료되었습니다 (exit ${exited}). 로그: ${APPIUM_LOG}\n${logExcerpt(readLog())}`);
     const s = await probe(url);
@@ -200,7 +235,7 @@ export async function ensureAppium(opts: { port?: number; timeoutMs?: number; st
     await delay(250);
   }
   process.kill(pid, 'SIGTERM');
-  throw new Error(`Appium 서버가 ${opts.timeoutMs ?? 60_000}ms 안에 준비되지 않았습니다. 로그: ${APPIUM_LOG}\n${logExcerpt(readLog())}`);
+  throw new Error(`Appium 서버가 제한 시간 안에 준비되지 않았습니다. 로그: ${APPIUM_LOG}\n${logExcerpt(readLog())}`);
 }
 
 /** Stops the server this project spawned (recorded in .qa/appium.json); a pid now held by another process is never signalled. Returns false when none was running. */

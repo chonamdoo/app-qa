@@ -1,6 +1,6 @@
 ---
 name: architecture
-description: app-qa architecture contract — module boundaries, dependency direction, and fail-closed invariants for the mobile QA platform. Apply when designing, changing, or reviewing any code under src/, bin/, test/, mac/, calibration/, or apps/.
+description: app-qa architecture contract — module boundaries, dependency direction, and fail-closed invariants for the app and web QA platform (Android/iOS apps; websites in desktop Chrome/Safari, Android Chrome, iOS Safari). Apply when designing, changing, or reviewing any code under src/, bin/, test/, mac/, calibration/, examples/, or apps/.
 requires_docs:
   - references/design.md
 ---
@@ -20,7 +20,7 @@ requires_docs:
 
 | Module | Path | May import |
 |---|---|---|
-| contracts | `src/core/*`, `src/spec/{schema,load}.ts` | node builtins, `zod`, `yaml`, other contracts — no other `src/` module |
+| contracts | `src/core/*` (incl. the platform table `src/core/platform.ts`), `src/spec/{schema,load}.ts` | node builtins, `zod`, `yaml`, other contracts — no other `src/` module |
 | observe | `src/observe/*`, `src/ocr/*` | contracts |
 | policy | `src/policy/*` (deterministic risk policy) | contracts, `src/observe/text.ts` |
 | jev | `src/jev/*` | contracts; `observe` and `policy` only from calibration code (`src/jev/calibrate.ts`) |
@@ -33,15 +33,17 @@ requires_docs:
 
 No import cycles between modules, and no module imports the CLI. The Jev candidate row format is a contract (`src/core/candidate-row.ts`). A contract change (`src/core/*`, `src/spec/*`, events) updates every consumer in the same change. `test/architecture/` enforces this table.
 
+Apps and websites share one pipeline (DSL, runner, policy, commit check, sanitizer, reports, planner). They differ only in the target (`AppTarget` = `app | web`), the driver (native drivers run the device browser for web profiles; `DesktopWebDriver` runs desktop Chrome/Safari over W3C) and the source parser (`src/observe/web.ts` for desktop). Every platform list and label derives from `PLATFORM_INFO`; a platform switch is exhaustive, never "not android ⇒ iOS".
+
 ## Invariants (must)
 
 1. **Fail-closed verdicts.** PASS only from a deterministic check or a calibrated Jev gate. Missing, malformed, uncalibrated, timed-out, or ambiguous answers are ERROR or INCONCLUSIVE, never PASS. A rule that evaluates nothing (e.g. an empty or multi-operator JSONLogic object) is ERROR. Verdict precedence ERROR > FAIL > INCONCLUSIVE > PASS.
 2. **Jev contract.** Model pinned (`jev-1.13.0`) and checked on every response; strict answer validation (own-property membership, exact key sets, finite probabilities) before use; thresholds come only from `calibration/<model>/<questionVersion>.json`; no coordinates in state; redaction before any text leaves the machine; ≤ 254 candidates + `none` (overflow is flagged, never truncated).
 3. **Actions.** Every mutating action is journaled (fsync) before dispatch. Transport failure, timeout, or an unvalidated driver response → `uncertain` → test ERROR, never retried and never reclassified as `completed`/`rejected`. No-effect after an action → INCONCLUSIVE unless `expectNoChange`.
-4. **Risk.** The deterministic policy (`src/policy`: Korean/English keywords, destructive-dialog context, unlabeled targets) runs on the **final fresh target and screen** immediately before dispatch, including `press: enter` and `type.submit`. The Jev commit check can only add refusals and is required for every target-based mutation of a deterministically safe target without `allowRisky`; if it errors or its gate is not `calibrated`, the step is ERROR `commit_check_unavailable` and nothing is dispatched. Risky targets act only with `allowRisky` and only through selector/fast path.
-5. **Observation.** Only touchable nodes occlude; taps use the fresh un-occluded tap point after `refind` + hit-test; settle means change → stable on identity/layout fingerprints; a target that is not stable within the post-scroll window is `stale_target`, not tapped.
-6. **Devices** are reached only through the `Driver` interface, one device lock per run (reclaiming a dead owner must never delete a live owner's lock), project-local tools (`.tools/`), explicit permissions, validated app ids, quoted device-shell arguments.
-7. **Evidence.** Directories 0700, files 0600. Every journal/event/SSE/source/elements/log write passes one sanitizer that masks observed `secure-input` values (regardless of the DSL `secure` flag), `${ENV}`-expanded values, and app-profile `redact` matches; Appium never logs request bodies; events follow `src/core/events.ts` and name the DSL action exactly.
+4. **Risk.** The deterministic policy (`src/policy`: Korean/English keywords, destructive-dialog context, unlabeled targets) runs on the **final fresh target and screen** immediately before dispatch, including `press: enter` and `type.submit`. The Jev commit check can only add refusals and is required for every target-based mutation of a deterministically safe target without `allowRisky` (tap, long press, type/clear, submit/enter); after its answer the screen is observed again: the target must be the same node with the same box and state (`stale_target` otherwise) and the deterministic policy runs again on that observation (a destructive dialog that appeared meanwhile blocks); unrelated screen changes (clocks, live counters) do not void the approval. Its gate is per surface (`commit.gate` for apps, `commit.surfaceGates.web` for websites, recorded only after a holdout confirms it); an error, a gate that is not `calibrated`, or a surface without its own gate is ERROR `commit_check_unavailable` and nothing is dispatched. Risky targets act only with `allowRisky` and only through selector/fast path. On web targets, `open` outside the profile origins is refused whatever `allowRisky` says.
+5. **Observation.** Only touchable nodes occlude; taps use the fresh un-occluded tap point after `refind` + hit-test (iOS WDA `hittable` of the target's own box, desktop `elementFromPoint`); settle means change → stable on identity/layout fingerprints; a target that is not stable within the post-scroll window is `stale_target`, not tapped. On device browsers the browser UI (address bar, toolbars, snackbars, the iOS status-bar strip) is never a candidate but still occludes. Page scripts only observe (DOM extract, value read-back, `elementFromPoint`, `history.length`, `location`) — actions are real pointer/key input, never JS clicks, DOM value injection or forced clicks.
+6. **Devices** are reached only through the `Driver` interface, one device lock per run (desktop browsers are devices: ids `desktop-chrome`, `desktop-safari`; reclaiming a dead owner must never delete a live owner's lock), one Appium startup per port (in-process single flight + `.qa/locks/appium-<port>.lock`), desktop browsers of one run in one sequential lane (they share the display, pointer and keyboard focus), project-local tools (`.tools/`), explicit permissions, validated app ids and web URLs (http(s), no credentials, inside origins), quoted device-shell arguments. Browser preparation (Chrome first-run flags, notification permission) happens only in `qa setup --browsers`; `driver.open` only checks readiness; `adb reverse` mappings are owned and only owned ones are removed.
+7. **Evidence.** Directories 0700, files 0600. Every journal/event/SSE/source/elements/log write passes one sanitizer that masks observed `secure-input` values (regardless of the DSL `secure` flag), `${ENV}`-expanded values, app-profile `redact` matches and sensitive URL query values; typed text never appears in step labels; records written outside a test session (skips, smoke start) pass it too; Appium never logs request bodies; events follow `src/core/events.ts` and name the DSL action exactly. Readiness failures (browser not prepared, page never shows content) are ERROR (`qaStatus` BLOCKED), never FAIL or PASS.
 8. **Generated tests** are validated deterministically (zod, coverage, no `allowRisky`, no risky labels, no submit/enter), reviewed per criterion (no aggregate score), and saved as `draft` unless explicitly approved.
 9. **Durable records** (calibration, `plan.json`, generated tests, `summary.json`, `.qa/server.json`) are written atomically; regenerating a plan never removes existing tests before the new generation is complete.
 
@@ -50,11 +52,12 @@ No import cycles between modules, and no module imports the CLI. The Jev candida
 - A model (Jev or LLM) deciding PASS/FAIL or granting permission on its own.
 - Treating an absent or invalid model answer, or a skipped required check, as a default value.
 - Retrying a mutating step, re-tapping when nothing changed, or replaying an `uncertain` action.
-- Unconditional BACK to hide a keyboard; a silent no-op `back`; iOS clipboard text entry.
+- Unconditional BACK to hide a keyboard; a silent no-op `back`; iOS clipboard text entry; ESC to hide a keyboard on a web page (it clears search fields).
 - Global tool installs, or reading devices/Appium outside `src/drivers`.
 - Execution code importing concrete drivers, servers importing runner/plan directly, or any module importing the CLI.
 - Truncating candidate lists, sending coordinates or unredacted text to Jev, logging API keys, secrets, or request bodies.
 - Aggregate scores that hide a failing criterion.
+- JS clicks, DOM value injection or forced clicks on web targets; calling Playwright WebKit or viewport emulation "Safari" or "mobile".
 
 ## Review checklist
 

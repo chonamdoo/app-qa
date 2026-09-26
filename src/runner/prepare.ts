@@ -78,16 +78,16 @@ function isEditable(c: Candidate, model: ScreenModel): boolean {
 }
 
 /**
- * How `now` differs from `judged` for `target`, or null: another screen (identity fingerprint), another node, a moved
- * rect (beyond sub-pixel rounding) or another state (e.g. focus moved away from the field Enter submits).
+ * The target as `now` shows it, or why the approval no longer holds: another node, a moved rect (beyond sub-pixel
+ * rounding) or another state (e.g. focus moved away from the field Enter submits). The rest of the screen may change
+ * (clocks, live counters); what matters there is re-judged by the deterministic policy on `now`.
  */
-function targetChange(target: Candidate, judged: ScreenModel, now: ScreenModel): string | null {
-  if (now.fingerprints.identity !== judged.fingerprints.identity) return '화면이 바뀜';
+function targetNow(target: Candidate, now: ScreenModel): { candidate: Candidate } | { reason: string } {
   const cur = refind(target, now);
-  if (!cur || cur.nodeId !== target.nodeId) return `"${target.name}"이(가) 같은 요소로 남아 있지 않음`;
-  if ((['x', 'y', 'width', 'height'] as const).some((k) => Math.abs(cur.rect[k] - target.rect[k]) > SAME_RECT_TOLERANCE)) return `"${target.name}" 위치가 바뀜`;
-  if (cur.state.join() !== target.state.join()) return `"${target.name}" 상태가 바뀜 (${target.state.join(',') || '없음'} → ${cur.state.join(',') || '없음'})`;
-  return null;
+  if (!cur || cur.nodeId !== target.nodeId) return { reason: `"${target.name}"이(가) 같은 요소로 남아 있지 않음` };
+  if ((['x', 'y', 'width', 'height'] as const).some((k) => Math.abs(cur.rect[k] - target.rect[k]) > SAME_RECT_TOLERANCE)) return { reason: `"${target.name}" 위치가 바뀜` };
+  if (cur.state.join() !== target.state.join()) return { reason: `"${target.name}" 상태가 바뀜 (${target.state.join(',') || '없음'} → ${cur.state.join(',') || '없음'})` };
+  return { candidate: cur };
 }
 
 export class ActionPreparer<Ctx> {
@@ -169,10 +169,13 @@ export class ActionPreparer<Ctx> {
         this.host.policy(ctx, false, true, [reason]);
         return { status: 'commit_check_unavailable', reason };
       }
-      // The screen may change while Jev answers: the approval holds only for what a new observation still shows.
+      // The screen may change while Jev answers: the approval holds only if a new observation still shows the same
+      // target and the deterministic policy still passes on it (a destructive dialog that appeared meanwhile blocks).
       const now = await this.host.observe(target.source === 'ocr' ? 'force' : 'never');
-      const changed = targetChange(target, model, now.model);
-      if (changed) return { status: 'stale_target', reason: `Jev commit 확인 중 ${changed} — 실행하지 않음` };
+      const same = targetNow(target, now.model);
+      if ('reason' in same) return { status: 'stale_target', reason: `Jev commit 확인 중 ${same.reason} — 실행하지 않음` };
+      const riskNow = mutation === 'submit' ? submitRisk(same.candidate, now.model, this.host.profile) : assessRisk(same.candidate, now.model, this.host.profile);
+      if (riskNow.risky) return this.block(ctx, [...riskNow.reasons, 'Jev commit 확인 중 화면이 바뀜'], false);
       this.host.policy(ctx, risk.risky, false, risk.reasons);
       return { status: 'approved', obs: now };
     }

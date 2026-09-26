@@ -111,6 +111,8 @@ export class DesktopWebDriver implements Driver {
   readonly #sanitizers = new Set<(line: string) => string>();
   #logTimer: NodeJS.Timeout | null = null;
   #draining: Promise<void> | null = null;
+  /** Wheel input sources used so far: Safari ignores every scroll after the first on a reused wheel source (measured). */
+  #wheels = 0;
 
   constructor(platform: DesktopPlatform, deviceId: string, opts: DriverOptions = {}) {
     this.platform = platform;
@@ -266,9 +268,13 @@ export class DesktopWebDriver implements Driver {
     return this.#act(() => this.#api.performActions(tapGesture(p, Math.max(0, Math.round(holdMs)), 'mouse'), 30_000 + holdMs));
   }
 
-  /** Wheel at `from` by (from − to): the content moves the way a finger dragging from `from` to `to` would move it. */
+  /**
+   * Wheel at `from` by (from − to): the content moves the way a finger dragging from `from` to `to` would move it. Each
+   * scroll uses a new wheel input source — on Safari 26 a reused source scrolled once, then never again.
+   */
   swipe(from: Point, to: Point, durationMs: number): Promise<ActionOutcome> {
-    return this.#act(() => this.#api.performActions(wheelScroll(from, { x: from.x - to.x, y: from.y - to.y }, durationMs)));
+    const id = `wheel-${++this.#wheels}`;
+    return this.#act(() => this.#api.performActions(wheelScroll(from, { x: from.x - to.x, y: from.y - to.y }, durationMs, id)));
   }
 
   /** The text field `ref` (else the focused element), or null when it does not take typed text. Secure values stay masked. */

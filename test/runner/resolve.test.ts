@@ -57,4 +57,39 @@ describe('deterministic resolution', () => {
     assert.equal(resolveDeterministic(search, q).kind, 'not_found');
     assert.ok(notFoundDiagnostics(search, q).some((d) => d.startsWith('다른 요소에 가려진 일치 1개')));
   });
+
+  it('type/clear narrow a shared label to the text field; tap prefers the one actionable match', () => {
+    // The native search screen: label + input share "편명·도시·항공사".
+    assert.deepEqual(found(search, { target: '편명·도시·항공사', purpose: 'edit' }), { name: '편명·도시·항공사', role: 'input', source: 'fast_path' });
+    // iOS Safari: a <section aria-label>, the <label> text and the search field are all named "상품 검색".
+    const safari = buildScreenModel(fixtureSnapshot('ios', 'web-demo', 'index'), {});
+    assert.equal(resolveDeterministic(safari, { target: '상품 검색' }).kind, 'jev');
+    assert.equal(found(safari, { target: '상품 검색', purpose: 'edit' }).role, 'input');
+    // Heading + tab "주차": a tap goes to the tab, an observation still cannot choose.
+    assert.deepEqual(found(parking, { target: '주차', purpose: 'act' }), { name: '주차', role: 'tab', source: 'fast_path' });
+    // Nothing editable among the matches: the match stands, so type into a button still fails as not editable.
+    assert.equal(found(parking, { target: '장기', purpose: 'edit' }).role, 'button');
+  });
+
+  it('a field without a name is named by its layout label, so type/clear reach it (Android Chrome drops the association)', () => {
+    const home = buildScreenModel(fixtureSnapshot('android', 'web-demo', 'index'), {});
+    const login = buildScreenModel(fixtureSnapshot('android', 'web-demo', 'login-email'), {});
+    // The tree has the label as a TextView and the field with only its placeholder; the field now carries the label.
+    assert.deepEqual(
+      home.candidates.filter((c) => c.name === '상품 검색').map((c) => c.role).sort(),
+      ['input', 'text'],
+    );
+    assert.equal(resolveDeterministic(home, { target: '상품 검색' }).kind, 'jev');
+    assert.equal(found(home, { target: '상품 검색', purpose: 'edit' }).role, 'input');
+    // Stacked form: each label names the field right under it, not the next one down.
+    const email = resolveDeterministic(login, { target: '이메일', purpose: 'edit' });
+    const password = resolveDeterministic(login, { target: '비밀번호', purpose: 'edit' });
+    assert.ok(email.kind === 'found' && password.kind === 'found');
+    assert.equal(email.candidate.role, 'input');
+    assert.equal(password.candidate.role, 'secure-input');
+    assert.ok(email.candidate.rect.y < password.candidate.rect.y);
+    // A field that already has a name keeps it (the iOS field is named by the page's <label>).
+    const safari = buildScreenModel(fixtureSnapshot('ios', 'web-demo', 'login-email'), {});
+    assert.ok(safari.candidates.some((c) => c.role === 'secure-input' && c.name === '비밀번호'));
+  });
 });

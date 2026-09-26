@@ -2,7 +2,7 @@ id: web-demo-search
 name: 상품을 검색하면 일치하는 상품만 남는다
 app: web-demo
 steps:
-  - see: 상품 검색
+  - see: 검색
   - type: 사과
     into: 상품 검색
   - hideKeyboard: true

@@ -262,11 +262,11 @@ export function tapGesture(p: Point, pressMs = 60, pointerType: 'touch' | 'mouse
 }
 
 /** Mouse wheel at `at` scrolling by `delta` CSS px (positive y = content moves up, like a swipe from bottom to top). */
-export function wheelScroll(at: Point, delta: Point, durationMs: number): W3CWheelAction[] {
+export function wheelScroll(at: Point, delta: Point, durationMs: number, id = 'wheel'): W3CWheelAction[] {
   return [
     {
       type: 'wheel',
-      id: 'wheel',
+      id,
       actions: [{ type: 'scroll', origin: 'viewport', x: Math.round(at.x), y: Math.round(at.y), deltaX: Math.round(delta.x), deltaY: Math.round(delta.y), duration: Math.max(0, Math.round(durationMs)) }],
     },
   ];

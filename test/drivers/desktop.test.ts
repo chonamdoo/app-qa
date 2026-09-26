@@ -124,10 +124,15 @@ describe('real input', () => {
     });
   });
 
-  it('swipe is a wheel scroll at `from` by (from − to), never a drag or a script scroll', async () => {
+  it('swipe is a wheel scroll at `from` by (from − to) on a fresh wheel source each time, never a drag or a script scroll', async () => {
     await withDriver({}, async (d, stub) => {
       assert.equal((await d.swipe({ x: 640, y: 600 }, { x: 600, y: 300 }, 250)).status, 'completed');
-      assert.deepEqual(stub.sources(), [{ type: 'wheel', id: 'wheel', actions: [{ type: 'scroll', origin: 'viewport', x: 640, y: 600, deltaX: 40, deltaY: 300, duration: 250 }] }]);
+      assert.equal((await d.swipe({ x: 640, y: 600 }, { x: 640, y: 200 }, 250)).status, 'completed');
+      // Safari 26 scrolls once per wheel source: a reused id would leave the second scroll without effect.
+      assert.deepEqual(stub.sources(), [
+        { type: 'wheel', id: 'wheel-1', actions: [{ type: 'scroll', origin: 'viewport', x: 640, y: 600, deltaX: 40, deltaY: 300, duration: 250 }] },
+        { type: 'wheel', id: 'wheel-2', actions: [{ type: 'scroll', origin: 'viewport', x: 640, y: 600, deltaX: 0, deltaY: 400, duration: 250 }] },
+      ]);
       assert.deepEqual(stub.scripts().filter((s) => s !== 'viewport'), []);
     });
   });

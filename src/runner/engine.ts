@@ -931,7 +931,8 @@ export class TestSession {
   }
 
   /** Mutating target: resolve (re-observing while not found) → preparation on the final fresh observation. */
-  private async approvedTarget(ctx: StepCtx, obs: Obs, q: TargetQuery, mutation: Mutation, allowRisky: boolean | undefined, timeout: number) {
+  private async approvedTarget(ctx: StepCtx, obs: Obs, query: TargetQuery, mutation: Mutation, allowRisky: boolean | undefined, timeout: number) {
+    const q: TargetQuery = { ...query, purpose: mutation === 'edit' ? 'edit' : 'act' };
     const r = await this.resolveLoop(ctx, obs, q, { strict: false, deadline: this.deadline(timeout), ocr: true });
     if (!r.ok) throw new StepAbort(r.outcome.verdict, r.outcome.code, r.outcome.reason);
     const reresolve = (fresh: Obs) => this.resolveLoop(ctx, fresh, q, { strict: false, deadline: this.env.clock.now(), ocr: false });

@@ -47,7 +47,8 @@ describe('policy on the final fresh observation', () => {
   });
 
   it('does not act on an approval the screen outdated while Jev answered the commit check', async () => {
-    // Freshness sees a plain 확인 and asks Jev; while Jev answers, the destructive dialog appears.
+    // Freshness sees a plain 확인 and asks Jev; while Jev answers, the destructive dialog appears: the policy, run again
+    // on the new observation, refuses it.
     const driver = new FakeDriver(tickets([confirm]));
     const jev = jevStub(() => {
       driver.screen = tickets([confirm, dialog]);
@@ -55,11 +56,20 @@ describe('policy on the final fresh observation', () => {
     });
     const { result } = await runYaml({ 'tests/c.e2e.yaml': spec('  - tap: 확인\n', 'example') }, driver, { jev: jev.setup });
     const t = result.tests[0]!;
-    assert.equal(t.verdict, 'FAIL');
-    assert.equal(t.code, 'stale_target', t.reason);
-    assert.match(t.reason, /Jev commit 확인 중 화면이 바뀜/);
+    assert.equal(t.verdict, 'ERROR');
+    assert.equal(t.code, 'blocked_by_policy', t.reason);
+    assert.match(t.reason, /파괴적 확인 대화상자[\s\S]*Jev commit 확인 중 화면이 바뀜/);
     assert.equal(driver.called('tap').length, 0);
 
+    // Only unrelated text changed while Jev answered (a live counter): the same target is still tapped.
+    const live = new FakeDriver(tickets([confirm]));
+    const ticking = jevStub(() => {
+      live.screen = tickets([confirm, ['Estimate only.', 'Estimate only (updated).']]);
+      return noul(0.02);
+    });
+    const kept = await runYaml({ 'tests/l.e2e.yaml': spec('  - tap: 확인\n    expectNoChange: true\n', 'example') }, live, { jev: ticking.setup });
+    assert.equal(kept.result.tests[0]!.verdict, 'PASS', kept.result.tests[0]!.reason);
+    assert.equal(live.called('tap').length, 1);
     // Same screen, but the target moved while Jev answered: the judged tap point is no longer on it.
     const launch = fixtureSnapshot('android', 'tteonam', 'launch', { foreground: APP });
     const moving = new FakeDriver(launch);
@@ -94,8 +104,8 @@ describe('press: enter and type.submit go through the policy', () => {
       return noul(0.02);
     });
     const { result } = await runYaml({ 'tests/e.e2e.yaml': spec('  - press: enter\n    expectNoChange: true\n') }, driver, { jev: jev.setup });
-    assert.equal(result.tests[0]!.code, 'stale_target', result.tests[0]!.reason);
-    assert.match(result.tests[0]!.reason, /Jev commit 확인 중 화면이 바뀜/);
+    assert.equal(result.tests[0]!.code, 'blocked_by_policy', result.tests[0]!.reason);
+    assert.match(result.tests[0]!.reason, /제출\(Enter\)[\s\S]*Jev commit 확인 중 화면이 바뀜/);
     assert.equal(driver.called('press').length, 0);
   });
 
