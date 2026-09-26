@@ -1,0 +1,344 @@
+{
+  "url": "http://localhost:4174/auction.html",
+  "title": "빈티지 필름 카메라 · 두근옥션",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "빈티지 필름 카메라 · 두근옥션",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "두근옥션",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 62.28125,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1213.125,
+      "y": 12.25,
+      "w": 42.875,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "내 경매",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1213.125,
+      "y": 12.25,
+      "w": 42.875,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 401,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 140,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "heading",
+      "name": null,
+      "text": "빈티지 필름 카메라 (1978년식)",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 85,
+      "w": 558,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "text",
+      "name": null,
+      "text": "현재가 · 입찰 14회 · 남은 시간 2시간 13분",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 130,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "text",
+      "name": null,
+      "text": "51,000원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 403.875,
+      "y": 131,
+      "w": 58.28125,
+      "h": 19,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "button",
+      "name": null,
+      "text": "입찰 기록 보기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 160.5,
+      "w": 97.75,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 222,
+      "w": 592,
+      "h": 172,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "text",
+      "name": null,
+      "text": "입찰 금액",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 247,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 270.5,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 13,
+      "kind": "input",
+      "name": "입찰 금액",
+      "text": null,
+      "id": "bid",
+      "value": "52,000",
+      "hint": null,
+      "x": 361,
+      "y": 270.5,
+      "w": 172,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 13,
+      "kind": "text",
+      "name": null,
+      "text": "원 (최소 51,500원)",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 543,
+      "y": 281,
+      "w": 96.734375,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "text",
+      "name": null,
+      "text": "낙찰되면 입찰 금액으로 구매가 확정되며 입찰은 철회할 수 없습니다.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 311,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 338.5,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "button",
+      "name": null,
+      "text": "입찰하기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 839.09375,
+      "y": 338.5,
+      "w": 79.90625,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 408,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

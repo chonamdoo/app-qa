@@ -1,13 +1,15 @@
 // Read-only views over the project state the UI browses: runs (.qa/runs), plans (tests/generated), app profiles (apps/).
-import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, globSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { parse as parseYaml } from 'yaml';
+import { z } from 'zod';
 import { expandHome } from '../core/config.ts';
-import type { QaEvent } from '../core/events.ts';
 import { sha256 } from '../core/fsx.ts';
+import { PLATFORMS } from '../core/platform.ts';
 import type { Platform, Verdict } from '../core/types.ts';
-import { AppProfile, PlanFile, TestSpec, type StepSpec } from '../spec/schema.ts';
+import { loadAppProfile } from '../spec/load.ts';
+import { AppProfile, PlanFile, profilePlatforms, stepLabel, TestSpec } from '../spec/schema.ts';
 
 export class PathRejected extends Error {}
 
@@ -44,17 +46,149 @@ export function resolveInside(base: string, encodedRest: string): string {
   return target;
 }
 
-function parseJsonl(text: string, wanted: (line: string) => boolean): QaEvent[] {
-  const out: QaEvent[] = [];
-  for (const line of text.split('\n')) {
-    if (!line || !wanted(line)) continue;
-    try {
-      out.push(JSON.parse(line) as QaEvent);
-    } catch {
-      // A crash can leave a torn last line; skip it.
-    }
+/** Nearest existing ancestor resolved through symlinks, plus the not-yet-existing rest. */
+function realpathLoose(path: string): string {
+  const rest: string[] = [];
+  let head = path;
+  while (!existsSync(head) && dirname(head) !== head) {
+    rest.unshift(basename(head));
+    head = dirname(head);
+  }
+  return join(realpathSync(head), ...rest);
+}
+
+const GLOB_CHARS = /[*?[\]{}]/;
+
+/** Document formats `qa plan` reads (uploads and plan-job documents). */
+export const DOC_EXTENSIONS: Record<string, true> = {
+  '.md': true,
+  '.markdown': true,
+  '.txt': true,
+  '.csv': true,
+  '.tsv': true,
+  '.json': true,
+  '.yaml': true,
+  '.yml': true,
+  '.xlsx': true,
+  '.docx': true,
+  '.pdf': true,
+};
+
+/** Supported files under `dir`, sorted; dot entries, `node_modules` and links are skipped (as `qa plan` walks folders). */
+function walkDocs(dir: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walkDocs(path));
+    else if (entry.isFile() && DOC_EXTENSIONS[extname(path).toLowerCase()]) out.push(path);
   }
   return out;
+}
+
+/** One document source (absolute path, glob or folder) → its supported files now. */
+function expandDoc(abs: string, isGlob: boolean, doc: string): string[] {
+  if (isGlob) {
+    const hits = globSync(abs)
+      .map((hit) => resolve(hit))
+      .filter((hit) => DOC_EXTENSIONS[extname(hit).toLowerCase()] && statSync(hit, { throwIfNoEntry: false })?.isFile())
+      .sort();
+    if (!hits.length) throw new PathRejected(`글롭에 맞는 문서가 없습니다: ${doc}`);
+    return hits;
+  }
+  let stat;
+  try {
+    stat = statSync(abs);
+  } catch {
+    throw new PathRejected(`문서를 찾을 수 없습니다: ${doc}`);
+  }
+  if (stat.isDirectory()) {
+    const hits = walkDocs(abs);
+    if (!hits.length) throw new PathRejected(`폴더에 지원하는 문서가 없습니다: ${doc}`);
+    return hits;
+  }
+  if (!DOC_EXTENSIONS[extname(abs).toLowerCase()]) throw new PathRejected(`지원하지 않는 문서 형식입니다: ${doc} — md, txt, csv, tsv, json, yaml, xlsx, docx, pdf`);
+  return [abs];
+}
+
+/**
+ * Plan-job document sources → the exact files the planner reads, resolved when the job is queued (`~` expanded,
+ * relative to `root`, globs and folders expanded) so the job never globs again. Every file must lie inside `roots` by
+ * realpath, except the files of entries listed verbatim in `allowed` (the app profile's `docs`). `docRoots` are the
+ * realpaths the planner re-checks each file against right before reading it: the roots plus every `allowed` file.
+ */
+export function resolvePlanDocs(
+  docs: readonly string[],
+  opts: { root: string; roots: readonly string[]; allowed: readonly string[] },
+): { docs: string[]; docRoots: string[] } {
+  const realRoots = opts.roots.map(realpathLoose);
+  const inside = (path: string): boolean => {
+    const real = realpathLoose(path);
+    return realRoots.some((base) => {
+      const rel = relative(base, real);
+      return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+    });
+  };
+  const files = new Set<string>();
+  const trusted: string[] = [];
+  for (const doc of docs) {
+    const allowed = opts.allowed.includes(doc);
+    const outside = () => new PathRejected(`문서 경로가 허용된 위치 밖입니다 (프로젝트, .qa/uploads, 앱 프로필 docs만 가능): ${doc}`);
+    const abs = resolve(opts.root, expandHome(doc));
+    const segments = abs.split(sep);
+    const firstGlob = segments.findIndex((segment) => GLOB_CHARS.test(segment));
+    // The base is checked before anything is read, so an outside path is refused alike whether or not it exists.
+    if (!allowed && !inside(firstGlob === -1 ? abs : segments.slice(0, firstGlob).join(sep) || sep)) throw outside();
+    for (const file of expandDoc(abs, firstGlob !== -1, doc)) {
+      if (allowed) trusted.push(realpathSync(file));
+      else if (!inside(file)) throw outside();
+      files.add(file);
+    }
+  }
+  return { docs: [...files], docRoots: [...realRoots, ...trusted] };
+}
+
+const EventBase = { seq: z.number().int(), ts: z.string() };
+const PlatformValue = z.enum(PLATFORMS);
+const VerdictValue = z.enum(['PASS', 'FAIL', 'INCONCLUSIVE', 'ERROR', 'SKIPPED']);
+
+/** The events.jsonl lines these views read, validated field by field (only the fields they read). */
+const StoredEvent = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('run.started'),
+    ...EventBase,
+    tests: z.array(z.object({ id: z.string(), name: z.string(), platforms: z.array(PlatformValue) })),
+    devices: z.array(z.object({ platform: PlatformValue, id: z.string(), name: z.string() })),
+  }),
+  z.object({ type: z.literal('run.finished'), ...EventBase, counts: z.record(VerdictValue, z.number()), reportPath: z.string() }),
+  z.object({ type: z.literal('test.finished'), ...EventBase, runId: z.string(), testId: z.string(), platform: PlatformValue, verdict: VerdictValue }),
+]);
+type StoredEvent = z.infer<typeof StoredEvent>;
+
+/**
+ * Events of the `wanted` types; a line that mentions one of them but fails to parse or validate (torn last line after a
+ * crash, hand edits, older formats) is skipped and counted, never passed on.
+ */
+function parseJsonl(text: string, wanted: readonly StoredEvent['type'][]): { events: StoredEvent[]; invalid: number } {
+  const types: ReadonlySet<string> = new Set(wanted);
+  const events: StoredEvent[] = [];
+  let invalid = 0;
+  for (const line of text.split('\n')) {
+    if (!line || !wanted.some((type) => line.includes(`"${type}"`))) continue;
+    let value: unknown;
+    try {
+      value = JSON.parse(line);
+    } catch {
+      invalid++;
+      continue;
+    }
+    // A line of another type that merely quotes a wanted one (e.g. a log message) is not ours to judge.
+    if (typeof value === 'object' && value !== null && 'type' in value && typeof value.type === 'string' && !types.has(value.type)) continue;
+    const parsed = StoredEvent.safeParse(value);
+    if (parsed.success) events.push(parsed.data);
+    else invalid++;
+  }
+  return { events, invalid };
 }
 
 export interface RunListItem {
@@ -67,6 +201,8 @@ export interface RunListItem {
   devices: { platform: Platform; id: string; name: string }[];
   reportPath: string | null;
   hasEvents: boolean;
+  /** events.jsonl lines of the types read here that were skipped as malformed. */
+  invalidEventLines: number;
 }
 
 /** Most recent runs first (run ids sort by start time). */
@@ -83,9 +219,9 @@ export async function listRuns(runsDir: string, limit = 200): Promise<RunListIte
       const runDir = join(runsDir, runId);
       const eventsFile = join(runDir, 'events.jsonl');
       const hasEvents = existsSync(eventsFile);
-      const events = hasEvents ? parseJsonl(await readFile(eventsFile, 'utf8'), (l) => l.includes('"run.started"') || l.includes('"run.finished"')) : [];
-      let started: Extract<QaEvent, { type: 'run.started' }> | undefined;
-      let finished: Extract<QaEvent, { type: 'run.finished' }> | undefined;
+      const { events, invalid } = hasEvents ? parseJsonl(await readFile(eventsFile, 'utf8'), ['run.started', 'run.finished']) : { events: [], invalid: 0 };
+      let started: Extract<StoredEvent, { type: 'run.started' }> | undefined;
+      let finished: Extract<StoredEvent, { type: 'run.finished' }> | undefined;
       for (const e of events) {
         if (e.type === 'run.started') started = e;
         else if (e.type === 'run.finished') finished = e;
@@ -97,10 +233,11 @@ export async function listRuns(runsDir: string, limit = 200): Promise<RunListIte
         startedAt: started?.ts ?? (await stat(runDir)).mtime.toISOString(),
         finished: finished !== undefined,
         counts: finished?.counts ?? null,
-        tests: started?.tests.map(({ id, name, platforms }) => ({ id, name, platforms })) ?? [],
+        tests: started?.tests ?? [],
         devices: started?.devices ?? [],
         reportPath: finished?.reportPath ?? (existsSync(report) ? report : null),
         hasEvents,
+        invalidEventLines: invalid,
       };
     }),
   );
@@ -158,59 +295,6 @@ async function readPlan(planPath: string): Promise<{ success: true; data: PlanFi
   }
 }
 
-const STEP_KIND_LABEL: Record<string, string> = {
-  launch: '앱 실행',
-  open: '링크 열기',
-  tap: '탭',
-  longPress: '길게 누르기',
-  tapAt: '좌표 탭',
-  type: '입력',
-  clear: '지우기',
-  press: '키 누르기',
-  hideKeyboard: '키보드 숨기기',
-  see: '보임',
-  seeNot: '안 보임',
-  assertText: '텍스트 확인',
-  assertNoText: '텍스트 없음',
-  checkEach: '각 줄 검사',
-  claim: '판정',
-  remember: '기억',
-  which: '분기',
-  repeat: '반복',
-  use: '하위 흐름',
-  scroll: '스크롤',
-  swipe: '스와이프',
-  back: '뒤로',
-  location: '위치 설정',
-  wait: '대기',
-  capture: '캡처',
-};
-
-function describeValue(value: unknown): string {
-  if (value === true) return '';
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
-  if (value && typeof value === 'object') {
-    return Object.entries(value)
-      .map(([k, v]) => `${k}=${typeof v === 'string' || typeof v === 'number' ? v : JSON.stringify(v)}`)
-      .join(', ');
-  }
-  return JSON.stringify(value);
-}
-
-/** Korean checklist label for a DSL step (the runner's `run.started` labels replace these once a run starts). */
-export function stepLabel(step: StepSpec): string {
-  const fields = step as Record<string, unknown>;
-  const kind = Object.keys(fields).find((key) => STEP_KIND_LABEL[key] !== undefined);
-  if (kind === undefined) return JSON.stringify(step);
-  const value = fields[kind];
-  let detail: string;
-  if (kind === 'type') detail = `${fields.secure ? '••••' : `"${String(value)}"`} → ${describeValue(fields.into)}`;
-  else if (kind === 'which' && value && typeof value === 'object') detail = Object.keys(value).join(' | ');
-  else if (kind === 'wait' && typeof value === 'number') detail = `${value}ms`;
-  else detail = describeValue(value);
-  return detail ? `${STEP_KIND_LABEL[kind]}: ${detail}` : STEP_KIND_LABEL[kind]!;
-}
-
 export interface PlanTestView {
   file: string;
   path: string;
@@ -229,25 +313,29 @@ export interface PlanView {
   plan: PlanFile;
   docs: { path: string; kind: string; state: 'same' | 'changed' | 'missing' }[];
   tests: PlanTestView[];
+  /** Malformed test.finished lines skipped while collecting `results`. */
+  invalidEventLines: number;
 }
 
-/** Most recent test.finished per `testId platform` across the latest runs. */
-async function latestResults(runsDir: string, runLimit: number): Promise<Map<string, PlanTestView['results'][number]>> {
+/** Most recent test.finished per `testId platform` across the latest runs, and the malformed lines skipped. */
+async function latestResults(runsDir: string, runLimit: number): Promise<{ latest: Map<string, PlanTestView['results'][number]>; invalid: number }> {
   const latest = new Map<string, PlanTestView['results'][number]>();
+  let invalid = 0;
   for (const run of await listRuns(runsDir, runLimit)) {
     if (!run.hasEvents) continue;
-    const events = parseJsonl(await readFile(join(run.runDir, 'events.jsonl'), 'utf8'), (l) => l.includes('"test.finished"'));
-    for (const e of events) {
+    const parsed = parseJsonl(await readFile(join(run.runDir, 'events.jsonl'), 'utf8'), ['test.finished']);
+    invalid += parsed.invalid;
+    for (const e of parsed.events) {
       if (e.type !== 'test.finished') continue;
       const key = `${e.testId} ${e.platform}`;
       const prev = latest.get(key);
       if (!prev || prev.ts < e.ts) latest.set(key, { platform: e.platform, verdict: e.verdict, runId: e.runId, ts: e.ts });
     }
   }
-  return latest;
+  return { latest, invalid };
 }
 
-export async function readPlanView(opts: { root: string; generatedDir: string; runsDir: string; app: string }): Promise<PlanView | { error: string } | null> {
+export async function readPlanView(opts: { root: string; generatedDir: string; runsDir: string; appsDir: string; app: string }): Promise<PlanView | { error: string } | null> {
   if (!RUN_ID.test(opts.app)) return null;
   const planPath = join(opts.generatedDir, opts.app, 'plan.json');
   if (!existsSync(planPath)) return null;
@@ -259,7 +347,14 @@ export async function readPlanView(opts: { root: string; generatedDir: string; r
     if (!existsSync(file) || !statSync(file).isFile()) return { path: doc.path, kind: doc.kind, state: 'missing' };
     return { path: doc.path, kind: doc.kind, state: sha256(readFileSync(file)) === doc.sha256 ? 'same' : 'changed' };
   });
-  const results = await latestResults(opts.runsDir, 30);
+  const { latest: results, invalid: invalidEventLines } = await latestResults(opts.runsDir, 30);
+  // A test without `platforms` runs on every platform of the plan's app profile; if the profile does not load, every platform.
+  let appPlatforms: Platform[];
+  try {
+    appPlatforms = profilePlatforms(loadAppProfile(opts.app, opts.appsDir));
+  } catch {
+    appPlatforms = [...PLATFORMS];
+  }
   const tests = await Promise.all(
     plan.tests.map(async (entry): Promise<PlanTestView> => {
       const path = resolve(opts.root, entry.file);
@@ -274,7 +369,7 @@ export async function readPlanView(opts: { root: string; generatedDir: string; r
         return { ...base, error: err instanceof Error ? err.message : String(err) };
       }
       const id = spec.id ?? fallbackId;
-      const platforms: Platform[] = spec.platforms ?? ['android', 'ios'];
+      const platforms: Platform[] = spec.platforms ?? appPlatforms;
       return {
         ...base,
         id,
@@ -286,5 +381,5 @@ export async function readPlanView(opts: { root: string; generatedDir: string; r
       };
     }),
   );
-  return { app: opts.app, planPath, plan, docs, tests };
+  return { app: opts.app, planPath, plan, docs, tests, invalidEventLines };
 }

@@ -37,7 +37,7 @@ struct EvidenceView: View {
                 if let finished { VerdictBadge(verdict: finished.verdict) }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label).font(.title3.weight(.semibold))
-                    Text("\(Palette.platformLabel[request.key.platform] ?? request.key.platform) · \(request.key.testId) · \(request.key.runId)")
+                    Text("\(workspace.label(platform: request.key.platform)) · \(request.key.testId) · \(request.key.runId)")
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer()
@@ -82,7 +82,11 @@ struct EvidenceView: View {
                 if let frame {
                     Image(nsImage: frame.image).resizable().aspectRatio(contentMode: .fit)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay { TapOverlay(marks: marks, platform: request.key.platform, pixelWidth: frame.pixelWidth, pixelHeight: frame.pixelHeight) }
+                        .overlay {
+                            TapOverlay(
+                                marks: marks, platform: request.key.platform, pixelWidth: frame.pixelWidth, pixelHeight: frame.pixelHeight,
+                                viewportWidth: workspace.selectedProfile?.web?.viewport.width)
+                        }
                 } else {
                     RoundedRectangle(cornerRadius: 10).fill(.quaternary)
                         .overlay(Text("스크린샷 없음").foregroundStyle(.secondary))

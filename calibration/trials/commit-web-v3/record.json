@@ -1,0 +1,4514 @@
+{
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "createdAt": "2026-09-26T03:14:42.696Z",
+  "status": "calibrated",
+  "golden": [
+    {
+      "file": "calibration/golden/claim.yaml",
+      "sha256": "2d08e55e54d9303e34b0625bd883df60a95482a0438fa0c89711996ad939a1a1",
+      "items": 52
+    },
+    {
+      "file": "calibration/golden/commit.yaml",
+      "sha256": "75e9f180d907236c50f9f15ffa4315a4b109220f376122c8e7556a6ce929563b",
+      "items": 119
+    },
+    {
+      "file": "calibration/golden/grounding.yaml",
+      "sha256": "e0fcd36e578e6b41d8ab0909d7452222939faf8aea6e1b1308c27a35eb71fdd0",
+      "items": 76
+    },
+    {
+      "file": "calibration/golden/review.yaml",
+      "sha256": "f359ae127db3b577666c6923bb92a337b079fb4f5ce2b7ff9d9dd70cf252f44c",
+      "items": 30
+    },
+    {
+      "file": "calibration/golden/which.yaml",
+      "sha256": "b35b974e1c5126f1ced46059637ecb2ba0c421421161d5c5e37fdebf0e4e76b9",
+      "items": 17
+    }
+  ],
+  "method": "per primitive, 0.01-step grid: fewest confident-wrong, then most accepted; each threshold then set inside the interval that keeps every item outcome unchanged — midpoint when items bound it on both sides, conservative end when one side is only the grid limit. commit: residual items only (not blocked by src/policy/risk.ts labelRisk); one threshold searched on the combined residual set of every surface, and a surface is listed in commit.surfaces only when its own subset also meets the criteria at that threshold. Pre-registered criteria and ranges: calibration/golden/*.yaml headers.",
+  "grounding": {
+    "status": "calibrated",
+    "criteria": {
+      "maxConfidentWrong": 0,
+      "minAcceptance": 0.8
+    },
+    "gate": {
+      "minTop": 0.97,
+      "minGap": 0.9,
+      "maxNone": 0.02,
+      "noneMin": 0.61,
+      "rescueGap": null
+    },
+    "evidence": {
+      "n": 76,
+      "accepted": 67,
+      "confidentWrong": 0,
+      "top1": 68,
+      "byLang": {
+        "ko": {
+          "n": 65,
+          "accepted": 57,
+          "confidentWrong": 0,
+          "top1": 58
+        },
+        "en": {
+          "n": 11,
+          "accepted": 10,
+          "confidentWrong": 0,
+          "top1": 10
+        }
+      },
+      "items": [
+        {
+          "id": "g-al-01",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e1",
+          "verdict": "pass:e1",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e1",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-al-02",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e5",
+          "verdict": "pass:e5",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e5",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-al-03",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e4",
+          "verdict": "pass:e4",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e4",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-al-04",
+          "lang": "ko",
+          "tags": [
+            "exact"
+          ],
+          "expected": "e22",
+          "verdict": "pass:e22",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e22",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-al-05",
+          "lang": "ko",
+          "tags": [
+            "semantic"
+          ],
+          "expected": "e17",
+          "verdict": "pass:e17",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e17",
+          "pTop": 0.97,
+          "pNone": 0.02
+        },
+        {
+          "id": "g-al-06",
+          "lang": "ko",
+          "tags": [
+            "semantic"
+          ],
+          "expected": "e15",
+          "verdict": "pass:e15",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e15",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-al-07",
+          "lang": "ko",
+          "tags": [
+            "none"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e1",
+          "pTop": 0.01,
+          "pNone": 0.99
+        },
+        {
+          "id": "g-al-08",
+          "lang": "ko",
+          "tags": [
+            "none"
+          ],
+          "expected": "none",
+          "verdict": "ambiguous",
+          "outcome": "rejected",
+          "top1": false,
+          "top": "e5",
+          "pTop": 0.96,
+          "pNone": 0.04
+        },
+        {
+          "id": "g-al-09",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e23",
+          "verdict": "pass:e23",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e23",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-as-01",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e1",
+          "verdict": "pass:e1",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e1",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-as-02",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e14",
+          "verdict": "pass:e14",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e14",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-as-03",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e13",
+          "verdict": "pass:e13",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e13",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-as-04",
+          "lang": "ko",
+          "tags": [
+            "occluded"
+          ],
+          "expected": "none",
+          "verdict": "ambiguous",
+          "outcome": "rejected",
+          "top1": false,
+          "top": "e2",
+          "pTop": 0.5,
+          "pNone": 0.3
+        },
+        {
+          "id": "g-as-05",
+          "lang": "ko",
+          "tags": [
+            "occluded"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e14",
+          "pTop": 0.04,
+          "pNone": 0.95
+        },
+        {
+          "id": "g-as-06",
+          "lang": "ko",
+          "tags": [
+            "occluded"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e13",
+          "pTop": 0.13,
+          "pNone": 0.68
+        },
+        {
+          "id": "g-as-07",
+          "lang": "ko",
+          "tags": [
+            "semantic"
+          ],
+          "expected": "e8",
+          "verdict": "pass:e8",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e8",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ad-01",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e6",
+          "verdict": "ambiguous",
+          "outcome": "rejected",
+          "top1": true,
+          "top": "e6",
+          "pTop": 0.92,
+          "pNone": 0.08
+        },
+        {
+          "id": "g-ad-02",
+          "lang": "ko",
+          "tags": [
+            "duplicate"
+          ],
+          "expected": "ambiguous(e8,e20)",
+          "verdict": "ambiguous",
+          "outcome": "accepted",
+          "top1": false,
+          "top": "e8",
+          "pTop": 0.9,
+          "pNone": 0
+        },
+        {
+          "id": "g-ad-03",
+          "lang": "ko",
+          "tags": [
+            "duplicate"
+          ],
+          "expected": "ambiguous(e4,e22)",
+          "verdict": "ambiguous",
+          "outcome": "accepted",
+          "top1": false,
+          "top": "e22",
+          "pTop": 0.81,
+          "pNone": 0.02
+        },
+        {
+          "id": "g-ad-04",
+          "lang": "ko",
+          "tags": [
+            "semantic"
+          ],
+          "expected": "e16",
+          "verdict": "pass:e16",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e16",
+          "pTop": 0.99,
+          "pNone": 0
+        },
+        {
+          "id": "g-ad-05",
+          "lang": "ko",
+          "tags": [
+            "duplicate-resolved"
+          ],
+          "expected": "e22",
+          "verdict": "pass:e22",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e22",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ad-06",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e21",
+          "verdict": "pass:e21",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e21",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ad-07",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e2",
+          "verdict": "pass:e2",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e2",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ad-08",
+          "lang": "ko",
+          "tags": [
+            "none"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e16",
+          "pTop": 0,
+          "pNone": 1
+        },
+        {
+          "id": "g-ap-01",
+          "lang": "ko",
+          "tags": [
+            "exact"
+          ],
+          "expected": "e6",
+          "verdict": "pass:e6",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e6",
+          "pTop": 0.99,
+          "pNone": 0.01
+        },
+        {
+          "id": "g-ap-02",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e12",
+          "verdict": "pass:e12",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e12",
+          "pTop": 0.99,
+          "pNone": 0.01
+        },
+        {
+          "id": "g-ap-03",
+          "lang": "ko",
+          "tags": [
+            "semantic"
+          ],
+          "expected": "e17",
+          "verdict": "pass:e17",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e17",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ap-04",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e8",
+          "verdict": "pass:e8",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e8",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ap-05",
+          "lang": "ko",
+          "tags": [
+            "near-duplicate"
+          ],
+          "expected": "e22",
+          "verdict": "pass:e22",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e22",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ap-06",
+          "lang": "ko",
+          "tags": [
+            "near-duplicate"
+          ],
+          "expected": "e21",
+          "verdict": "pass:e21",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e21",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ap-07",
+          "lang": "ko",
+          "tags": [
+            "none"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e17",
+          "pTop": 0,
+          "pNone": 1
+        },
+        {
+          "id": "g-ar-01",
+          "lang": "ko",
+          "tags": [
+            "duplicate-resolved"
+          ],
+          "expected": "e4",
+          "verdict": "pass:e4",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e4",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ar-02",
+          "lang": "ko",
+          "tags": [
+            "repeated-rows"
+          ],
+          "expected": "e14",
+          "verdict": "pass:e14",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e14",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ar-03",
+          "lang": "ko",
+          "tags": [
+            "repeated-rows"
+          ],
+          "expected": "e13",
+          "verdict": "pass:e13",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e13",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ar-04",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e6",
+          "verdict": "pass:e6",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e6",
+          "pTop": 0.99,
+          "pNone": 0
+        },
+        {
+          "id": "g-ar-05",
+          "lang": "ko",
+          "tags": [
+            "repeated-rows"
+          ],
+          "expected": "e12",
+          "verdict": "pass:e12",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e12",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ar-06",
+          "lang": "ko",
+          "tags": [
+            "occluded"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e12",
+          "pTop": 0,
+          "pNone": 1
+        },
+        {
+          "id": "g-ar-07",
+          "lang": "ko",
+          "tags": [
+            "none"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e4",
+          "pTop": 0.05,
+          "pNone": 0.95
+        },
+        {
+          "id": "g-ar-08",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e1",
+          "verdict": "ambiguous",
+          "outcome": "rejected",
+          "top1": true,
+          "top": "e1",
+          "pTop": 0.89,
+          "pNone": 0.03
+        },
+        {
+          "id": "g-ae-01",
+          "lang": "ko",
+          "tags": [
+            "repeated-rows"
+          ],
+          "expected": "e13",
+          "verdict": "pass:e13",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e13",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ae-02",
+          "lang": "ko",
+          "tags": [
+            "repeated-rows"
+          ],
+          "expected": "e14",
+          "verdict": "pass:e14",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e14",
+          "pTop": 0.98,
+          "pNone": 0
+        },
+        {
+          "id": "g-ae-03",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e8",
+          "verdict": "pass:e8",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e8",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ae-04",
+          "lang": "ko",
+          "tags": [
+            "none"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e4",
+          "pTop": 0.1,
+          "pNone": 0.9
+        },
+        {
+          "id": "g-il-01",
+          "lang": "ko",
+          "tags": [
+            "exact"
+          ],
+          "expected": "e6",
+          "verdict": "pass:e6",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e6",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-il-02",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e1",
+          "verdict": "pass:e1",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e1",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-il-03",
+          "lang": "ko",
+          "tags": [
+            "exact"
+          ],
+          "expected": "e19",
+          "verdict": "pass:e19",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e19",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-il-04",
+          "lang": "ko",
+          "tags": [
+            "semantic"
+          ],
+          "expected": "e13",
+          "verdict": "ambiguous",
+          "outcome": "rejected",
+          "top1": true,
+          "top": "e13",
+          "pTop": 0.93,
+          "pNone": 0.06
+        },
+        {
+          "id": "g-il-05",
+          "lang": "ko",
+          "tags": [
+            "none"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e6",
+          "pTop": 0.03,
+          "pNone": 0.94
+        },
+        {
+          "id": "g-il-06",
+          "lang": "ko",
+          "tags": [
+            "none"
+          ],
+          "expected": "none",
+          "verdict": "ambiguous",
+          "outcome": "rejected",
+          "top1": false,
+          "top": "e6",
+          "pTop": 0.96,
+          "pNone": 0.03
+        },
+        {
+          "id": "g-ip-01",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e2",
+          "verdict": "pass:e2",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e2",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ip-02",
+          "lang": "ko",
+          "tags": [
+            "duplicate-resolved"
+          ],
+          "expected": "e5",
+          "verdict": "pass:e5",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e5",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ip-03",
+          "lang": "ko",
+          "tags": [
+            "repeated-rows"
+          ],
+          "expected": "e18",
+          "verdict": "pass:e18",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e18",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ip-04",
+          "lang": "ko",
+          "tags": [
+            "repeated-rows"
+          ],
+          "expected": "e19",
+          "verdict": "pass:e19",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e19",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ip-05",
+          "lang": "ko",
+          "tags": [
+            "occluded"
+          ],
+          "expected": "none",
+          "verdict": "ambiguous",
+          "outcome": "rejected",
+          "top1": false,
+          "top": "e3",
+          "pTop": 0.69,
+          "pNone": 0.31
+        },
+        {
+          "id": "g-ip-06",
+          "lang": "ko",
+          "tags": [
+            "occluded"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e6",
+          "pTop": 0.03,
+          "pNone": 0.94
+        },
+        {
+          "id": "g-ir-01",
+          "lang": "ko",
+          "tags": [
+            "cross-language"
+          ],
+          "expected": "e6",
+          "verdict": "pass:e6",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e6",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ir-02",
+          "lang": "ko",
+          "tags": [
+            "repeated-rows"
+          ],
+          "expected": "e16",
+          "verdict": "pass:e16",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e16",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-ir-03",
+          "lang": "ko",
+          "tags": [
+            "none",
+            "keyboard"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e5",
+          "pTop": 0.39,
+          "pNone": 0.61
+        },
+        {
+          "id": "g-st-01",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e1",
+          "verdict": "pass:e1",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e1",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-st-02",
+          "lang": "ko",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e3",
+          "verdict": "pass:e3",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e3",
+          "pTop": 0.98,
+          "pNone": 0
+        },
+        {
+          "id": "g-st-03",
+          "lang": "ko",
+          "tags": [
+            "duplicate-resolved"
+          ],
+          "expected": "e11",
+          "verdict": "ambiguous",
+          "outcome": "rejected",
+          "top1": true,
+          "top": "e11",
+          "pTop": 0.8,
+          "pNone": 0
+        },
+        {
+          "id": "g-st-04",
+          "lang": "ko",
+          "tags": [
+            "duplicate"
+          ],
+          "expected": "ambiguous(e4,e5)",
+          "verdict": "ambiguous",
+          "outcome": "accepted",
+          "top1": false,
+          "top": "e2",
+          "pTop": 0.37,
+          "pNone": 0.12
+        },
+        {
+          "id": "g-st-05",
+          "lang": "ko",
+          "tags": [
+            "none"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e2",
+          "pTop": 0.02,
+          "pNone": 0.98
+        },
+        {
+          "id": "g-ew-01",
+          "lang": "ko",
+          "tags": [
+            "paraphrase",
+            "loading"
+          ],
+          "expected": "e3",
+          "verdict": "pass:e3",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e3",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-et-01",
+          "lang": "en",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e8",
+          "verdict": "pass:e8",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e8",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-et-02",
+          "lang": "en",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e7",
+          "verdict": "ambiguous",
+          "outcome": "rejected",
+          "top1": true,
+          "top": "e7",
+          "pTop": 0.92,
+          "pNone": 0.08
+        },
+        {
+          "id": "g-et-03",
+          "lang": "en",
+          "tags": [
+            "none"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e8",
+          "pTop": 0.01,
+          "pNone": 0.99
+        },
+        {
+          "id": "g-eg-01",
+          "lang": "en",
+          "tags": [
+            "duplicate"
+          ],
+          "expected": "ambiguous(e14,e15,e16,e17,e18)",
+          "verdict": "ambiguous",
+          "outcome": "accepted",
+          "top1": false,
+          "top": "e14",
+          "pTop": 0.85,
+          "pNone": 0.11
+        },
+        {
+          "id": "g-eg-02",
+          "lang": "en",
+          "tags": [
+            "exact"
+          ],
+          "expected": "e23",
+          "verdict": "pass:e23",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e23",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-eg-03",
+          "lang": "en",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e13",
+          "verdict": "pass:e13",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e13",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-eg-04",
+          "lang": "en",
+          "tags": [
+            "none"
+          ],
+          "expected": "none",
+          "verdict": "not_found",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e1",
+          "pTop": 0.09,
+          "pNone": 0.89
+        },
+        {
+          "id": "g-eg-05",
+          "lang": "en",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e1",
+          "verdict": "pass:e1",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e1",
+          "pTop": 0.99,
+          "pNone": 0.01
+        },
+        {
+          "id": "g-gr-01",
+          "lang": "en",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e7",
+          "verdict": "pass:e7",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e7",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-gr-02",
+          "lang": "en",
+          "tags": [
+            "paraphrase"
+          ],
+          "expected": "e8",
+          "verdict": "pass:e8",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e8",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-te-01",
+          "lang": "en",
+          "tags": [
+            "paraphrase",
+            "redbox"
+          ],
+          "expected": "e3",
+          "verdict": "pass:e3",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e3",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "g-te-02",
+          "lang": "ko",
+          "tags": [
+            "cross-language",
+            "redbox"
+          ],
+          "expected": "e2",
+          "verdict": "pass:e2",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "e2",
+          "pTop": 1,
+          "pNone": 0
+        }
+      ],
+      "acceptance": 0.882,
+      "nonStrict": {
+        "accepted": 67,
+        "acceptance": 0.882,
+        "confidentWrong": 0
+      }
+    }
+  },
+  "claim": {
+    "status": "calibrated",
+    "criteria": {
+      "maxConfidentWrong": 0,
+      "minAcceptance": 0.8
+    },
+    "gate": {
+      "yes": 0.63,
+      "no": 0.25
+    },
+    "evidence": {
+      "n": 52,
+      "accepted": 51,
+      "confidentWrong": 0,
+      "top1": 51,
+      "byLang": {
+        "ko": {
+          "n": 47,
+          "accepted": 46,
+          "confidentWrong": 0,
+          "top1": 46
+        },
+        "en": {
+          "n": 5,
+          "accepted": 5,
+          "confidentWrong": 0,
+          "top1": 5
+        }
+      },
+      "items": [
+        {
+          "id": "c-al-01",
+          "lang": "ko",
+          "tags": [
+            "presence"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.98,
+          "pNone": null
+        },
+        {
+          "id": "c-al-02",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.98,
+          "pNone": null
+        },
+        {
+          "id": "c-al-03",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.94,
+          "pNone": null
+        },
+        {
+          "id": "c-al-04",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.1,
+          "pNone": null
+        },
+        {
+          "id": "c-al-05",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.97,
+          "pNone": null
+        },
+        {
+          "id": "c-al-06",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.99,
+          "pNone": null
+        },
+        {
+          "id": "c-al-07",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.01,
+          "pNone": null
+        },
+        {
+          "id": "c-al-08",
+          "lang": "ko",
+          "tags": [
+            "absence"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.95,
+          "pNone": null
+        },
+        {
+          "id": "c-al-09",
+          "lang": "ko",
+          "tags": [
+            "presence"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.04,
+          "pNone": null
+        },
+        {
+          "id": "c-al-10",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.97,
+          "pNone": null
+        },
+        {
+          "id": "c-as-01",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.97,
+          "pNone": null
+        },
+        {
+          "id": "c-as-02",
+          "lang": "ko",
+          "tags": [
+            "presence"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.98,
+          "pNone": null
+        },
+        {
+          "id": "c-as-03",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.98,
+          "pNone": null
+        },
+        {
+          "id": "c-as-04",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.96,
+          "pNone": null
+        },
+        {
+          "id": "c-as-05",
+          "lang": "ko",
+          "tags": [
+            "presence"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.02,
+          "pNone": null
+        },
+        {
+          "id": "c-ad-01",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.98,
+          "pNone": null
+        },
+        {
+          "id": "c-ad-02",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.97,
+          "pNone": null
+        },
+        {
+          "id": "c-ad-03",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.01,
+          "pNone": null
+        },
+        {
+          "id": "c-ad-04",
+          "lang": "ko",
+          "tags": [
+            "absence"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.9,
+          "pNone": null
+        },
+        {
+          "id": "c-ad-05",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.05,
+          "pNone": null
+        },
+        {
+          "id": "c-ap-01",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.99,
+          "pNone": null
+        },
+        {
+          "id": "c-ap-02",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.98,
+          "pNone": null
+        },
+        {
+          "id": "c-ap-03",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.98,
+          "pNone": null
+        },
+        {
+          "id": "c-ap-04",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.02,
+          "pNone": null
+        },
+        {
+          "id": "c-ap-05",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "false",
+          "verdict": "inconclusive",
+          "outcome": "rejected",
+          "top1": false,
+          "top": null,
+          "pTop": 0.59,
+          "pNone": null
+        },
+        {
+          "id": "c-ar-01",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.99,
+          "pNone": null
+        },
+        {
+          "id": "c-ar-02",
+          "lang": "ko",
+          "tags": [
+            "presence"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.98,
+          "pNone": null
+        },
+        {
+          "id": "c-ar-03",
+          "lang": "ko",
+          "tags": [
+            "presence"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.02,
+          "pNone": null
+        },
+        {
+          "id": "c-ar-04",
+          "lang": "ko",
+          "tags": [
+            "presence"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.09,
+          "pNone": null
+        },
+        {
+          "id": "c-ar-05",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.96,
+          "pNone": null
+        },
+        {
+          "id": "c-ae-01",
+          "lang": "ko",
+          "tags": [
+            "absence"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.65,
+          "pNone": null
+        },
+        {
+          "id": "c-ae-02",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "c-il-01",
+          "lang": "ko",
+          "tags": [
+            "absence"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.76,
+          "pNone": null
+        },
+        {
+          "id": "c-il-02",
+          "lang": "ko",
+          "tags": [
+            "presence"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.02,
+          "pNone": null
+        },
+        {
+          "id": "c-il-03",
+          "lang": "ko",
+          "tags": [
+            "presence"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.99,
+          "pNone": null
+        },
+        {
+          "id": "c-ip-01",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.92,
+          "pNone": null
+        },
+        {
+          "id": "c-ip-02",
+          "lang": "ko",
+          "tags": [
+            "presence"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.98,
+          "pNone": null
+        },
+        {
+          "id": "c-ip-03",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.97,
+          "pNone": null
+        },
+        {
+          "id": "c-ip-04",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "c-ir-01",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.98,
+          "pNone": null
+        },
+        {
+          "id": "c-ir-02",
+          "lang": "ko",
+          "tags": [
+            "presence"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.02,
+          "pNone": null
+        },
+        {
+          "id": "c-st-01",
+          "lang": "ko",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.97,
+          "pNone": null
+        },
+        {
+          "id": "c-st-02",
+          "lang": "ko",
+          "tags": [
+            "absence"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.02,
+          "pNone": null
+        },
+        {
+          "id": "c-ew-01",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.97,
+          "pNone": null
+        },
+        {
+          "id": "c-ew-02",
+          "lang": "ko",
+          "tags": [
+            "presence"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.02,
+          "pNone": null
+        },
+        {
+          "id": "c-te-01",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.98,
+          "pNone": null
+        },
+        {
+          "id": "c-te-02",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.02,
+          "pNone": null
+        },
+        {
+          "id": "c-et-01",
+          "lang": "en",
+          "tags": [
+            "value"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.99,
+          "pNone": null
+        },
+        {
+          "id": "c-et-02",
+          "lang": "en",
+          "tags": [
+            "value"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.04,
+          "pNone": null
+        },
+        {
+          "id": "c-et-03",
+          "lang": "en",
+          "tags": [
+            "state"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.99,
+          "pNone": null
+        },
+        {
+          "id": "c-eg-01",
+          "lang": "en",
+          "tags": [
+            "state"
+          ],
+          "expected": "true",
+          "verdict": "pass",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.99,
+          "pNone": null
+        },
+        {
+          "id": "c-eg-02",
+          "lang": "en",
+          "tags": [
+            "presence"
+          ],
+          "expected": "false",
+          "verdict": "fail",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.25,
+          "pNone": null
+        }
+      ],
+      "acceptance": 0.981
+    }
+  },
+  "which": {
+    "status": "calibrated",
+    "criteria": {
+      "maxConfidentWrong": 0,
+      "minAcceptance": 0.8
+    },
+    "gate": {
+      "minTop": 0.78,
+      "minGap": 0.55,
+      "noneMin": 0.89
+    },
+    "evidence": {
+      "n": 17,
+      "accepted": 15,
+      "confidentWrong": 0,
+      "top1": 15,
+      "byLang": {
+        "ko": {
+          "n": 15,
+          "accepted": 13,
+          "confidentWrong": 0,
+          "top1": 13
+        },
+        "en": {
+          "n": 2,
+          "accepted": 2,
+          "confidentWrong": 0,
+          "top1": 2
+        }
+      },
+      "items": [
+        {
+          "id": "w-01",
+          "lang": "ko",
+          "tags": [
+            "tab"
+          ],
+          "expected": "s0",
+          "verdict": "ambiguous",
+          "outcome": "rejected",
+          "top1": false,
+          "top": "s1",
+          "pTop": 0.77,
+          "pNone": 0
+        },
+        {
+          "id": "w-02",
+          "lang": "ko",
+          "tags": [
+            "tab"
+          ],
+          "expected": "s1",
+          "verdict": "pass:s1",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s1",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "w-03",
+          "lang": "ko",
+          "tags": [
+            "tab"
+          ],
+          "expected": "s2",
+          "verdict": "pass:s2",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s2",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "w-04",
+          "lang": "ko",
+          "tags": [
+            "sheet"
+          ],
+          "expected": "s3",
+          "verdict": "pass:s3",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s3",
+          "pTop": 0.89,
+          "pNone": 0
+        },
+        {
+          "id": "w-05",
+          "lang": "ko",
+          "tags": [
+            "sheet"
+          ],
+          "expected": "s3",
+          "verdict": "pass:s3",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s3",
+          "pTop": 0.87,
+          "pNone": 0
+        },
+        {
+          "id": "w-06",
+          "lang": "ko",
+          "tags": [
+            "sheet"
+          ],
+          "expected": "s0",
+          "verdict": "pass:s0",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s0",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "w-07",
+          "lang": "ko",
+          "tags": [
+            "loading"
+          ],
+          "expected": "none",
+          "verdict": "none",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s1",
+          "pTop": 0.04,
+          "pNone": 0.96
+        },
+        {
+          "id": "w-08",
+          "lang": "ko",
+          "tags": [
+            "error"
+          ],
+          "expected": "none",
+          "verdict": "none",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s0",
+          "pTop": 0,
+          "pNone": 1
+        },
+        {
+          "id": "w-09",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "s1",
+          "verdict": "pass:s1",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s1",
+          "pTop": 0.78,
+          "pNone": 0
+        },
+        {
+          "id": "w-10",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "s0",
+          "verdict": "pass:s0",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s0",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "w-11",
+          "lang": "ko",
+          "tags": [
+            "other-app"
+          ],
+          "expected": "s0",
+          "verdict": "pass:s0",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s0",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "w-12",
+          "lang": "en",
+          "tags": [
+            "other-app"
+          ],
+          "expected": "s0",
+          "verdict": "pass:s0",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s0",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "w-13",
+          "lang": "en",
+          "tags": [
+            "other-app"
+          ],
+          "expected": "s0",
+          "verdict": "pass:s0",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s0",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "w-14",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "s1",
+          "verdict": "ambiguous",
+          "outcome": "rejected",
+          "top1": false,
+          "top": "s2",
+          "pTop": 0.63,
+          "pNone": 0.01
+        },
+        {
+          "id": "w-15",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "s2",
+          "verdict": "pass:s2",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s2",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "w-16",
+          "lang": "ko",
+          "tags": [
+            "state"
+          ],
+          "expected": "s2",
+          "verdict": "pass:s2",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s2",
+          "pTop": 1,
+          "pNone": 0
+        },
+        {
+          "id": "w-17",
+          "lang": "ko",
+          "tags": [
+            "sparse"
+          ],
+          "expected": "none",
+          "verdict": "none",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "s1",
+          "pTop": 0.04,
+          "pNone": 0.89
+        }
+      ],
+      "acceptance": 0.882
+    }
+  },
+  "commit": {
+    "status": "calibrated",
+    "criteria": {
+      "maxConfidentWrong": 0,
+      "maxFalseAlarmRate": 0.1
+    },
+    "gate": {
+      "risky": 0.2
+    },
+    "surfaces": [
+      "web"
+    ],
+    "evidence": {
+      "n": 115,
+      "accepted": 107,
+      "confidentWrong": 0,
+      "top1": 108,
+      "byLang": {
+        "ko": {
+          "n": 77,
+          "accepted": 70,
+          "confidentWrong": 0,
+          "top1": 71
+        },
+        "en": {
+          "n": 38,
+          "accepted": 37,
+          "confidentWrong": 0,
+          "top1": 37
+        }
+      },
+      "items": [
+        {
+          "id": "kr-01",
+          "lang": "en",
+          "tags": [
+            "delete",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.54,
+          "pNone": null
+        },
+        {
+          "id": "kr-02",
+          "lang": "ko",
+          "tags": [
+            "delete",
+            "synthetic"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.81,
+          "pNone": null
+        },
+        {
+          "id": "kr-03",
+          "lang": "ko",
+          "tags": [
+            "delete-account",
+            "synthetic"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.95,
+          "pNone": null
+        },
+        {
+          "id": "kr-04",
+          "lang": "ko",
+          "tags": [
+            "delete",
+            "synthetic"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.81,
+          "pNone": null
+        },
+        {
+          "id": "kr-05",
+          "lang": "ko",
+          "tags": [
+            "send",
+            "synthetic"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.66,
+          "pNone": null
+        },
+        {
+          "id": "kr-06",
+          "lang": "ko",
+          "tags": [
+            "pay",
+            "synthetic"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": false,
+          "top": null,
+          "pTop": 0.47,
+          "pNone": null
+        },
+        {
+          "id": "kr-07",
+          "lang": "ko",
+          "tags": [
+            "pay",
+            "synthetic"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": false,
+          "top": null,
+          "pTop": 0.48,
+          "pNone": null
+        },
+        {
+          "id": "kr-08",
+          "lang": "ko",
+          "tags": [
+            "publish",
+            "synthetic"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.65,
+          "pNone": null
+        },
+        {
+          "id": "kr-09",
+          "lang": "en",
+          "tags": [
+            "pay",
+            "synthetic"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.79,
+          "pNone": null
+        },
+        {
+          "id": "kr-10",
+          "lang": "en",
+          "tags": [
+            "delete",
+            "synthetic"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.92,
+          "pNone": null
+        },
+        {
+          "id": "kr-11",
+          "lang": "en",
+          "tags": [
+            "publish",
+            "synthetic"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.6,
+          "pNone": null
+        },
+        {
+          "id": "kr-12",
+          "lang": "en",
+          "tags": [
+            "delete-account",
+            "synthetic"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.9,
+          "pNone": null
+        },
+        {
+          "id": "kr-13",
+          "lang": "en",
+          "tags": [
+            "unsubscribe",
+            "synthetic"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.85,
+          "pNone": null
+        },
+        {
+          "id": "kr-14",
+          "lang": "en",
+          "tags": [
+            "delete",
+            "synthetic"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.82,
+          "pNone": null
+        },
+        {
+          "id": "ks-01",
+          "lang": "ko",
+          "tags": [
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.05,
+          "pNone": null
+        },
+        {
+          "id": "ks-02",
+          "lang": "ko",
+          "tags": [
+            "cancel",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "risky",
+          "outcome": "rejected",
+          "top1": true,
+          "top": null,
+          "pTop": 0.41,
+          "pNone": null
+        },
+        {
+          "id": "ks-03",
+          "lang": "en",
+          "tags": [
+            "local-edit",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.11,
+          "pNone": null
+        },
+        {
+          "id": "ks-04",
+          "lang": "ko",
+          "tags": [
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.05,
+          "pNone": null
+        },
+        {
+          "id": "ks-05",
+          "lang": "ko",
+          "tags": [
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "risky",
+          "outcome": "rejected",
+          "top1": true,
+          "top": null,
+          "pTop": 0.43,
+          "pNone": null
+        },
+        {
+          "id": "ks-06",
+          "lang": "ko",
+          "tags": [
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.08,
+          "pNone": null
+        },
+        {
+          "id": "ks-07",
+          "lang": "ko",
+          "tags": [
+            "filter",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ks-08",
+          "lang": "ko",
+          "tags": [
+            "tab",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.07,
+          "pNone": null
+        },
+        {
+          "id": "ks-09",
+          "lang": "ko",
+          "tags": [
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.06,
+          "pNone": null
+        },
+        {
+          "id": "ks-10",
+          "lang": "en",
+          "tags": [
+            "local-edit",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.04,
+          "pNone": null
+        },
+        {
+          "id": "ks-11",
+          "lang": "en",
+          "tags": [
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ks-12",
+          "lang": "ko",
+          "tags": [
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.07,
+          "pNone": null
+        },
+        {
+          "id": "ks-13",
+          "lang": "ko",
+          "tags": [
+            "tab",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ks-14",
+          "lang": "en",
+          "tags": [
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.06,
+          "pNone": null
+        },
+        {
+          "id": "ks-15",
+          "lang": "en",
+          "tags": [
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.04,
+          "pNone": null
+        },
+        {
+          "id": "ks-16",
+          "lang": "en",
+          "tags": [
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.16,
+          "pNone": null
+        },
+        {
+          "id": "ks-17",
+          "lang": "ko",
+          "tags": [
+            "refresh",
+            "synthetic"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.04,
+          "pNone": null
+        },
+        {
+          "id": "ks-18",
+          "lang": "ko",
+          "tags": [
+            "setting",
+            "synthetic"
+          ],
+          "expected": "false",
+          "verdict": "risky",
+          "outcome": "rejected",
+          "top1": true,
+          "top": null,
+          "pTop": 0.46,
+          "pNone": null
+        },
+        {
+          "id": "ks-19",
+          "lang": "ko",
+          "tags": [
+            "auth",
+            "synthetic"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.18,
+          "pNone": null
+        },
+        {
+          "id": "ks-20",
+          "lang": "en",
+          "tags": [
+            "cancel",
+            "synthetic"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.06,
+          "pNone": null
+        },
+        {
+          "id": "wr-01",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "subscribe",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.59,
+          "pNone": null
+        },
+        {
+          "id": "wr-02",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "pay",
+            "confirm-dialog",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.95,
+          "pNone": null
+        },
+        {
+          "id": "wr-03",
+          "lang": "en",
+          "tags": [
+            "web",
+            "pay",
+            "confirm-dialog",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.95,
+          "pNone": null
+        },
+        {
+          "id": "wr-04",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "social",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": false,
+          "top": null,
+          "pTop": 0.27,
+          "pNone": null
+        },
+        {
+          "id": "wr-05",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "publish",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.83,
+          "pNone": null
+        },
+        {
+          "id": "wr-06",
+          "lang": "en",
+          "tags": [
+            "web",
+            "publish",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.92,
+          "pNone": null
+        },
+        {
+          "id": "wr-07",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "publish",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.81,
+          "pNone": null
+        },
+        {
+          "id": "wr-08",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "send",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.88,
+          "pNone": null
+        },
+        {
+          "id": "wr-09",
+          "lang": "en",
+          "tags": [
+            "web",
+            "subscribe",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.83,
+          "pNone": null
+        },
+        {
+          "id": "wr-10",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "subscribe",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.78,
+          "pNone": null
+        },
+        {
+          "id": "wr-11",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "save",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": false,
+          "top": null,
+          "pTop": 0.22,
+          "pNone": null
+        },
+        {
+          "id": "wr-12",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "save",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": false,
+          "top": null,
+          "pTop": 0.41,
+          "pNone": null
+        },
+        {
+          "id": "wr-13",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "delete-account",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.62,
+          "pNone": null
+        },
+        {
+          "id": "wr-14",
+          "lang": "en",
+          "tags": [
+            "web",
+            "save",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": false,
+          "top": null,
+          "pTop": 0.21,
+          "pNone": null
+        },
+        {
+          "id": "wr-15",
+          "lang": "en",
+          "tags": [
+            "web",
+            "send",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.55,
+          "pNone": null
+        },
+        {
+          "id": "wr-16",
+          "lang": "en",
+          "tags": [
+            "web",
+            "delete-account",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.96,
+          "pNone": null
+        },
+        {
+          "id": "wr-17",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "account-create",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": false,
+          "top": null,
+          "pTop": 0.49,
+          "pNone": null
+        },
+        {
+          "id": "wr-18",
+          "lang": "en",
+          "tags": [
+            "web",
+            "account-create",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.51,
+          "pNone": null
+        },
+        {
+          "id": "wr-19",
+          "lang": "en",
+          "tags": [
+            "web",
+            "pay",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.93,
+          "pNone": null
+        },
+        {
+          "id": "wr-20",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "pay",
+            "real"
+          ],
+          "expected": "true",
+          "verdict": "risky",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.88,
+          "pNone": null
+        },
+        {
+          "id": "ws-01",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "search",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.05,
+          "pNone": null
+        },
+        {
+          "id": "ws-02",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "filter",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.06,
+          "pNone": null
+        },
+        {
+          "id": "ws-03",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "sort",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ws-04",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "pagination",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.04,
+          "pNone": null
+        },
+        {
+          "id": "ws-05",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "cart",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.17,
+          "pNone": null
+        },
+        {
+          "id": "ws-06",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "auth",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.16,
+          "pNone": null
+        },
+        {
+          "id": "ws-07",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "consent",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.15,
+          "pNone": null
+        },
+        {
+          "id": "ws-08",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "consent",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.11,
+          "pNone": null
+        },
+        {
+          "id": "ws-09",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "cart",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.05,
+          "pNone": null
+        },
+        {
+          "id": "ws-10",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "cart",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.19,
+          "pNone": null
+        },
+        {
+          "id": "ws-11",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "copy",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.11,
+          "pNone": null
+        },
+        {
+          "id": "ws-12",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "tab",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.02,
+          "pNone": null
+        },
+        {
+          "id": "ws-13",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "accordion",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.05,
+          "pNone": null
+        },
+        {
+          "id": "ws-14",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "risky",
+          "outcome": "rejected",
+          "top1": true,
+          "top": null,
+          "pTop": 0.31,
+          "pNone": null
+        },
+        {
+          "id": "ws-15",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.08,
+          "pNone": null
+        },
+        {
+          "id": "ws-16",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "coupon",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.16,
+          "pNone": null
+        },
+        {
+          "id": "ws-17",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.04,
+          "pNone": null
+        },
+        {
+          "id": "ws-18",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "cancel",
+            "confirm-dialog",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.09,
+          "pNone": null
+        },
+        {
+          "id": "ws-19",
+          "lang": "en",
+          "tags": [
+            "web",
+            "coupon",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.16,
+          "pNone": null
+        },
+        {
+          "id": "ws-20",
+          "lang": "en",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "risky",
+          "outcome": "rejected",
+          "top1": true,
+          "top": null,
+          "pTop": 0.21,
+          "pNone": null
+        },
+        {
+          "id": "ws-21",
+          "lang": "en",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.05,
+          "pNone": null
+        },
+        {
+          "id": "ws-22",
+          "lang": "en",
+          "tags": [
+            "web",
+            "cancel",
+            "confirm-dialog",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.05,
+          "pNone": null
+        },
+        {
+          "id": "ws-23",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "sort",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ws-24",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.08,
+          "pNone": null
+        },
+        {
+          "id": "ws-25",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "pagination",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ws-26",
+          "lang": "en",
+          "tags": [
+            "web",
+            "preview",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ws-27",
+          "lang": "en",
+          "tags": [
+            "web",
+            "cancel",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.06,
+          "pNone": null
+        },
+        {
+          "id": "ws-28",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "preview",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ws-29",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "local-edit",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ws-30",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "picker",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.07,
+          "pNone": null
+        },
+        {
+          "id": "ws-31",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ws-32",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "picker",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ws-33",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "search",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.04,
+          "pNone": null
+        },
+        {
+          "id": "ws-34",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "picker",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.08,
+          "pNone": null
+        },
+        {
+          "id": "ws-35",
+          "lang": "en",
+          "tags": [
+            "web",
+            "auth",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.19,
+          "pNone": null
+        },
+        {
+          "id": "ws-36",
+          "lang": "en",
+          "tags": [
+            "web",
+            "accordion",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ws-37",
+          "lang": "en",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.06,
+          "pNone": null
+        },
+        {
+          "id": "ws-38",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "accordion",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.02,
+          "pNone": null
+        },
+        {
+          "id": "ws-39",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ws-40",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "setting",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "risky",
+          "outcome": "rejected",
+          "top1": true,
+          "top": null,
+          "pTop": 0.43,
+          "pNone": null
+        },
+        {
+          "id": "ws-41",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "setting",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.06,
+          "pNone": null
+        },
+        {
+          "id": "ws-42",
+          "lang": "en",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.07,
+          "pNone": null
+        },
+        {
+          "id": "ws-43",
+          "lang": "en",
+          "tags": [
+            "web",
+            "setting",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.05,
+          "pNone": null
+        },
+        {
+          "id": "ws-44",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "local-edit",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.02,
+          "pNone": null
+        },
+        {
+          "id": "ws-45",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ws-46",
+          "lang": "en",
+          "tags": [
+            "web",
+            "local-edit",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.02,
+          "pNone": null
+        },
+        {
+          "id": "ws-47",
+          "lang": "en",
+          "tags": [
+            "web",
+            "auth",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.17,
+          "pNone": null
+        },
+        {
+          "id": "ws-48",
+          "lang": "en",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.04,
+          "pNone": null
+        },
+        {
+          "id": "ws-49",
+          "lang": "en",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.06,
+          "pNone": null
+        },
+        {
+          "id": "ws-50",
+          "lang": "en",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ws-51",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "navigation",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.04,
+          "pNone": null
+        },
+        {
+          "id": "ws-52",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "auth",
+            "demo",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.14,
+          "pNone": null
+        },
+        {
+          "id": "ws-53",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "modal",
+            "demo",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "ws-54",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "search",
+            "demo",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.05,
+          "pNone": null
+        },
+        {
+          "id": "ws-55",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "cart",
+            "demo",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.14,
+          "pNone": null
+        },
+        {
+          "id": "ws-56",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "modal",
+            "demo",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.05,
+          "pNone": null
+        },
+        {
+          "id": "ws-57",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "auth",
+            "demo",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "risky",
+          "outcome": "rejected",
+          "top1": true,
+          "top": null,
+          "pTop": 0.31,
+          "pNone": null
+        },
+        {
+          "id": "ws-58",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "navigation",
+            "demo",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.07,
+          "pNone": null
+        },
+        {
+          "id": "ws-59",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "modal",
+            "demo",
+            "mobile",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.04,
+          "pNone": null
+        },
+        {
+          "id": "ws-60",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "auth",
+            "demo",
+            "mobile",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "risky",
+          "outcome": "rejected",
+          "top1": true,
+          "top": null,
+          "pTop": 0.27,
+          "pNone": null
+        },
+        {
+          "id": "ws-61",
+          "lang": "ko",
+          "tags": [
+            "web",
+            "modal",
+            "demo",
+            "mobile",
+            "real"
+          ],
+          "expected": "false",
+          "verdict": "safe",
+          "outcome": "accepted",
+          "top1": true,
+          "top": null,
+          "pTop": 0.05,
+          "pNone": null
+        }
+      ],
+      "risky": 34,
+      "safe": 81,
+      "falseAlarms": 8,
+      "falseAlarmRate": 0.099,
+      "covered": [
+        {
+          "id": "wr-21",
+          "surface": "web",
+          "reasons": [
+            "위험 키워드 \"주문\""
+          ]
+        },
+        {
+          "id": "wr-22",
+          "surface": "web",
+          "reasons": [
+            "위험 키워드 \"주문\""
+          ]
+        },
+        {
+          "id": "wr-23",
+          "surface": "web",
+          "reasons": [
+            "위험 키워드 \"보내기\""
+          ]
+        },
+        {
+          "id": "wr-24",
+          "surface": "web",
+          "reasons": [
+            "위험 키워드 \"탈퇴\""
+          ]
+        }
+      ],
+      "bySurface": {
+        "app": {
+          "meetsCriteria": false,
+          "n": 34,
+          "risky": 14,
+          "safe": 20,
+          "confidentWrong": [],
+          "falseAlarms": [
+            "ks-02",
+            "ks-05",
+            "ks-18"
+          ],
+          "falseAlarmRate": 0.15,
+          "covered": 0
+        },
+        "web": {
+          "meetsCriteria": true,
+          "n": 81,
+          "risky": 20,
+          "safe": 61,
+          "confidentWrong": [],
+          "falseAlarms": [
+            "ws-14",
+            "ws-20",
+            "ws-40",
+            "ws-57",
+            "ws-60"
+          ],
+          "falseAlarmRate": 0.082,
+          "covered": 4
+        }
+      }
+    }
+  },
+  "review": {
+    "status": "calibrated",
+    "criteria": {
+      "maxConfidentWrong": 0,
+      "minGoodApproval": 0.8
+    },
+    "gate": {
+      "addressesMin": 0.65,
+      "unrelatedMax": 0.34,
+      "clarificationMax": 0.34
+    },
+    "evidence": {
+      "n": 30,
+      "accepted": 29,
+      "confidentWrong": 0,
+      "top1": 29,
+      "byLang": {
+        "ko": {
+          "n": 30,
+          "accepted": 29,
+          "confidentWrong": 0,
+          "top1": 29
+        },
+        "en": {
+          "n": 0,
+          "accepted": 0,
+          "confidentWrong": 0,
+          "top1": 0
+        }
+      },
+      "items": [
+        {
+          "id": "rv-01",
+          "lang": "ko",
+          "tags": [],
+          "expected": "good→approvable",
+          "verdict": "approvable",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.87 u=0.21 c=0.23",
+          "pTop": 0.87,
+          "pNone": null
+        },
+        {
+          "id": "rv-02",
+          "lang": "ko",
+          "tags": [],
+          "expected": "missing_assertion→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.34 u=0.26 c=0.27",
+          "pTop": 0.34,
+          "pNone": null
+        },
+        {
+          "id": "rv-03",
+          "lang": "ko",
+          "tags": [],
+          "expected": "unrelated_steps→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.77 u=0.96 c=0.24",
+          "pTop": 0.77,
+          "pNone": null
+        },
+        {
+          "id": "rv-04",
+          "lang": "ko",
+          "tags": [],
+          "expected": "good→approvable",
+          "verdict": "approvable",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.72 u=0.28 c=0.34",
+          "pTop": 0.72,
+          "pNone": null
+        },
+        {
+          "id": "rv-05",
+          "lang": "ko",
+          "tags": [],
+          "expected": "missing_assertion→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.16 u=0.46 c=0.4",
+          "pTop": 0.16,
+          "pNone": null
+        },
+        {
+          "id": "rv-06",
+          "lang": "ko",
+          "tags": [],
+          "expected": "unrelated_steps→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.67 u=0.91 c=0.36",
+          "pTop": 0.67,
+          "pNone": null
+        },
+        {
+          "id": "rv-07",
+          "lang": "ko",
+          "tags": [],
+          "expected": "wrong_requirement→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.03 u=0.98 c=0.42",
+          "pTop": 0.03,
+          "pNone": null
+        },
+        {
+          "id": "rv-08",
+          "lang": "ko",
+          "tags": [],
+          "expected": "good→approvable",
+          "verdict": "approvable",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.88 u=0.19 c=0.16",
+          "pTop": 0.88,
+          "pNone": null
+        },
+        {
+          "id": "rv-09",
+          "lang": "ko",
+          "tags": [],
+          "expected": "missing_assertion→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.27 u=0.28 c=0.36",
+          "pTop": 0.27,
+          "pNone": null
+        },
+        {
+          "id": "rv-10",
+          "lang": "ko",
+          "tags": [],
+          "expected": "good→approvable",
+          "verdict": "approvable",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.86 u=0.26 c=0.23",
+          "pTop": 0.86,
+          "pNone": null
+        },
+        {
+          "id": "rv-11",
+          "lang": "ko",
+          "tags": [],
+          "expected": "unrelated_steps→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.82 u=0.96 c=0.21",
+          "pTop": 0.82,
+          "pNone": null
+        },
+        {
+          "id": "rv-12",
+          "lang": "ko",
+          "tags": [],
+          "expected": "good→approvable",
+          "verdict": "approvable",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.85 u=0.18 c=0.16",
+          "pTop": 0.85,
+          "pNone": null
+        },
+        {
+          "id": "rv-13",
+          "lang": "ko",
+          "tags": [],
+          "expected": "wrong_requirement→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.05 u=0.9 c=0.38",
+          "pTop": 0.05,
+          "pNone": null
+        },
+        {
+          "id": "rv-14",
+          "lang": "ko",
+          "tags": [],
+          "expected": "good→approvable",
+          "verdict": "approvable",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.74 u=0.22 c=0.21",
+          "pTop": 0.74,
+          "pNone": null
+        },
+        {
+          "id": "rv-15",
+          "lang": "ko",
+          "tags": [],
+          "expected": "missing_assertion→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.4 u=0.18 c=0.2",
+          "pTop": 0.4,
+          "pNone": null
+        },
+        {
+          "id": "rv-16",
+          "lang": "ko",
+          "tags": [],
+          "expected": "unrelated_steps→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.78 u=0.83 c=0.2",
+          "pTop": 0.78,
+          "pNone": null
+        },
+        {
+          "id": "rv-17",
+          "lang": "ko",
+          "tags": [],
+          "expected": "good→approvable",
+          "verdict": "approvable",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.65 u=0.34 c=0.22",
+          "pTop": 0.65,
+          "pNone": null
+        },
+        {
+          "id": "rv-18",
+          "lang": "ko",
+          "tags": [],
+          "expected": "wrong_requirement→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.11 u=0.81 c=0.32",
+          "pTop": 0.11,
+          "pNone": null
+        },
+        {
+          "id": "rv-19",
+          "lang": "ko",
+          "tags": [],
+          "expected": "good→approvable",
+          "verdict": "draft",
+          "outcome": "rejected",
+          "top1": false,
+          "top": "a=0.85 u=0.84 c=0.24",
+          "pTop": 0.85,
+          "pNone": null
+        },
+        {
+          "id": "rv-20",
+          "lang": "ko",
+          "tags": [],
+          "expected": "missing_assertion→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.1 u=0.86 c=0.37",
+          "pTop": 0.1,
+          "pNone": null
+        },
+        {
+          "id": "rv-21",
+          "lang": "ko",
+          "tags": [],
+          "expected": "unrelated_steps→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.75 u=0.95 c=0.25",
+          "pTop": 0.75,
+          "pNone": null
+        },
+        {
+          "id": "rv-22",
+          "lang": "ko",
+          "tags": [],
+          "expected": "good→approvable",
+          "verdict": "approvable",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.83 u=0.3 c=0.34",
+          "pTop": 0.83,
+          "pNone": null
+        },
+        {
+          "id": "rv-23",
+          "lang": "ko",
+          "tags": [],
+          "expected": "wrong_requirement→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.08 u=0.88 c=0.58",
+          "pTop": 0.08,
+          "pNone": null
+        },
+        {
+          "id": "rv-24",
+          "lang": "ko",
+          "tags": [],
+          "expected": "unrelated_steps→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.75 u=0.93 c=0.34",
+          "pTop": 0.75,
+          "pNone": null
+        },
+        {
+          "id": "rv-25",
+          "lang": "ko",
+          "tags": [],
+          "expected": "good→approvable",
+          "verdict": "approvable",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.85 u=0.28 c=0.24",
+          "pTop": 0.85,
+          "pNone": null
+        },
+        {
+          "id": "rv-26",
+          "lang": "ko",
+          "tags": [],
+          "expected": "missing_assertion→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.16 u=0.53 c=0.38",
+          "pTop": 0.16,
+          "pNone": null
+        },
+        {
+          "id": "rv-27",
+          "lang": "ko",
+          "tags": [],
+          "expected": "vague_requirement→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.62 u=0.2 c=0.83",
+          "pTop": 0.62,
+          "pNone": null
+        },
+        {
+          "id": "rv-28",
+          "lang": "ko",
+          "tags": [],
+          "expected": "vague_requirement→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.17 u=0.53 c=0.67",
+          "pTop": 0.17,
+          "pNone": null
+        },
+        {
+          "id": "rv-29",
+          "lang": "ko",
+          "tags": [],
+          "expected": "vague_requirement→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.48 u=0.24 c=0.71",
+          "pTop": 0.48,
+          "pNone": null
+        },
+        {
+          "id": "rv-30",
+          "lang": "ko",
+          "tags": [],
+          "expected": "vague_requirement→draft",
+          "verdict": "draft",
+          "outcome": "accepted",
+          "top1": true,
+          "top": "a=0.67 u=0.18 c=0.73",
+          "pTop": 0.67,
+          "pNone": null
+        }
+      ],
+      "good": 10,
+      "goodApproved": 9,
+      "goodApproval": 0.9,
+      "perNoul": {
+        "addresses": {
+          "scored": 26,
+          "correct": 26
+        },
+        "unrelated": {
+          "scored": 26,
+          "correct": 22
+        },
+        "clarification": {
+          "scored": 30,
+          "correct": 22
+        }
+      }
+    }
+  }
+}

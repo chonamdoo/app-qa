@@ -1,0 +1,86 @@
+{
+  "key": "369337b74e388c9f4b88184d0f9baa925385db083cdc6eaf0090c5adef98410c",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb53033755eac88156137447b8f",
+  "latencyMs": 184,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 산들 커뮤니티 | - | top",
+          "e2 | link | 게시판 | - | top",
+          "e3 | link | 쪽지 | - | top",
+          "e4 | heading | 가평 오토캠핑장 2박 후기 | - | top",
+          "e5 | button | 팔로우 | - | top",
+          "e6 | text | 김하늘 · 팔로워 1,284 · 3시간 전 | - | top",
+          "e7 | text | 사이트 간격이 넓고 개수대가 깨끗했어요. 밤에는 기온이 많이 떨어지니 침낭 꼭 챙기세요. | - | top",
+          "e8 | button | 신고 | - | top",
+          "e9 | text | 좋아요 24 · 댓글 3 | - | top",
+          "e10 | other | 댓글 | - | middle",
+          "e11 | heading | 댓글 3 | - | middle",
+          "e12 | button | 등록순 | checked | middle",
+          "e13 | button | 최신순 | unchecked | middle",
+          "e14 | text | 저도 지난달에 다녀왔는데 매점이 일찍 닫더라고요. | - | middle",
+          "e15 | button | 답글 쓰기 | - | middle",
+          "e16 | text | 박서준 | - | middle",
+          "e17 | text | 전기 사이트 예약은 어디서 하셨어요? | - | middle",
+          "e18 | button | 답글 쓰기 | - | middle",
+          "e19 | text | 이도윤 | - | middle",
+          "e20 | button | 댓글 더 보기 | - | middle",
+          "e21 | text | 댓글 쓰기 | - | middle",
+          "e22 | input | 댓글 쓰기 | value=\"좋은 정보 감사합니다! 다음 주에 가 보려고요.\" | middle",
+          "e23 | button | 댓글 남기기 | - | bottom"
+        ],
+        "texts": [
+          "산들 커뮤니티",
+          "게시판",
+          "쪽지",
+          "가평 오토캠핑장 2박 후기",
+          "팔로우",
+          "김하늘 · 팔로워 1,284 · 3시간 전",
+          "사이트 간격이 넓고 개수대가 깨끗했어요. 밤에는 기온이 많이 떨어지니 침낭 꼭 챙기세요.",
+          "신고",
+          "좋아요 24 · 댓글 3",
+          "댓글 3",
+          "등록순",
+          "최신순",
+          "저도 지난달에 다녀왔는데 매점이 일찍 닫더라고요.",
+          "답글 쓰기",
+          "박서준",
+          "전기 사이트 예약은 어디서 하셨어요?",
+          "답글 쓰기",
+          "이도윤",
+          "댓글 더 보기",
+          "댓글 쓰기",
+          "좋은 정보 감사합니다! 다음 주에 가 보려고요.",
+          "댓글 남기기"
+        ]
+      },
+      "target": "e20 | button | 댓글 더 보기 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.03
+      }
+    },
+    "usage": {
+      "input_tokens": 1113,
+      "output_tokens": 21
+    }
+  }
+}

@@ -1,0 +1,602 @@
+{
+  "url": "http://localhost:4174/community.html",
+  "title": "캠핑 후기 게시판 · 산들 커뮤니티",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "캠핑 후기 게시판 · 산들 커뮤니티",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "산들 커뮤니티",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 98.15625,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1177.109375,
+      "y": 12.25,
+      "w": 78.890625,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "게시판",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1177.109375,
+      "y": 12.25,
+      "w": 38.9375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "쪽지",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1230.046875,
+      "y": 12.25,
+      "w": 25.953125,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 592,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 178.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "heading",
+      "name": null,
+      "text": "가평 오토캠핑장 2박 후기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 85,
+      "w": 558,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 130,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "text",
+      "name": null,
+      "text": "김하늘 · 팔로워 1,284 · 3시간 전",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 139.5,
+      "w": 165.625,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "button",
+      "name": null,
+      "text": "팔로우",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 852.0625,
+      "y": 130,
+      "w": 66.9375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "text",
+      "name": null,
+      "text": "사이트 간격이 넓고 개수대가 깨끗했어요. 밤에는 기온이 많이 떨어지니 침낭 꼭 챙기세요.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 168.5,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 199,
+      "w": 558,
+      "h": 30.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 13,
+      "kind": "text",
+      "name": null,
+      "text": "좋아요 24 · 댓글 3",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 204.5,
+      "w": 94.75,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 13,
+      "kind": "button",
+      "name": null,
+      "text": "신고",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 465.75,
+      "y": 199,
+      "w": 37.953125,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": "댓글",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 260.5,
+      "w": 592,
+      "h": 345.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 277.5,
+      "w": 558,
+      "h": 33.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "heading",
+      "name": null,
+      "text": "댓글 3",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 277.5,
+      "w": 43,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 807.125,
+      "y": 279,
+      "w": 111.875,
+      "h": 30.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "button",
+      "name": null,
+      "text": "등록순",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 807.125,
+      "y": 279,
+      "w": 50.9375,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "button",
+      "name": null,
+      "text": "최신순",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 868.0625,
+      "y": 279,
+      "w": 50.9375,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "text",
+      "name": null,
+      "text": "저도 지난달에 다녀왔는데 매점이 일찍 닫더라고요.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 311,
+      "w": 558,
+      "h": 30.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 22,
+      "kind": "text",
+      "name": null,
+      "text": "박서준",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 316,
+      "w": 38.9375,
+      "h": 19,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 22,
+      "kind": "button",
+      "name": null,
+      "text": "답글 쓰기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 703.421875,
+      "y": 311,
+      "w": 67.859375,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "text",
+      "name": null,
+      "text": "전기 사이트 예약은 어디서 하셨어요?",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 349.5,
+      "w": 558,
+      "h": 30.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 25,
+      "kind": "text",
+      "name": null,
+      "text": "이도윤",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 354.5,
+      "w": 38.9375,
+      "h": 19,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 25,
+      "kind": "button",
+      "name": null,
+      "text": "답글 쓰기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 625,
+      "y": 349.5,
+      "w": 67.859375,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "button",
+      "name": null,
+      "text": "댓글 더 보기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 388,
+      "w": 84.765625,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 426.5,
+      "w": 558,
+      "h": 141.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 29,
+      "kind": "text",
+      "name": null,
+      "text": "댓글 쓰기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 426.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 29,
+      "kind": "input",
+      "name": "댓글 쓰기",
+      "text": null,
+      "id": "comment",
+      "value": "좋은 정보 감사합니다! 다음 주에 가 보려고요.",
+      "hint": null,
+      "x": 361,
+      "y": 450,
+      "w": 558,
+      "h": 72,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 29,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 529.5,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 32,
+      "kind": "button",
+      "name": null,
+      "text": "댓글 남기기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 822.171875,
+      "y": 529.5,
+      "w": 96.828125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 568,
+      "w": 558,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

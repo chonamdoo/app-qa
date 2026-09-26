@@ -2,7 +2,7 @@
 // action journal, and the manifest of everything written.
 import { join, sep } from 'node:path';
 import type { EventSink, QaEvent, QaEventBody } from '../core/events.ts';
-import { appendJsonl, ensureDir, writeSecure } from '../core/fsx.ts';
+import { appendJsonl, ensureDir, writeJsonAtomic, writeSecure } from '../core/fsx.ts';
 import { updateManifest, type ManifestKind } from '../report/manifest.ts';
 
 export class RunStore implements EventSink {
@@ -40,6 +40,14 @@ export class RunStore implements EventSink {
 
   writeJson(rel: string, value: unknown, kind: ManifestKind): string {
     return this.write(rel, `${JSON.stringify(value, null, 2)}\n`, kind);
+  }
+
+  /** Durable record rewritten later (`summary.json`): temp file → fsync → rename, never a torn file. */
+  writeRecord(rel: string, value: unknown, kind: ManifestKind): string {
+    writeJsonAtomic(join(this.runDir, rel), value);
+    const posix = rel.split(sep).join('/');
+    this.tracked.set(posix, kind);
+    return posix;
   }
 
   /** Intent/outcome record, fsynced before the action is dispatched. */

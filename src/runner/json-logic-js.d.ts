@@ -2,8 +2,8 @@
 declare module 'json-logic-js' {
   const jsonLogic: {
     apply(rule: unknown, data?: unknown): unknown;
-    truthy(value: unknown): boolean;
-    is_logic(value: unknown): boolean;
+    /** Registers `name` as an operation: called with the evaluated operands (the data as `this`). */
+    add_operation(name: string, code: (...values: never[]) => unknown): void;
   };
   export default jsonLogic;
 }

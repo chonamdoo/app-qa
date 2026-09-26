@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>내 서재 · 마포구립도서관</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="library.html">마포구립도서관</a>
+    <nav><a href="library.html#search">자료 검색</a></nav>
+  </header>
+
+  <main class="narrow">
+    <section class="card">
+      <h2>대출 중</h2>
+      <div class="spread">
+        <div><p>「작별하지 않는다」 · 반납 예정일 10월 2일</p><p class="muted">연장은 한 번만 할 수 있어요 (14일)</p></div>
+        <button type="button" class="ghost" data-status="반납 예정일이 10월 16일로 바뀌었습니다">대출 연장</button>
+      </div>
+    </section>
+    <section class="card">
+      <h2>검색 결과</h2>
+      <div class="spread">
+        <div><p>「소년이 온다」 · 대출 중 (예약 2명)</p><button type="button" class="link">소장 위치 보기</button></div>
+        <button type="button" data-status="예약 3번째로 등록되었습니다">도서 예약</button>
+      </div>
+      <p class="muted">"문장이 오래 남는 책" — 서평 12개 <button type="button" class="link">서평 더 보기</button></p>
+    </section>
+    <p role="status"></p>
+  </main>
+  <script src="../app.js"></script>
+</body>
+</html>

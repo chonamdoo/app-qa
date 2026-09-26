@@ -1,10 +1,10 @@
-// `qa devices` — Android devices/emulators and iOS simulators.
+// `qa devices` — Android devices/emulators, iOS simulators and this Mac's desktop browsers.
 import { parseArgs } from 'node:util';
-import type { Platform } from '../../core/types.ts';
-import { listDevices } from '../../drivers/devices.ts';
+import { listDevices } from '../../drivers/index.ts';
+import { parsePlatform, PLATFORM_LIST } from '../platforms.ts';
 
-const USAGE = `사용법: qa devices [--platform android|ios] [--all] [--json]
-  기본은 부팅된 디바이스만 표시합니다. --all이면 꺼진 시뮬레이터도 표시합니다.
+const USAGE = `사용법: qa devices [--platform ${PLATFORM_LIST}] [--all] [--json]
+  기본은 부팅된 디바이스(와 사용 가능한 데스크톱 브라우저)만 표시합니다. --all이면 꺼진 시뮬레이터도 표시합니다.
 종료 코드: 0 = 성공, 1 = 조회 실패, 2 = 사용법 오류`;
 
 const STATE_LABEL: Record<string, string> = { booted: '부팅됨', shutdown: '꺼짐', offline: '오프라인' };
@@ -25,13 +25,14 @@ export async function cmdDevices(argv: string[]): Promise<number> {
     console.log(USAGE);
     return 0;
   }
-  if (values.platform !== undefined && values.platform !== 'android' && values.platform !== 'ios') {
-    console.error(`--platform은 android 또는 ios여야 합니다.\n${USAGE}`);
+  const platform = values.platform === undefined ? undefined : parsePlatform(values.platform, false);
+  if (typeof platform === 'object') {
+    console.error(`${platform.error}\n${USAGE}`);
     return 2;
   }
   let devices;
   try {
-    devices = await listDevices(values.platform as Platform | undefined);
+    devices = await listDevices(platform);
   } catch (err) {
     console.error(`디바이스 목록을 가져오지 못했습니다: ${(err as Error).message}`);
     return 1;
@@ -42,7 +43,7 @@ export async function cmdDevices(argv: string[]): Promise<number> {
     return 0;
   }
   if (devices.length === 0) {
-    console.log('디바이스가 없습니다. 에뮬레이터 또는 시뮬레이터를 부팅하세요.');
+    console.log('디바이스가 없습니다. 에뮬레이터·시뮬레이터를 부팅하거나 Chrome/Safari를 설치하세요.');
     return 0;
   }
   const rows = devices.map((d) => [d.platform, d.id, d.name, d.osVersion, STATE_LABEL[d.state] ?? d.state, d.kind]);

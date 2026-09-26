@@ -1,0 +1,17 @@
+{
+  "platform": "android",
+  "app": "web-demo",
+  "name": "login-email",
+  "surface": "web",
+  "pageUrl": "localhost:4173/login.html",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1080,
+    "height": 2400
+  },
+  "capturedAt": "2026-09-26T02:46:12+00:00",
+  "device": "emulator-5554 (Android 17, 1080x2400 @420dpi), Chrome 153.0.8010.37",
+  "source": "adb shell uiautomator dump (Chrome, am start -a VIEW -d <url> com.android.chrome)",
+  "notes": "login.html 에서 이메일 칸에 qa@example.com 을 실제 입력으로 타이핑한 상태."
+}

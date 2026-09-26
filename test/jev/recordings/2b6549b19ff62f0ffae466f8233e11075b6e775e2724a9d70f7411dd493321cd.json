@@ -1,0 +1,67 @@
+{
+  "key": "2b6549b19ff62f0ffae466f8233e11075b6e775e2724a9d70f7411dd493321cd",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb534cb78cab9bdf7c1d1a627fc",
+  "latencyMs": 238,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | Tasklane | - | top",
+          "e2 | heading | Create your Tasklane account | - | top",
+          "e3 | text | Full name | - | top",
+          "e4 | input | Full name | value=\"Sam Kim\" | top",
+          "e5 | text | Work email | - | top",
+          "e6 | input | Work email | value=\"[REDACTED]\" | top",
+          "e7 | text | Password | - | middle",
+          "e8 | secure-input | Password | value=\"••••••••••••\" | middle",
+          "e9 | button | Show password | - | middle",
+          "e10 | text | I agree to the Terms of Service | - | middle",
+          "e11 | checkbox | I agree to the Terms of Service | checked | middle",
+          "e12 | button | Create account | - | middle",
+          "e13 | text | Already have an account? | - | middle",
+          "e14 | link | Sign in | - | middle"
+        ],
+        "texts": [
+          "Tasklane",
+          "Create your Tasklane account",
+          "Full name",
+          "Sam Kim",
+          "Work email",
+          "[REDACTED]",
+          "Password",
+          "Show password",
+          "I agree to the Terms of Service",
+          "Create account",
+          "Already have an account?",
+          "Sign in"
+        ]
+      },
+      "target": "e9 | button | Show password | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.02
+      }
+    },
+    "usage": {
+      "input_tokens": 703,
+      "output_tokens": 21
+    }
+  }
+}

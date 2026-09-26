@@ -4,6 +4,8 @@ import { existsSync } from 'node:fs';
 import { relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PATHS } from '../core/config.ts';
+import { platformsFor } from '../core/platform.ts';
+import { PLATFORM_CHOICE_LIST, PLATFORM_LIST } from './platforms.ts';
 
 interface CommandInfo {
   /** Module path relative to this file. */
@@ -14,21 +16,41 @@ interface CommandInfo {
 }
 
 const COMMANDS: Record<string, CommandInfo> = {
-  setup: { module: './commands/setup.ts', fn: 'cmdSetup', summary: '도구 설치 (Appium 드라이버, OCR 도우미)', usage: 'qa setup' },
-  doctor: { module: './commands/doctor.ts', fn: 'cmdDoctor', summary: '환경 점검 (adb, Xcode, Appium, Jev 키)', usage: 'qa doctor' },
-  devices: { module: './commands/devices.ts', fn: 'cmdDevices', summary: '디바이스·시뮬레이터 목록', usage: 'qa devices [--platform android|ios] [--all]' },
-  apps: { module: './commands/apps.ts', fn: 'cmdApps', summary: '설치된 앱 목록·백업', usage: 'qa apps [--platform android|ios] [--device <id>] [--backup <appId>]' },
+  setup: {
+    module: './commands/setup.ts',
+    fn: 'cmdSetup',
+    summary: '도구 설치 (Appium 드라이버, OCR 도우미, --browsers: 브라우저 준비)',
+    usage: 'qa setup [--browsers [--android <serial>] [--ios <udid>]]',
+  },
+  doctor: { module: './commands/doctor.ts', fn: 'cmdDoctor', summary: '환경 점검 (adb, Xcode, Appium, 브라우저, Jev 키)', usage: 'qa doctor' },
+  devices: { module: './commands/devices.ts', fn: 'cmdDevices', summary: '디바이스·시뮬레이터·데스크톱 브라우저 목록', usage: `qa devices [--platform ${PLATFORM_LIST}] [--all]` },
+  apps: {
+    module: './commands/apps.ts',
+    fn: 'cmdApps',
+    summary: '설치된 앱 목록·백업',
+    usage: `qa apps [--platform ${platformsFor('app').join('|')}] [--device <id>] [--backup <appId>]`,
+  },
   calibrate: { module: './commands/calibrate.ts', fn: 'cmdCalibrate', summary: 'Jev 판단 임계값 보정', usage: 'qa calibrate [--mode live|record|replay] [--golden <dir>]' },
-  plan: { module: './commands/plan.ts', fn: 'cmdPlan', summary: '문서 → 테스트 생성 (요구사항 추적)', usage: 'qa plan --app <id> [문서...] [--run]' },
+  plan: { module: './commands/plan.ts', fn: 'cmdPlan', summary: '문서 → 테스트 생성 (요구사항 추적)', usage: `qa plan --app <id> [문서...] [--run [--platform ${PLATFORM_CHOICE_LIST}]]` },
   run: {
     module: './commands/run.ts',
     fn: 'cmdRun',
     summary: '테스트 실행 → 판정·리포트',
-    usage: 'qa run [경로...] [--platform android|ios|all] [--device <id>] [--tag <t>] [--junit]',
+    usage: `qa run [경로...] [--platform ${PLATFORM_CHOICE_LIST}] [--device <플랫폼>:<id>] [--tag <t>] [--junit]`,
   },
-  smoke: { module: './commands/smoke.ts', fn: 'cmdSmoke', summary: '스모크 (실행·상태·빈 화면·스크린샷)', usage: 'qa smoke --app <id> --platform android|ios|all [--crawl tabs]' },
-  inspect: { module: './commands/inspect.ts', fn: 'cmdInspect', summary: '현재 화면 후보 표 (가림·fast path·위험)', usage: 'qa inspect --app <id> --platform android|ios' },
-  capture: { module: './commands/capture.ts', fn: 'cmdCapture', summary: '현재 화면을 fixture + 인벤토리로 저장', usage: 'qa capture --app <id> --platform android|ios --name <이름>' },
+  smoke: {
+    module: './commands/smoke.ts',
+    fn: 'cmdSmoke',
+    summary: '스모크 (실행·상태·빈 화면·스크린샷)',
+    usage: `qa smoke --app <id> [--platform ${PLATFORM_CHOICE_LIST}] [--crawl tabs]`,
+  },
+  inspect: { module: './commands/inspect.ts', fn: 'cmdInspect', summary: '현재 화면 후보 표 (가림·fast path·위험)', usage: `qa inspect --app <id> --platform ${PLATFORM_LIST}` },
+  capture: {
+    module: './commands/capture.ts',
+    fn: 'cmdCapture',
+    summary: '현재 화면을 fixture + 인벤토리로 저장',
+    usage: `qa capture --app <id> --platform ${PLATFORM_LIST} --name <이름>`,
+  },
   report: { module: './commands/report.ts', fn: 'cmdReport', summary: '실행 리포트 다시 생성', usage: 'qa report <실행ID|latest>' },
   serve: { module: './commands/serve.ts', fn: 'cmdServe', summary: 'macOS 앱용 엔진 서버 (127.0.0.1)', usage: 'qa serve [--port <n>] [--exit-with-stdin]' },
 };

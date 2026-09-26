@@ -1,13 +1,16 @@
 // iOS simulator (XCUITest/WDA) driver. Host-side work (privacy, reset, url, location, logs) goes through simctl.
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
-import { swipeGesture } from '../appium/client.ts';
+import { isAbsolute, join, resolve } from 'node:path';
+import { swipeGesture, unexpectedResponse } from '../appium/client.ts';
+import { xcrun } from '../appium/exec.ts';
+import { PLATFORM_INFO } from '../core/platform.ts';
 import type { ActionOutcome, AppTarget, Point, RawNode, Rect, TypeOutcome } from '../core/types.ts';
-import { parseIosSource } from '../observe/index.ts';
+import { parseIosSource } from '../observe/ios.ts';
+import { navigationProblem } from './appid.ts';
 import { iosAppExecutable } from './apps.ts';
-import { AppiumDriver, IOS_PRIVACY_SERVICES, PERMISSION_GROUPS, RefusedError, type FieldValue, type Key, type LaunchOptions } from './base.ts';
-import { xcrun } from './common.ts';
+import { AppiumDriver, assertNoWebLaunchOptions, IOS_PRIVACY_SERVICES, PERMISSION_GROUPS, RefusedError, type FieldValue, type Key, type LaunchOptions } from './base.ts';
+import { iosSafariChecks } from './browser-prep.ts';
 import { iosLogArgs, LogCapture } from './logs.ts';
 
 /** Characters XCTest typeText maps to hardware keys. */
@@ -15,6 +18,21 @@ const WDA_KEYS: Record<Key, string | null> = { enter: '\n', tab: '\t', delete: '
 
 /** Buttons that navigate back: UINavigationBar back button id, or common back labels. */
 const BACK_BUTTON_CHAIN = '**/XCUIElementTypeButton[`name == "BackButton" OR label IN {"Back", "back", "뒤로", "뒤로 가기", "Go back", "이전"}`]';
+
+const SAFARI = PLATFORM_INFO.ios.browser;
+
+/** Done button of Safari's form bar above the keyboard (이전 / 다음 / 완료); page content never sits in a toolbar. */
+const SAFARI_FORM_DONE_CHAIN = '**/XCUIElementTypeToolbar/**/XCUIElementTypeButton[`name IN {"Done", "완료"}`]';
+
+/** Safari's own back button (browser toolbar, bottom on iPhone); disabled (`enabled="false"`) when the tab has no history. */
+const SAFARI_BACK_CHAIN = '**/XCUIElementTypeButton[`name == "BackButton"`]';
+
+/**
+ * Safari's website data inside its simulator data container: WebKit website data (localStorage, IndexedDB, service
+ * workers…), cookies, HTTP storages (HSTS…) and the HTTP cache. Emptying these with Safari terminated clears the
+ * cookies and localStorage of every site (verified on iOS 26.5); bookmarks, history and settings are kept.
+ */
+const SAFARI_WEBSITE_DATA = [`Library/WebKit/${SAFARI}/WebsiteData`, 'Library/Cookies', 'Library/HTTPStorages', `Library/Caches/${SAFARI}/WebKit`];
 
 const DIAGNOSTIC_REPORTS = join(homedir(), 'Library', 'Logs', 'DiagnosticReports');
 
@@ -32,6 +50,8 @@ export class IosDriver extends AppiumDriver {
   readonly platform = 'ios' as const;
   protected readonly depthLimit = 70;
   protected readonly keyboardInSource = true;
+  protected readonly browserChecks = iosSafariChecks;
+  protected readonly addressBarId = 'TabBarItemTitle';
 
   protected capabilities(_app: AppTarget): Record<string, unknown> {
     return {
@@ -57,7 +77,9 @@ export class IosDriver extends AppiumDriver {
   }
 
   protected async keyboardShown(): Promise<boolean> {
-    return (await this.api.execute<boolean>('mobile: isKeyboardShown')) === true;
+    const shown = await this.api.query('mobile: isKeyboardShown');
+    if (typeof shown !== 'boolean') throw unexpectedResponse('mobile: isKeyboardShown', shown);
+    return shown;
   }
 
   protected async focusedElement(): Promise<string | null> {
@@ -86,8 +108,19 @@ export class IosDriver extends AppiumDriver {
     });
   }
 
-  /** Nav-bar/back-labelled button in the top fifth of the screen, else a left-edge swipe. Never a no-op. */
+  /**
+   * Web: taps Safari's back button; refused while it is disabled (no history) or not shown, never another gesture.
+   * App: nav-bar/back-labelled button in the top fifth of the screen, else a left-edge swipe. Never a no-op.
+   */
   back(): Promise<ActionOutcome> {
+    if (this.opened?.kind === 'web') {
+      return this.act(async () => {
+        const [id] = await this.api.findElements({ using: '-ios class chain', value: SAFARI_BACK_CHAIN });
+        if (!id) throw new RefusedError('Safari 뒤로 버튼이 화면에 없습니다 (도구 막대가 접혔거나 Safari 화면이 아님)');
+        if ((await this.api.elementAttribute(id, 'enabled')) !== 'true') throw new RefusedError('Safari 뒤로 버튼이 비활성입니다 (이 탭에 이전 페이지가 없음)');
+        await this.api.click(id);
+      });
+    }
     return this.act(async () => {
       const screen = this.screen ?? (this.screen = await this.api.windowRect());
       for (const id of await this.api.findElements({ using: '-ios class chain', value: BACK_BUTTON_CHAIN })) {
@@ -102,12 +135,24 @@ export class IosDriver extends AppiumDriver {
     });
   }
 
-  /** WDA dismiss via a "done" key only; keys that submit (search/go) are never pressed. */
+  /**
+   * Apps: WDA dismiss via a "done" key only; keys that submit (search/go) are never pressed. Web: taps the Done button
+   * of Safari's form bar above the keyboard (it blurs the field without submitting; WDA does not look outside the
+   * keyboard). A lost, timed-out or garbled answer propagates as `uncertain`; only a keyboard verified still shown after
+   * an answered command, or a missing Done button, is `rejected`.
+   */
   async hideKeyboard(): Promise<ActionOutcome> {
     const t0 = performance.now();
     const o = await this.act(async () => {
       if (!(await this.keyboardShown())) return;
-      await this.api.execute('mobile: hideKeyboard', { keys: ['done', 'Done', '완료'] }).catch(() => undefined);
+      if (this.opened?.kind === 'web') {
+        const [done] = await this.api.findElements({ using: '-ios class chain', value: SAFARI_FORM_DONE_CHAIN });
+        if (!done) throw new RefusedError('Safari 입력 도구 막대에 완료 버튼이 없어 키보드를 닫지 않았습니다');
+        await this.api.click(done);
+        if (await this.waitKeyboard(false, 1500)) throw new RefusedError('Safari 완료 버튼을 눌렀지만 키보드가 그대로입니다');
+        return;
+      }
+      await this.api.execute('mobile: hideKeyboard', { keys: ['done', 'Done', '완료'] });
       if (await this.waitKeyboard(false, 500)) throw new RefusedError('키보드를 닫을 수 있는 완료(done) 키가 없어 키보드가 그대로입니다');
     });
     return { ...o, ms: Math.round(performance.now() - t0) };
@@ -132,8 +177,14 @@ export class IosDriver extends AppiumDriver {
   async launch(app: AppTarget, opts: LaunchOptions = {}): Promise<ActionOutcome> {
     let skipped: string[] = [];
     const o = await this.act(async () => {
-      if (opts.permissions) skipped = await this.applyPermissions(app.appId, opts.permissions);
-      await this.api.execute('mobile: launchApp', { bundleId: app.appId, ...(opts.arguments?.length ? { arguments: opts.arguments } : {}) }, 120_000);
+      const bundleId = this.appId(app);
+      if (app.kind === 'web') {
+        assertNoWebLaunchOptions(opts);
+        await xcrun(['simctl', 'openurl', this.deviceId, app.url], { timeoutMs: 30_000 });
+        return;
+      }
+      if (opts.permissions) skipped = await this.applyPermissions(bundleId, opts.permissions);
+      await this.api.execute('mobile: launchApp', { bundleId, ...(opts.arguments?.length ? { arguments: opts.arguments } : {}) }, 120_000);
     });
     if (o.status === 'completed' && skipped.length) return { ...o, error: `NOTE: iOS 시뮬레이터에서 설정할 수 없는 권한은 건너뜀: ${skipped.join(', ')}` };
     return o;
@@ -141,23 +192,49 @@ export class IosDriver extends AppiumDriver {
 
   terminate(app: AppTarget): Promise<ActionOutcome> {
     return this.act(async () => {
-      await this.api.execute('mobile: terminateApp', { bundleId: app.appId });
+      const bundleId = this.appId(app);
+      await this.api.execute('mobile: terminateApp', { bundleId });
     });
   }
 
+  /** App: reinstall from the backup + device-wide keychain reset. Web: Safari website data wipe (Safari is already terminated). */
   protected async clearData(app: AppTarget, binary: string | null): Promise<void> {
+    if (app.kind === 'web') return this.wipeSafariWebsiteData();
     await this.reinstall(app, binary!);
     await xcrun(['simctl', 'keychain', this.deviceId, 'reset'], { timeoutMs: 60_000 });
   }
 
+  /** Empties `SAFARI_WEBSITE_DATA` in this simulator's Safari data container; any other path is refused before deleting. */
+  private async wipeSafariWebsiteData(): Promise<void> {
+    const container = (await xcrun(['simctl', 'get_app_container', this.deviceId, SAFARI, 'data'], { timeoutMs: 30_000 })).trim();
+    const root = `/CoreSimulator/Devices/${this.deviceId}/data/Containers/Data/Application/`;
+    const at = container.indexOf(root);
+    if (!isAbsolute(container) || resolve(container) !== container || at < 0 || !/^[0-9A-F-]{36}$/i.test(container.slice(at + root.length))) {
+      throw new Error(`Safari 데이터 컨테이너 경로가 이 시뮬레이터의 앱 데이터 경로가 아니어서 지우지 않습니다: ${JSON.stringify(container.slice(0, 300))}`);
+    }
+    for (const rel of SAFARI_WEBSITE_DATA) {
+      const dir = join(container, rel);
+      if (!existsSync(dir)) continue;
+      for (const name of readdirSync(dir)) rmSync(join(dir, name), { recursive: true, force: true });
+    }
+  }
+
   protected async reinstall(app: AppTarget, binary: string): Promise<void> {
-    await xcrun(['simctl', 'uninstall', this.deviceId, app.appId], { timeoutMs: 120_000 });
+    await xcrun(['simctl', 'uninstall', this.deviceId, this.appId(app)], { timeoutMs: 120_000 });
     await xcrun(['simctl', 'install', this.deviceId, binary], { timeoutMs: 600_000 });
   }
 
-  openUrl(_app: AppTarget, url: string): Promise<ActionOutcome> {
+  /** Web: an allowed-origin http(s) URL, opened by Safari (in a new tab). App: deep link routed by the system. Both via `simctl openurl`. */
+  openUrl(app: AppTarget, url: string): Promise<ActionOutcome> {
     return this.act(async () => {
-      await xcrun(['simctl', 'openurl', this.deviceId, url], { timeoutMs: 30_000 });
+      this.appId(app);
+      let open = url;
+      if (app.kind === 'web') {
+        const problem = navigationProblem(app, url);
+        if (problem) throw new RefusedError(problem);
+        open = new URL(url).href;
+      }
+      await xcrun(['simctl', 'openurl', this.deviceId, open], { timeoutMs: 30_000 });
     });
   }
 
@@ -169,32 +246,46 @@ export class IosDriver extends AppiumDriver {
   }
 
   async foregroundApp(): Promise<string | null> {
-    const info = await this.api.execute<{ bundleId?: string } | null>('mobile: activeAppInfo');
-    return info?.bundleId ?? null;
+    const info = await this.api.query('mobile: activeAppInfo');
+    if (typeof info !== 'object' || info === null || !('bundleId' in info)) throw unexpectedResponse('mobile: activeAppInfo', info);
+    const { bundleId } = info;
+    if (bundleId !== null && typeof bundleId !== 'string') throw unexpectedResponse('mobile: activeAppInfo', info);
+    return bundleId || null;
   }
 
   /**
-   * WDA `hittable` of the element at `p`: the last element in document order (deepest / drawn last) whose frame
-   * contains the point. XPath because WDA predicates cannot do the `x + width` arithmetic. Undefined when none.
+   * WDA `hittable` of the element a tap at `p` is meant for. With a target box: the last element (document order) whose
+   * frame is exactly that box — measured on Safari, the last element merely containing the point is a full-screen,
+   * non-hittable browser container, so the point query answers for the wrong element there. No element with that frame
+   * means the target moved or disappeared: false (never another element's answer). Without a box (OCR candidates): the
+   * last element whose frame contains the point, undefined when there is none. XPath because WDA predicates cannot do
+   * the `x + width` arithmetic.
    */
-  async isHittable(p: Point): Promise<boolean | undefined> {
+  async isHittable(p: Point, target: Rect | null): Promise<boolean | undefined> {
+    if (target) {
+      const exact = `(//*[@x = ${Math.round(target.x)} and @y = ${Math.round(target.y)} and @width = ${Math.round(target.width)} and @height = ${Math.round(target.height)}])[last()]`;
+      const id = await this.api.findElement({ using: 'xpath', value: exact });
+      return id !== null && (await this.api.elementAttribute(id, 'hittable')) === 'true';
+    }
     const x = Math.round(p.x);
     const y = Math.round(p.y);
-    const xpath = `(//*[not(self::XCUIElementTypeApplication or self::XCUIElementTypeWindow) and @x <= ${x} and @y <= ${y} and @x + @width >= ${x} and @y + @height >= ${y}])[last()]`;
-    const id = await this.api.findElement({ using: 'xpath', value: xpath });
+    const containing = `(//*[not(self::XCUIElementTypeApplication or self::XCUIElementTypeWindow) and @x <= ${x} and @y <= ${y} and @x + @width >= ${x} and @y + @height >= ${y}])[last()]`;
+    const id = await this.api.findElement({ using: 'xpath', value: containing });
     if (!id) return undefined;
     return (await this.api.elementAttribute(id, 'hittable')) === 'true';
   }
 
-  async startLogs(app: AppTarget): Promise<void> {
-    this.logApp = app;
+  async startLogs(app: AppTarget, sanitize: (line: string) => string): Promise<void> {
+    const bundleId = this.appId(app);
+    this.logTarget = { app, sanitize };
     this.logs ??= new LogCapture('ios', this.deviceId);
-    const exe = await iosAppExecutable(this.deviceId, app.appId);
-    if (!exe) throw new Error(`${app.appId}의 실행 파일 이름을 알 수 없습니다.`);
-    this.logs.arm(`exec:${exe}`, 'xcrun', iosLogArgs(this.deviceId, exe));
+    const exe = await iosAppExecutable(this.deviceId, bundleId);
+    if (!exe) throw new Error(`${bundleId}의 실행 파일 이름을 알 수 없습니다.`);
+    await this.logs.arm(`exec:${exe}`, 'xcrun', iosLogArgs(this.deviceId, exe), sanitize);
   }
 
   async crashArtifacts(app: AppTarget, sinceIso: string): Promise<{ name: string; content: string }[]> {
+    const bundleId = this.appId(app);
     const since = Date.parse(sinceIso);
     if (!existsSync(DIAGNOSTIC_REPORTS)) return [];
     const out: { name: string; content: string }[] = [];
@@ -203,7 +294,7 @@ export class IosDriver extends AppiumDriver {
       const file = join(DIAGNOSTIC_REPORTS, name);
       if (statSync(file).mtimeMs < since) continue;
       const content = readFileSync(file, 'utf8');
-      if (ipsNamesApp(content, app.appId)) out.push({ name, content });
+      if (ipsNamesApp(content, bundleId)) out.push({ name, content });
     }
     return out;
   }

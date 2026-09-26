@@ -2,6 +2,7 @@
 import { join } from 'node:path';
 import type { Candidate, Platform, ScreenModel } from '../core/types.ts';
 import { writeJson } from '../core/fsx.ts';
+import type { EvidenceSanitizer } from './sanitize.ts';
 
 export const INVENTORY_SCHEMA = 'app-qa/inventory/v1';
 
@@ -21,19 +22,21 @@ export function screenSlug(name: string): string {
   return name.normalize('NFC').replace(/[^\p{L}\p{N}._-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'screen';
 }
 
-export function writeInventory(dir: string, app: string, platform: Platform, name: string, model: ScreenModel, source: InventoryFile['source']): string {
-  const file = join(dir, app, platform, `${screenSlug(name)}.json`);
+/** Secure fields are left out; every name and text passes the evidence sanitizer. */
+export function writeInventory(dir: string, app: string, platform: Platform, name: string, model: ScreenModel, source: InventoryFile['source'], clean: EvidenceSanitizer): string {
+  const label = clean.text(name);
+  const file = join(dir, app, platform, `${screenSlug(label)}.json`);
   const inv: InventoryFile = {
     $schema: INVENTORY_SCHEMA,
     app,
     platform,
-    name,
+    name: label,
     capturedAt: model.snapshot.takenAt,
     source,
-    texts: model.texts,
+    texts: model.texts.map(clean.text),
     candidates: model.candidates
       .filter((c) => c.role !== 'secure-input')
-      .map((c) => ({ role: c.role, name: c.name, state: c.state, actionable: c.actionable, region: c.region })),
+      .map((c) => ({ role: c.role, name: clean.text(c.name), state: c.state, actionable: c.actionable, region: c.region })),
   };
   writeJson(file, inv);
   return file;

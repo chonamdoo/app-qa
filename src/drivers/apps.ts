@@ -1,10 +1,11 @@
 // Installed user apps: Android `pm list packages -3` (+ label via host aapt2, cached), iOS `simctl listapps` User apps.
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { adb, adbShell, run, xcrun } from '../appium/exec.ts';
 import { androidHome, PATHS } from '../core/config.ts';
-import { ensureDir, writeJson } from '../core/fsx.ts';
+import { ensureDir, writeJsonAtomic } from '../core/fsx.ts';
+import { PLATFORM_INFO } from '../core/platform.ts';
 import type { Platform } from '../core/types.ts';
-import { adb, run, xcrun } from './common.ts';
 
 export interface AppInfo {
   platform: Platform;
@@ -78,7 +79,7 @@ async function androidLabels(deviceId: string, pkgs: AndroidPackageLine[]): Prom
   const tool = aapt2();
   const todo = pkgs.filter((p) => !(p.apkPath in cache));
   if (!tool || todo.length === 0) return cache;
-  const locale = (await adb(deviceId, ['shell', 'getprop', 'persist.sys.locale'])).trim() || 'en-US';
+  const locale = (await adbShell(deviceId, ['getprop', 'persist.sys.locale'])).trim() || 'en-US';
   ensureDir(PATHS.appBackups);
   const tmp = mkdtempSync(join(PATHS.appBackups, '.labels-'));
   try {
@@ -95,28 +96,36 @@ async function androidLabels(deviceId: string, pkgs: AndroidPackageLine[]): Prom
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
-  writeJson(LABEL_CACHE, cache);
+  writeJsonAtomic(LABEL_CACHE, cache);
   return cache;
 }
 
-/** User-installed apps (Appium/WDA helpers excluded), sorted by appId. */
+/** User-installed apps (Appium/WDA helpers excluded), sorted by appId. Desktop browsers have no installed apps: refused. */
 export async function listApps(platform: Platform, deviceId: string): Promise<AppInfo[]> {
   let apps: AppInfo[];
-  if (platform === 'android') {
-    const pkgs = parsePmPackages(await adb(deviceId, ['shell', 'pm', 'list', 'packages', '-3', '-f', '--show-versioncode'])).filter(
-      (p) => !INFRA_PREFIXES.some((x) => p.appId.startsWith(x)),
-    );
-    const labels = await androidLabels(deviceId, pkgs);
-    apps = pkgs.map((p) => ({
-      platform,
-      appId: p.appId,
-      label: labels[p.apkPath]?.label ?? null,
-      version: labels[p.apkPath]?.versionName ?? p.versionCode,
-    }));
-  } else {
-    const plist = await run('xcrun', ['simctl', 'listapps', deviceId], { timeoutMs: 30_000 });
-    const json = (await run('plutil', ['-convert', 'json', '-o', '-', '-'], { input: plist.stdout, timeoutMs: 10_000 })).stdout.toString('utf8');
-    apps = parseSimctlApps(json).filter((a) => !INFRA_PREFIXES.some((x) => a.appId.startsWith(x)));
+  switch (platform) {
+    case 'android': {
+      const pkgs = parsePmPackages(await adbShell(deviceId, ['pm', 'list', 'packages', '-3', '-f', '--show-versioncode'])).filter(
+        (p) => !INFRA_PREFIXES.some((x) => p.appId.startsWith(x)),
+      );
+      const labels = await androidLabels(deviceId, pkgs);
+      apps = pkgs.map((p) => ({
+        platform,
+        appId: p.appId,
+        label: labels[p.apkPath]?.label ?? null,
+        version: labels[p.apkPath]?.versionName ?? p.versionCode,
+      }));
+      break;
+    }
+    case 'ios': {
+      const plist = await run('xcrun', ['simctl', 'listapps', deviceId], { timeoutMs: 30_000 });
+      const json = (await run('plutil', ['-convert', 'json', '-o', '-', '-'], { input: plist.stdout, timeoutMs: 10_000 })).stdout.toString('utf8');
+      apps = parseSimctlApps(json).filter((a) => !INFRA_PREFIXES.some((x) => a.appId.startsWith(x)));
+      break;
+    }
+    case 'desktop-chrome':
+    case 'desktop-safari':
+      throw new Error(`${PLATFORM_INFO[platform].label}에는 설치 앱 목록이 없습니다 (웹 대상만 실행).`);
   }
   return apps.sort((a, b) => a.appId.localeCompare(b.appId));
 }

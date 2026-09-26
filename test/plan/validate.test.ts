@@ -53,13 +53,22 @@ describe('generated test validation', () => {
     assert.match(errorsOf({ ...valid, steps: [{ longPress: { text: 'Delete' } }] }).join('\n'), /위험 동작 대상 "Delete"/);
     assert.match(errorsOf({ ...valid, steps: [{ which: { 홈: [{ tap: '결제하기' }], 검색: [{ back: true }] } }] }).join('\n'), /which\["홈"\]\[0\]: 위험 동작 대상 "결제하기"/);
     assert.match(errorsOf({ ...valid, steps: [{ repeat: { times: 2, steps: [{ tap: { text: { regex: '삭제' } } }] } }] }).join('\n'), /위험 동작 대상 "삭제"/);
-    assert.match(errorsOf({ ...valid, steps: [{ type: 'hi', into: '메시지 보내기', submit: true }] }).join('\n'), /위험 동작 대상 "메시지 보내기"/);
+    assert.match(errorsOf({ ...valid, steps: [{ repeat: { times: 1, steps: [{ longPress: '메시지 보내기' }] } }] }).join('\n'), /위험 동작 대상 "메시지 보내기"/);
     // Confirm labels are risky once the test itself mentions a destructive dialog.
     assert.match(errorsOf({ ...valid, steps: [{ assertText: '정말 삭제하시겠어요?' }, { tap: '확인' }] }).join('\n'), /위험 동작 대상 "확인"/);
     assert.deepEqual(errorsOf({ ...valid, steps: [{ tap: '확인' }] }), []);
     const idOnly = errorsOf({ ...valid, steps: [{ tap: { id: 'kr.tteonam.app:id/delete' } }] }).join('\n');
     assert.match(idOnly, /라벨 없는 대상/);
     assert.match(idOnly, /id 셀렉터/);
+  });
+
+  test('keyboard submit is rejected: type.submit and every press except back (invariant 8)', () => {
+    assert.match(errorsOf({ ...valid, steps: [{ type: '인천', into: '검색', submit: true }] }).join('\n'), /steps\[0\]: type\.submit은 자동 생성 테스트에 쓸 수 없습니다/);
+    for (const key of ['enter', 'tab', 'escape', 'delete']) {
+      assert.match(errorsOf({ ...valid, steps: [{ press: key }] }).join('\n'), new RegExp(`steps\\[0\\]: press "${key}"는 자동 생성 테스트에 쓸 수 없습니다`), key);
+    }
+    assert.match(errorsOf({ ...valid, when: [{ see: '광고', do: [{ press: 'enter' }] }] }).join('\n'), /when\[0\]\.do\[0\]: press "enter"/);
+    assert.deepEqual(errorsOf({ ...valid, steps: [{ type: '인천', into: '검색' }, { press: 'back' }, { type: '김포', into: '검색', submit: false }] }), []);
   });
 
   test('unknown and disallowed step kinds are named', () => {
@@ -83,11 +92,35 @@ describe('generated test validation', () => {
     assert.deepEqual(errorsOf({ ...valid, steps: [{ remember: { name: 'flight', from: { regex: '(?<value>[A-Z]{2}\\d+)' } } }, { assertText: '${flight}' }] }), []);
   });
 
-  test('regexes must compile and checkEach vars must be named groups', () => {
+  test('regexes must compile and checkEach rules pass the runner’s own rule check', () => {
     assert.match(errorsOf({ ...valid, steps: [{ assertText: { regex: '([' } }] }).join('\n'), /정규식이 올바르지 않습니다/);
-    const rule = (v: string) => ({ checkEach: { pattern: '^(?<min>\\d+)분$', rule: { '>=': [{ var: v }, 0] } } });
-    assert.deepEqual(errorsOf({ ...valid, steps: [rule('min')] }), []);
-    assert.match(errorsOf({ ...valid, steps: [rule('minutes')] }).join('\n'), /var "minutes"가 pattern의 이름 그룹에 없습니다/);
+    const check = (rule: object) => ({ checkEach: { pattern: '^(?<min>\\d+)분$', rule } });
+    assert.deepEqual(errorsOf({ ...valid, steps: [check({ '>=': [{ var: 'min' }, 0] })] }), []);
+    assert.match(errorsOf({ ...valid, steps: [check({ '>=': [{ var: 'minutes' }, 0] })] }).join('\n'), /"minutes"는 pattern의 이름 그룹이 아님/);
+    // Rules the runner refuses (ERROR invalid_rule) never reach a saved test: a group read inside a collection's logic,
+    // a missing operand (an `if` without its else, a `var` default), a rule that reads no group.
+    const refused = [
+      { none: [{ merge: [{ var: 'min' }] }, { '>': [{ var: 'min' }, 0] }] },
+      { '%': [{ var: 'min' }] },
+      { '!': { if: [{ '>': [{ var: 'min' }, 0] }, false, { '<': [{ var: 'min' }, 0] }, false] } },
+      { '>=': [{ var: ['min', 0] }, 0] },
+      { '==': [1, 1] },
+    ];
+    for (const rule of refused) {
+      assert.match(errorsOf({ ...valid, steps: [check(rule)] }).join('\n'), /checkEach\.rule/, JSON.stringify(rule));
+    }
+  });
+
+  test('checkEach rules reading an optional group through missing/missing_some are refused, never saved', () => {
+    // `s` may not match; read by name without a `var`, a line lacking it would be judged on `n` alone.
+    const check = (rule: object) => ({ checkEach: { pattern: '^(?<n>\\d+)(?: (?<s>\\S+))?$', rule } });
+    const cases: Record<string, object> = {
+      missing: { and: [{ '>': [{ var: 'n' }, 0] }, { '!!': { missing: ['s'] } }] },
+      missing_some: { and: [{ '>': [{ var: 'n' }, 0] }, { '!': { missing_some: [1, 'n'] } }] },
+    };
+    for (const [op, rule] of Object.entries(cases)) {
+      assert.match(errorsOf({ ...valid, steps: [check(rule)] }).join('\n'), new RegExp(`checkEach\\.rule\\.and\\[1\\]\\.!!?: 알 수 없는 JSONLogic 연산자 "${op}"`), op);
+    }
   });
 
   test('literals missing from the screen inventory are warnings, not errors', () => {

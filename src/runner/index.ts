@@ -4,33 +4,42 @@ import { join, relative, sep } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { PATHS } from '../core/config.ts';
 import type { EventSink } from '../core/events.ts';
-import { newRunId, writeJson, writeSecure } from '../core/fsx.ts';
-import type { DeviceInfo, Driver, Platform, ScreenModel, Verdict } from '../core/types.ts';
-import { acquireDeviceLock, createDriver, pickDevice } from '../drivers/index.ts';
+import { newRunId, sha256, writeJson, writeSecure } from '../core/fsx.ts';
+import { PLATFORM_INFO, PLATFORMS } from '../core/platform.ts';
+import type { DeviceInfo, Driver, Platform, ScreenModel, Verdict, WebTarget } from '../core/types.ts';
+import { acquireDeviceLock, acquireDisplayLock, clearDisplayUnknown, createDriver, failureStatus, markDisplayUnknown, pickDevice, readDisplayUnknown, type DisplayUnknown } from '../drivers/index.ts';
 import { JevClient } from '../jev/client.ts';
 import { loadJevConfig } from '../jev/config.ts';
 import { loadCalibration } from '../jev/gates.ts';
 import { buildScreenModel, candidateRow, normLabel, runOcr } from '../observe/index.ts';
 import { OCR_HELPER } from '../ocr/ocr.ts';
+import { exitCodeFor } from '../report/console.ts';
 import { writeReports } from '../report/index.ts';
+import { countQaStatuses, qaStatus, type QaStatus } from '../report/status.ts';
 import { SUMMARY_SCHEMA, type RunSummary, type TestResult } from '../report/types.ts';
+import { writeWebQa } from '../report/webqa.ts';
 import { loadAppProfile, loadTests, type LoadedTest } from '../spec/load.ts';
-import type { AppProfile } from '../spec/schema.ts';
-import { appTarget, TestSession, type Clock, type JevSetup, type OcrFn } from './engine.ts';
+import { profilePlatforms, type AppProfile } from '../spec/schema.ts';
+import { appTarget, DEFAULT_TIMEOUT_MS, TestSession, type Clock, type JevSetup, type OcrFn } from './engine.ts';
 import { writeInventory } from './inventory.ts';
-import { assessRisk } from './risk.ts';
+import { EvidenceSanitizer } from './sanitize.ts';
+import { assessRisk } from '../policy/risk.ts';
 import { RunStore } from './store.ts';
 import { countVerdicts } from './verdict.ts';
 
 export type { DecisionSummary, StepResult, TestResult } from '../report/types.ts';
+export { appTarget } from './engine.ts';
 
 export interface RunResult {
   runId: string;
   runDir: string;
   counts: Record<Verdict, number>;
+  qaCounts: Record<QaStatus, number>;
   tests: TestResult[];
   reportPath: string;
   junitPath: string | null;
+  /** Run-relative `web-qa/plan.json` + `result.json` (check-run v1) when the run had website results, else empty. */
+  webQa: string[];
 }
 
 export interface RunOptions {
@@ -66,6 +75,21 @@ export interface RunnerDeps {
   pickDevice(platform: Platform, id?: string): Promise<DeviceInfo>;
   /** Throws when another live process holds the device. */
   acquireLock(deviceId: string): { release(): void };
+  /**
+   * The lock on this Mac's display, pointer and keyboard focus, taken by every qa process of this OS user (any
+   * checkout) whose work opens a desktop browser: two browsers on one display take each other's input and focus.
+   * Throws when another live process holds it.
+   */
+  acquireDisplayLock(): { release(): void };
+  /** The host-wide record that a browser window may still be on the display (read under the display lock), or null. */
+  readDisplayUnknown(): DisplayUnknown | null;
+  /**
+   * Writes that record (throws when it cannot): this process's own before it opens a desktop browser (`claimDisplay`),
+   * and the cause when a desktop session end or start is unconfirmed.
+   */
+  markDisplayUnknown(record: DisplayUnknown): void;
+  /** Removes that record (throws when it cannot): only this process's own, once its desktop sessions all ended confirmed (`releaseDisplay`). */
+  clearDisplayUnknown(): void;
   jev(): JevSetup;
   ocr: OcrFn | null;
   clock: Clock;
@@ -75,8 +99,6 @@ export interface RunnerDeps {
   inventoryDir: string;
   fixturesDir: string;
 }
-
-const PLATFORMS: readonly Platform[] = ['android', 'ios'];
 
 const realClock: Clock = { now: () => performance.now(), sleep: (ms) => delay(ms) };
 
@@ -103,6 +125,10 @@ function resolveDeps(partial: Partial<RunnerDeps> = {}): RunnerDeps {
     createDriver: partial.createDriver ?? ((platform, id) => createDriver(platform, id)),
     pickDevice: partial.pickDevice ?? pickDevice,
     acquireLock: partial.acquireLock ?? ((id) => acquireDeviceLock(id)),
+    acquireDisplayLock: partial.acquireDisplayLock ?? acquireDisplayLock,
+    readDisplayUnknown: partial.readDisplayUnknown ?? readDisplayUnknown,
+    markDisplayUnknown: partial.markDisplayUnknown ?? markDisplayUnknown,
+    clearDisplayUnknown: partial.clearDisplayUnknown ?? clearDisplayUnknown,
     jev: partial.jev ?? realJev,
     ocr: partial.ocr !== undefined ? partial.ocr : existsSync(OCR_HELPER) ? runOcr : null,
     clock: partial.clock ?? realClock,
@@ -122,7 +148,10 @@ function message(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** A test × platform that could not run (spec error, no device, locked, session failure, cancelled). */
+/**
+ * A test × platform that could not run (spec error, no device, locked, session failure, cancelled), sanitized like a
+ * session's result by `clean` (profile `redact` and the secrets it knows; a spec that did not load: built-ins only).
+ */
 function unrunResult(
   base: { id: string; name: string; file: string | null; app: string; test: LoadedTest | null },
   platform: Platform,
@@ -130,18 +159,21 @@ function unrunResult(
   code: string,
   reason: string,
   device: DeviceInfo | null,
+  clean: EvidenceSanitizer,
 ): TestResult {
   const spec = base.test?.spec;
-  return {
+  return clean.deep({
     id: base.id,
     name: base.name,
     file: base.file,
     app: base.app,
     platform,
+    surface: base.test ? (base.test.profile.web ? 'web' : 'app') : null,
     deviceId: device?.id ?? null,
     deviceName: device?.name ?? null,
     verdict,
     code,
+    qaStatus: qaStatus({ verdict, code }),
     reason,
     durationMs: 0,
     covers: spec?.covers ?? [],
@@ -154,19 +186,129 @@ function unrunResult(
     logs: null,
     crash: [],
     evidenceDir: `${base.id}/${platform}`,
-  };
+  });
 }
 
-interface Slot {
+/**
+ * A lock released at most once: after its work, and again in the run's cleanup for work that never ran. The display
+ * lock is dropped unreleased (held until the process exits) when its unknown state could not be recorded.
+ */
+interface Held {
+  lock: { release(): void } | null;
+}
+
+interface Slot extends Held {
   platform: Platform;
   device: DeviceInfo | null;
-  lock: { release(): void } | null;
   problem: { code: string; reason: string } | null;
 }
 
-/** Picks and locks one device per platform; failures become a per-platform problem (tests there ERROR). */
-async function claimDevices(d: RunnerDeps, platforms: readonly Platform[], ids: Partial<Record<Platform, string>> | undefined): Promise<Map<Platform, Slot>> {
+function releaseHeld(held: Held): void {
+  const lock = held.lock;
+  held.lock = null;
+  lock?.release();
+}
+
+/**
+ * This process's hold on the display: the lock and its own display-unknown record. Before it opens a desktop browser it
+ * records the display as unknown itself (`claimDisplay`), so a process killed or crashed while its browser may be open
+ * leaves the record, and the next run — which reclaims the dead owner's lock — opens no browser beside a window that
+ * may have survived. `releaseDisplay` removes the record only when every session it counted ended confirmed.
+ */
+interface Display extends Held {
+  /** This process's record is on disk (written by `claimDisplay`; an unconfirmed session end or start overwrites it). */
+  recorded: boolean;
+  /** Desktop sessions started under the record whose end is not confirmed (a refused start opened no window). */
+  unconfirmed: number;
+}
+
+/**
+ * Before a desktop browser opens (display lock held, no record found): writes this process's record once — what a later
+ * run reads if this process dies before the session end is confirmed — and counts the session. A record that cannot be
+ * written: nothing may open (a crash would leave no trace); returns why.
+ */
+function claimDisplay(d: RunnerDeps, display: Display, runId?: string): string | null {
+  if (!display.recorded) {
+    try {
+      d.markDisplayUnknown({ since: new Date().toISOString(), reason: `qa 프로세스(pid ${process.pid})가 연 데스크톱 브라우저의 세션 종료가 아직 확인되지 않음 — 그 프로세스가 끝났다면 강제 종료·충돌로 창이 남았을 수 있음`, runId });
+    } catch (err) {
+      return `데스크톱 화면 사용 기록을 남기지 못해 브라우저를 열지 않음 (${message(err)}) — 이 프로세스가 비정상 종료하면 남은 창을 다음 실행이 알 수 없음`;
+    }
+    display.recorded = true;
+  }
+  display.unconfirmed++;
+  return null;
+}
+
+/**
+ * Releases the display lock (at most once, as `releaseHeld`), removing this process's record first when every browser
+ * session it opened ended confirmed. Otherwise the record stays, as does one that cannot be removed (logged): later
+ * runs are then refused until `qa setup --browsers` clears it.
+ */
+function releaseDisplay(d: RunnerDeps, display: Display, sink: EventSink | undefined): void {
+  if (display.lock !== null && display.recorded && display.unconfirmed === 0) {
+    try {
+      d.clearDisplayUnknown();
+      display.recorded = false;
+    } catch (err) {
+      sink?.emit({ type: 'log', level: 'error', source: 'runner', message: `데스크톱 화면 사용 기록을 지우지 못함 (${message(err)}) — 다음 데스크톱 실행은 display_unknown으로 막힘; 남은 브라우저 창이 없으면 qa setup --browsers로 지우세요` });
+    }
+  }
+  releaseHeld(display);
+}
+
+/** Why no browser opens on this Mac's display while the host-wide record is there, and how the user clears it. */
+function displayUnknownReason(unknown: DisplayUnknown): string {
+  return `데스크톱 화면 상태를 알 수 없어 브라우저를 열지 않음 (${unknown.since}${unknown.runId ? ` 실행 ${unknown.runId}` : ''}: ${unknown.reason}) — 화면에 남은 브라우저 창을 닫은 뒤 qa setup --browsers로 해제하세요`;
+}
+
+/**
+ * Records host-wide that a browser window may still be on this Mac's display (`reason` already sanitized; it replaces
+ * this process's own record, which then stays) while the display lock is still held: until `qa setup --browsers` clears
+ * it, no qa process of any checkout opens a browser there. A record that cannot be written keeps the lock until this
+ * process exits (logged): releasing it would hand the display on as if nothing were left.
+ */
+function recordDisplayUnknown(d: RunnerDeps, display: Display, sink: EventSink | undefined, reason: string, runId?: string): void {
+  try {
+    d.markDisplayUnknown({ since: new Date().toISOString(), reason, runId });
+  } catch (err) {
+    display.lock = null;
+    sink?.emit({ type: 'log', level: 'error', source: 'runner', message: `데스크톱 화면 상태를 기록하지 못해 이 프로세스가 끝날 때까지 화면 잠금을 유지함 (${message(err)}) — 화면에 남은 브라우저 창을 닫으세요` });
+  }
+}
+
+function isDesktop(platform: Platform): boolean {
+  return PLATFORM_INFO[platform].host === 'desktop';
+}
+
+/**
+ * Slots that run one after another. Desktop browsers share one lane (one display, pointer and keyboard focus);
+ * `displayUnknown` is set once a browser window may have been left on that display, and nothing more runs there.
+ */
+interface Lane {
+  desktop: boolean;
+  slots: Slot[];
+  displayUnknown: string | null;
+}
+
+/**
+ * Picks and locks one device per platform, and the display (`acquireDisplayLock`) when any platform is a desktop
+ * browser; failures become a per-platform problem (tests there ERROR): a display held elsewhere refuses every desktop
+ * platform like a device in use, and one recorded as unknown (read under its lock) refuses them as `display_unknown`.
+ */
+async function claimDevices(d: RunnerDeps, platforms: readonly Platform[], ids: Partial<Record<Platform, string>> | undefined): Promise<{ slots: Map<Platform, Slot>; display: Display }> {
   const slots = new Map<Platform, Slot>();
+  const display: Display = { lock: null, recorded: false, unconfirmed: 0 };
+  let displayProblem: Slot['problem'] = null;
+  if (platforms.some(isDesktop)) {
+    try {
+      display.lock = d.acquireDisplayLock();
+    } catch (err) {
+      displayProblem = { code: 'device_locked', reason: message(err) };
+    }
+    const unknown = display.lock ? d.readDisplayUnknown() : null;
+    if (unknown) displayProblem = { code: 'display_unknown', reason: displayUnknownReason(unknown) };
+  }
   for (const platform of platforms) {
     const slot: Slot = { platform, device: null, lock: null, problem: null };
     slots.set(platform, slot);
@@ -176,22 +318,42 @@ async function claimDevices(d: RunnerDeps, platforms: readonly Platform[], ids: 
       slot.problem = { code: 'no_device', reason: `${platform} 기기 없음: ${message(err)}` };
       continue;
     }
+    if (displayProblem !== null && isDesktop(platform)) {
+      slot.problem = displayProblem;
+      continue;
+    }
     try {
       slot.lock = d.acquireLock(slot.device.id);
     } catch (err) {
       slot.problem = { code: 'device_locked', reason: `기기 ${slot.device.id} 사용 중: ${message(err)}` };
     }
   }
-  return slots;
+  return { slots, display };
+}
+
+/** Identifies the tested website configuration for the web-qa export: a digest of every web profile in the run. */
+function webBuildId(profiles: readonly AppProfile[]): string {
+  const web = new Map(profiles.flatMap((p) => (p.web ? [[p.id, p.web] as const] : [])));
+  const config = [...web].sort(([a], [b]) => a.localeCompare(b));
+  return `config-${sha256(JSON.stringify(config)).slice(0, 16)}`;
 }
 
 function finishRun(
   store: RunStore,
   d: RunnerDeps,
-  meta: { kind: RunSummary['kind']; startedAt: string; t0: number; platform: RunSummary['platform']; slots: Map<Platform, Slot>; junit: boolean },
+  meta: {
+    kind: RunSummary['kind'];
+    startedAt: string;
+    t0: number;
+    platform: RunSummary['platform'];
+    slots: Map<Platform, Slot>;
+    junit: boolean;
+    profiles: readonly AppProfile[];
+  },
   tests: TestResult[],
 ): RunResult {
   const counts = countVerdicts(tests.map((t) => t.verdict));
+  const qaCounts = countQaStatuses(tests.map((t) => t.qaStatus));
   const summary: RunSummary = {
     $schema: SUMMARY_SCHEMA,
     kind: meta.kind,
@@ -202,24 +364,28 @@ function finishRun(
     platform: meta.platform,
     devices: [...meta.slots.values()].flatMap((s) => (s.device ? [{ platform: s.platform, id: s.device.id, name: s.device.name }] : [])),
     counts,
+    qaCounts,
     tests,
     reportPath: 'report.html',
     junitPath: meta.junit ? 'junit.xml' : null,
   };
-  store.writeJson('summary.json', summary, 'report');
+  store.writeRecord('summary.json', summary, 'report');
   const { reportPath, junitPath } = writeReports(store.runDir, summary, { junit: meta.junit, root: d.root });
+  const webQa = writeWebQa(store.runDir, summary, { buildId: webBuildId(meta.profiles), runnerExitCode: exitCodeFor(counts) });
   store.emit({ type: 'run.finished', runId: store.runId, counts, reportPath, junitPath });
   store.writeManifest();
-  return { runId: store.runId, runDir: store.runDir, counts, tests, reportPath, junitPath };
+  return { runId: store.runId, runDir: store.runDir, counts, qaCounts, tests, reportPath, junitPath, webQa };
 }
 
 /**
- * Runs tests (`*.e2e.yaml` files/dirs; default `tests/`) on the requested platforms. One device per platform, locked for
- * the run; platforms run concurrently, tests sequentially. Never throws for test failures — only for bad input paths.
+ * Runs tests (`*.e2e.yaml` files/dirs; default `tests/`) on the requested platforms (`all`: every platform each test's
+ * profile runs on). One device (or desktop browser) per platform, locked for the run, and this Mac's display while its
+ * desktop browsers run; platforms run concurrently, tests sequentially. Never throws for test failures — only for bad
+ * input paths.
  */
 export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Promise<RunResult> {
   const d = resolveDeps(deps);
-  const requested = opts.platform === 'all' ? PLATFORMS : [opts.platform];
+  const requested: readonly Platform[] = opts.platform === 'all' ? PLATFORMS : [opts.platform];
   const loaded = loadTests(opts.paths, { root: d.root, appsDir: d.appsDir, tags: opts.tags });
   const runId = newRunId();
   const store = new RunStore(join(d.runsDir, runId), runId, opts.events);
@@ -229,56 +395,65 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
   // test × platform plan
   const planned: { test: LoadedTest; platform: Platform }[] = [];
   const early: TestResult[] = [];
+  const covered = new Set<Platform>();
   for (const test of loaded.tests) {
     const declared = test.spec.platforms;
-    const available = PLATFORMS.filter((p) => appTarget(test.profile, p) !== null);
+    const available = profilePlatforms(test.profile);
+    for (const p of available) covered.add(p);
     for (const platform of requested) {
       const base = { id: test.id, name: test.spec.name, file: posixRel(d.root, test.file), app: test.spec.app, test };
       if (declared && !declared.includes(platform)) continue;
       if (!available.includes(platform)) {
-        if (declared) early.push(unrunResult(base, platform, 'ERROR', 'app_not_configured', `앱 프로필 ${test.spec.app}에 ${platform} 설정이 없습니다`, null));
+        if (declared) early.push(unrunResult(base, platform, 'ERROR', 'app_not_configured', `앱 프로필 ${test.spec.app}에 ${platform} 설정이 없습니다`, null, new EvidenceSanitizer(test.profile.redact)));
         continue;
       }
       planned.push({ test, platform });
     }
   }
+  // A file that failed to load has no known profile: under `all` it is reported on the platforms the run covers.
+  const errorPlatforms = opts.platform === 'all' && covered.size > 0 ? PLATFORMS.filter((p) => covered.has(p)) : requested;
   for (const e of loaded.errors) {
-    for (const platform of requested) {
-      early.push(unrunResult({ id: e.id, name: e.id, file: posixRel(d.root, e.file), app: '', test: null }, platform, 'ERROR', 'spec_invalid', e.error.message, null));
+    for (const platform of errorPlatforms) {
+      early.push(unrunResult({ id: e.id, name: e.id, file: posixRel(d.root, e.file), app: '', test: null }, platform, 'ERROR', 'spec_invalid', e.error.message, null, new EvidenceSanitizer([])));
     }
   }
 
-  const slots = await claimDevices(
+  const { slots, display } = await claimDevices(
     d,
     requested.filter((p) => planned.some((x) => x.platform === p)),
     opts.deviceIds,
   );
-  const jev = d.jev();
-  store.emit({
-    type: 'run.started',
-    runId,
-    runDir: store.runDir,
-    tests: loaded.tests.map((t) => ({
-      id: t.id,
-      name: t.spec.name,
-      platforms: planned.filter((x) => x.test === t).map((x) => x.platform),
-      steps: TestSession.stepLabels(t),
-    })),
-    devices: [...slots.values()].flatMap((s) => (s.device ? [{ platform: s.platform, id: s.device.id, name: s.device.name }] : [])),
-  });
-  if (!d.ocr) store.emit({ type: 'log', level: 'warn', source: 'runner', message: 'OCR 도우미가 없어 OCR 없이 실행합니다 (qa setup으로 설치)' });
-  for (const r of early) {
-    store.emit({ type: 'test.finished', runId, testId: r.id, platform: r.platform, verdict: r.verdict, reason: r.reason, durationMs: 0 });
-  }
+  const results: TestResult[] = [];
+  try {
+    const jev = d.jev();
+    store.emit({
+      type: 'run.started',
+      runId,
+      runDir: store.runDir,
+      tests: loaded.tests.map((t) => TestSession.announce(t, planned.filter((x) => x.test === t).map((x) => x.platform))),
+      devices: [...slots.values()].flatMap((s) => (s.device ? [{ platform: s.platform, id: s.device.id, name: s.device.name }] : [])),
+    });
+    if (!d.ocr) store.emit({ type: 'log', level: 'warn', source: 'runner', message: 'OCR 도우미가 없어 OCR 없이 실행합니다 (qa setup으로 설치)' });
+    for (const r of early) {
+      store.emit({ type: 'test.finished', runId, testId: r.id, platform: r.platform, verdict: r.verdict, reason: r.reason, durationMs: 0 });
+    }
 
-  const perPlatform = await Promise.all(
-    [...slots.values()].map(async (slot): Promise<TestResult[]> => {
+    const runSlot = async (slot: Slot, lane: Lane): Promise<TestResult[]> => {
       const mine = planned.filter((x) => x.platform === slot.platform);
       const out: TestResult[] = [];
       const skip = (test: LoadedTest, verdict: Verdict, code: string, reason: string) => {
-        const r = unrunResult({ id: test.id, name: test.spec.name, file: posixRel(d.root, test.file), app: test.spec.app, test }, slot.platform, verdict, code, reason, slot.device);
-        store.emit({ type: 'test.finished', runId, testId: r.id, platform: r.platform, verdict, reason, durationMs: 0 });
+        const base = { id: test.id, name: test.spec.name, file: posixRel(d.root, test.file), app: test.spec.app, test };
+        const r = unrunResult(base, slot.platform, verdict, code, reason, slot.device, new EvidenceSanitizer(test.profile.redact));
+        store.emit({ type: 'test.finished', runId, testId: r.id, platform: r.platform, verdict, reason: r.reason, durationMs: 0 });
         out.push(r);
+      };
+      // A browser window of this lane may still be on the display: its input and focus would reach the wrong window.
+      // Recorded host-wide before the display lock goes, so later runs of any checkout do not open a browser either.
+      const loseDisplay = (clean: EvidenceSanitizer, what: string, err: unknown) => {
+        const cause = clean.text(`${PLATFORM_INFO[slot.platform].label} ${what} (${message(err)})`);
+        lane.displayUnknown = `데스크톱 화면 상태를 알 수 없어 남은 브라우저 테스트를 실행하지 않음: ${cause}`;
+        store.emit({ type: 'log', level: 'error', source: 'runner', message: lane.displayUnknown });
+        recordDisplayUnknown(d, display, store, cause, runId);
       };
       if (slot.problem || !slot.device) {
         for (const { test } of mine) skip(test, 'ERROR', slot.problem?.code ?? 'no_device', slot.problem?.reason ?? '기기 없음');
@@ -286,51 +461,118 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
       }
       const device = slot.device;
       const driver = d.createDriver(slot.platform, device.id);
-      try {
-        // One session per app: capabilities are app-specific.
-        const apps = [...new Set(mine.map((x) => x.test.spec.app))];
-        for (const app of apps) {
-          const group = mine.filter((x) => x.test.spec.app === app);
-          const target = appTarget(group[0]!.test.profile, slot.platform)!;
-          try {
-            await driver.open(target);
-          } catch (err) {
-            for (const { test } of group) skip(test, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`);
-            continue;
+      // One session per app: capabilities are app-specific.
+      const apps = [...new Set(mine.map((x) => x.test.spec.app))];
+      for (const app of apps) {
+        const group = mine.filter((x) => x.test.spec.app === app);
+        if (lane.displayUnknown !== null) {
+          for (const { test } of group) skip(test, 'ERROR', 'display_unknown', lane.displayUnknown);
+          continue;
+        }
+        const profile = group[0]!.test.profile;
+        const target = appTarget(profile, slot.platform)!;
+        const refused = lane.desktop ? claimDisplay(d, display, runId) : null;
+        if (refused !== null) {
+          for (const { test } of group) skip(test, 'ERROR', 'session_failed', refused);
+          continue;
+        }
+        try {
+          await driver.open(target);
+        } catch (err) {
+          for (const { test } of group) skip(test, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`);
+          if (lane.desktop) {
+            // A refused start opened no window; any other failure may have left one.
+            if (failureStatus(err) === 'rejected') display.unconfirmed--;
+            else loseDisplay(new EvidenceSanitizer(profile.redact), '세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음', err);
           }
-          try {
-            for (const { test } of group) {
-              if (opts.signal?.aborted) {
-                skip(test, 'SKIPPED', 'cancelled', '실행이 취소되어 건너뜀');
-                continue;
-              }
-              const session = new TestSession(
-                { runId, store, driver, device, clock: d.clock, jev, ocr: d.ocr, relFile: posixRel(d.root, test.file), signal: opts.signal },
-                test,
-                slot.platform,
-                target,
-              );
-              out.push(await session.run());
+          continue;
+        }
+        // An unconfirmed session start or end inside the group (a test's launch, terminate or `reset: clear`; the
+        // driver's sticky `displayProblem`) stops the lane as soon as the step that caused it ends — its test keeps its
+        // own result; nothing more starts — not only at the group's close().
+        const clean = new EvidenceSanitizer(profile.redact);
+        const checkDisplay = (what: string) => {
+          const problem = lane.desktop ? (driver.displayProblem?.() ?? null) : null;
+          if (problem !== null) loseDisplay(clean, what, problem);
+        };
+        try {
+          checkDisplay('세션 시작 뒤 창 상태를 확인하지 못함');
+          for (const { test } of group) {
+            if (lane.displayUnknown !== null) {
+              skip(test, 'ERROR', 'display_unknown', lane.displayUnknown);
+              continue;
             }
-          } finally {
-            await driver.close().catch(() => undefined);
+            if (opts.signal?.aborted) {
+              skip(test, 'SKIPPED', 'cancelled', '실행이 취소되어 건너뜀');
+              continue;
+            }
+            const session = new TestSession(
+              { runId, store, clean: new EvidenceSanitizer(test.profile.redact), driver, device, clock: d.clock, jev, ocr: d.ocr, relFile: posixRel(d.root, test.file), signal: opts.signal },
+              test,
+              slot.platform,
+              target,
+            );
+            out.push(await session.run());
+            checkDisplay(`테스트 ${test.id} 중 세션 시작 또는 종료를 확인하지 못함`);
+          }
+        } finally {
+          // A test that threw is checked here. Lost in this group (the lane entered it with a known display): recorded
+          // once, and never counted as ended, whatever close() says.
+          if (lane.displayUnknown === null) checkDisplay('세션 시작 또는 종료를 확인하지 못함');
+          const lost = lane.displayUnknown !== null;
+          try {
+            await driver.close();
+            if (lane.desktop && !lost) display.unconfirmed--;
+          } catch (err) {
+            // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
+            if (lane.desktop && !lost) loseDisplay(clean, '세션 종료를 확인하지 못함', err);
           }
         }
-      } finally {
-        slot.lock?.release();
       }
       return out;
-    }),
-  );
+    };
+    // Desktop browsers share this Mac's display, pointer and keyboard focus, so they run one after another (measured:
+    // Safari's clicks had no effect while a Chrome window was in front of it) under the display lock, which keeps other
+    // qa processes' browsers off the display until this lane ends (and after it, while its state is recorded as
+    // unknown); devices run in parallel.
+    const lanes = new Map<string, Lane>();
+    for (const slot of slots.values()) {
+      const desktop = isDesktop(slot.platform);
+      const key = desktop ? 'desktop' : slot.platform;
+      const lane = lanes.get(key) ?? { desktop, slots: [], displayUnknown: null };
+      lane.slots.push(slot);
+      lanes.set(key, lane);
+    }
+    // Every lane settles before the locks are released: a lane that throws does not free a device another lane still uses.
+    const settled = await Promise.allSettled(
+      [...lanes.values()].map(async (lane) => {
+        const out: TestResult[] = [];
+        for (const slot of lane.slots) {
+          out.push(...(await runSlot(slot, lane)));
+          releaseHeld(slot);
+        }
+        if (lane.desktop) releaseDisplay(d, display, store);
+        return out;
+      }),
+    );
+    for (const lane of settled) {
+      if (lane.status === 'rejected') throw lane.reason;
+      results.push(...lane.value);
+    }
+  } finally {
+    for (const slot of slots.values()) releaseHeld(slot);
+    releaseDisplay(d, display, store);
+  }
 
-  const byKey = new Map(perPlatform.flat().map((r) => [`${r.id} ${r.platform}`, r]));
+  const byKey = new Map(results.map((r) => [`${r.id} ${r.platform}`, r]));
   const ordered: TestResult[] = [];
   for (const test of loaded.tests) for (const p of requested) {
     const r = byKey.get(`${test.id} ${p}`);
     if (r) ordered.push(r);
   }
   ordered.push(...early);
-  return finishRun(store, d, { kind: 'run', startedAt, t0, platform: opts.platform, slots, junit: opts.junit ?? false }, ordered);
+  const profiles = loaded.tests.map((t) => t.profile);
+  return finishRun(store, d, { kind: 'run', startedAt, t0, platform: opts.platform, slots, junit: opts.junit ?? false, profiles }, ordered);
 }
 
 /** Smoke-test pseudo spec: relaunch, no DSL steps (the session drives smoke itself). */
@@ -347,10 +589,16 @@ function smokeTest(profile: AppProfile): LoadedTest {
 /**
  * Observe-only smoke on one platform: launch → settle → health (incl. blank) → screenshot → inventory. `crawl:'tabs'`
  * visits role-identified tab bar items only (risk-filtered) and returns to the first tab. Jev is a reference column.
+ * A desktop browser opens only under this process's own display record (`claimDisplay`), removed after its confirmed
+ * end. One whose start or end is unconfirmed may still be on the display: the smoke is then ERROR `display_unknown`
+ * (its own result kept in the reason) and the display is recorded as unknown, so no qa process opens another browser
+ * until `qa setup --browsers` clears it. `test.finished` carries that final verdict.
  */
 export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): Promise<RunResult> {
   const d = resolveDeps(deps);
   const profile = loadAppProfile(opts.app, d.appsDir);
+  // Every record of the smoke run, in the session or around it, passes one sanitizer (built before anything is written).
+  const clean = new EvidenceSanitizer(profile.redact);
   const target = appTarget(profile, opts.platform);
   if (!target) throw new Error(`앱 프로필 ${opts.app}에 ${opts.platform} 설정이 없습니다`);
   const runId = newRunId();
@@ -358,62 +606,149 @@ export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): 
   const startedAt = new Date().toISOString();
   const t0 = d.clock.now();
   const test = smokeTest(profile);
-  const slots = await claimDevices(d, [opts.platform], { [opts.platform]: opts.deviceId });
+  const { slots, display } = await claimDevices(d, [opts.platform], { [opts.platform]: opts.deviceId });
   const slot = slots.get(opts.platform)!;
-  store.emit({
-    type: 'run.started',
-    runId,
-    runDir: store.runDir,
-    tests: [{ id: test.id, name: test.spec.name, platforms: [opts.platform], steps: ['앱 시작: relaunch', '화면 점검: launch', ...(opts.crawl ? ['탭 순회'] : [])] }],
-    devices: slot.device ? [{ platform: opts.platform, id: slot.device.id, name: slot.device.name }] : [],
-  });
-  const base = { id: test.id, name: test.spec.name, file: null, app: profile.id, test };
+  const desktop = isDesktop(opts.platform);
   let result: TestResult;
-  if (slot.problem || !slot.device) {
-    result = unrunResult(base, opts.platform, 'ERROR', slot.problem?.code ?? 'no_device', slot.problem?.reason ?? '기기 없음', null);
-  } else {
-    const driver = d.createDriver(opts.platform, slot.device.id);
-    try {
-      await driver.open(target);
+  try {
+    store.emit({
+      type: 'run.started',
+      runId,
+      runDir: store.runDir,
+      tests: [clean.deep({ id: test.id, name: test.spec.name, platforms: [opts.platform], steps: ['앱 시작: relaunch', '화면 점검: launch', ...(opts.crawl ? ['탭 순회'] : [])] })],
+      devices: slot.device ? [{ platform: opts.platform, id: slot.device.id, name: slot.device.name }] : [],
+    });
+    const base = { id: test.id, name: test.spec.name, file: null, app: profile.id, test };
+    const refused = desktop && slot.device && !slot.problem ? claimDisplay(d, display, runId) : null;
+    if (slot.problem || !slot.device) {
+      result = unrunResult(base, opts.platform, 'ERROR', slot.problem?.code ?? 'no_device', slot.problem?.reason ?? '기기 없음', null, clean);
+    } else if (refused !== null) {
+      result = unrunResult(base, opts.platform, 'ERROR', 'session_failed', refused, slot.device, clean);
+    } else {
+      const driver = d.createDriver(opts.platform, slot.device.id);
+      let opened = false;
+      let lost: string | null = null;
       try {
-        const session = new TestSession(
-          { runId, store, driver, device: slot.device, clock: d.clock, jev: d.jev(), ocr: d.ocr, relFile: null, signal: opts.signal },
-          test,
-          opts.platform,
-          target,
-        );
-        result = await session.runSmoke({ crawl: opts.crawl === 'tabs', inventoryDir: d.inventoryDir });
-      } finally {
-        await driver.close().catch(() => undefined);
+        await driver.open(target);
+        opened = true;
+        try {
+          const session = new TestSession(
+            { runId, store, clean, driver, device: slot.device, clock: d.clock, jev: d.jev(), ocr: d.ocr, relFile: null, signal: opts.signal },
+            test,
+            opts.platform,
+            target,
+          );
+          result = await session.runSmoke({ crawl: opts.crawl === 'tabs', inventoryDir: d.inventoryDir });
+        } finally {
+          // A session start or end the smoke's relaunch could not confirm (the driver's sticky `displayProblem`) is the
+          // cause, recorded once; close() then fails on it too, and the session is never counted as ended.
+          const problem = desktop ? (driver.displayProblem?.() ?? null) : null;
+          if (problem !== null) lost = `스모크 중 세션 시작 또는 종료를 확인하지 못함 (${problem})`;
+          await driver.close().then(
+            () => {
+              if (desktop && lost === null) display.unconfirmed--;
+            },
+            (err: unknown) => {
+              // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
+              if (desktop) lost ??= `세션 종료를 확인하지 못함 (${message(err)})`;
+            },
+          );
+        }
+      } catch (err) {
+        // After the browser opened, a throw is the smoke's own failure, not a session that could not be opened.
+        result = opened
+          ? unrunResult(base, opts.platform, 'ERROR', 'internal', `실행 오류: ${message(err)}`, slot.device, clean)
+          : unrunResult(base, opts.platform, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`, slot.device, clean);
+        // A refused start opened no window; any other failure may have left one.
+        if (desktop && !opened && failureStatus(err) === 'rejected') display.unconfirmed--;
+        else if (desktop && !opened) lost = `세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음 (${message(err)})`;
       }
-    } catch (err) {
-      result = unrunResult(base, opts.platform, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`, slot.device);
-    } finally {
-      slot.lock?.release();
+      if (lost !== null) {
+        const cause = clean.text(`${PLATFORM_INFO[opts.platform].label} ${lost}`);
+        const reason = `데스크톱 화면 상태를 알 수 없음: ${cause}`;
+        store.emit({ type: 'log', level: 'error', source: 'runner', message: reason });
+        recordDisplayUnknown(d, display, store, cause, runId);
+        const own = result.verdict === 'PASS' ? '' : `; 스모크 결과 ${result.verdict}${result.code ? ` ${result.code}` : ''}: ${result.reason}`;
+        result = { ...result, verdict: 'ERROR', code: 'display_unknown', qaStatus: qaStatus({ verdict: 'ERROR', code: 'display_unknown' }), reason: `${reason}${own}` };
+      }
     }
+  } finally {
+    releaseHeld(slot);
+    releaseDisplay(d, display, store);
   }
-  if (result.steps.length === 0) store.emit({ type: 'test.finished', runId, testId: result.id, platform: result.platform, verdict: result.verdict, reason: result.reason, durationMs: 0 });
-  return finishRun(store, d, { kind: 'smoke', startedAt, t0, platform: opts.platform, slots, junit: false }, [result]);
+  store.emit({ type: 'test.finished', runId, testId: result.id, platform: result.platform, verdict: result.verdict, reason: result.reason, durationMs: result.durationMs });
+  return finishRun(store, d, { kind: 'smoke', startedAt, t0, platform: opts.platform, slots, junit: false, profiles: [profile] }, [result]);
 }
 
-/** Opens a session on the platform's device (locked) without launching anything, runs `use`, then cleans up. */
+/**
+ * A fresh browser session shows a blank tab: opens the start URL and waits (≤ the default step timeout) until the page
+ * shows content, so inspect/capture observe the site rather than about:blank.
+ */
+async function openStartPage(driver: Driver, target: WebTarget, d: RunnerDeps, profile: AppProfile): Promise<void> {
+  const opened = await driver.openUrl(target, target.url);
+  if (opened.status !== 'completed') throw new Error(`시작 페이지를 열 수 없음(${opened.status}): ${opened.error ?? target.url}`);
+  const deadline = d.clock.now() + DEFAULT_TIMEOUT_MS;
+  for (;;) {
+    const model = buildScreenModel(await driver.snapshot({ screenshot: false }), { volatile: profile.volatile });
+    if (model.candidates.length > 0 || model.texts.length > 0) return;
+    if (d.clock.now() >= deadline) throw new Error(`시작 페이지가 ${DEFAULT_TIMEOUT_MS}ms 안에 내용을 표시하지 않음: ${target.url}`);
+    await d.clock.sleep(250);
+  }
+}
+
+/**
+ * Opens a session on the platform's device (locked; a desktop browser also locks this Mac's display first, see
+ * `RunnerDeps.acquireDisplayLock`) without launching an app — a website is opened at its start URL — runs `use`, then
+ * cleans up. A desktop browser is refused while the display is recorded as unknown, and opens only under this
+ * process's own record (`claimDisplay`), removed after its confirmed end; one whose start or end is unconfirmed records
+ * that (its window may still be on the display) and throws.
+ */
 async function withScreen<T>(opts: ScreenOptions, d: RunnerDeps, use: (driver: Driver, device: DeviceInfo, profile: AppProfile) => Promise<T>): Promise<T> {
   const profile = loadAppProfile(opts.app, d.appsDir);
   const target = appTarget(profile, opts.platform);
   if (!target) throw new Error(`앱 프로필 ${opts.app}에 ${opts.platform} 설정이 없습니다`);
+  const desktop = isDesktop(opts.platform);
   const device = await d.pickDevice(opts.platform, opts.deviceId);
-  const lock = d.acquireLock(device.id);
+  const display: Display = { lock: desktop ? d.acquireDisplayLock() : null, recorded: false, unconfirmed: 0 };
+  let lock: { release(): void } | null = null;
+  // A browser window may be left on the display: recorded before the display lock goes, then thrown.
+  const lose = (what: string, err: unknown): Error => {
+    const cause = new EvidenceSanitizer(profile.redact).text(`${PLATFORM_INFO[opts.platform].label} ${what} (${message(err)})`);
+    recordDisplayUnknown(d, display, opts.events, cause);
+    return new Error(`데스크톱 화면 상태를 알 수 없음: ${cause}`, { cause: err });
+  };
   try {
+    const unknown = desktop ? d.readDisplayUnknown() : null;
+    if (unknown) throw new Error(displayUnknownReason(unknown));
+    lock = d.acquireLock(device.id);
     const driver = d.createDriver(opts.platform, device.id);
-    await driver.open(target);
+    const refused = desktop ? claimDisplay(d, display) : null;
+    if (refused !== null) throw new Error(refused);
+    await driver.open(target).catch((err: unknown) => {
+      if (!desktop) throw err;
+      // A refused start opened no window; any other failure may have left one.
+      if (failureStatus(err) !== 'rejected') throw lose('세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음', err);
+      display.unconfirmed--;
+      throw err;
+    });
     try {
+      if (target.kind === 'web') await openStartPage(driver, target, d, profile);
       opts.signal?.throwIfAborted();
       return await use(driver, device, profile);
     } finally {
-      await driver.close().catch(() => undefined);
+      await driver.close().then(
+        () => {
+          if (desktop) display.unconfirmed--;
+        },
+        (err: unknown) => {
+          // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
+          if (desktop) throw lose('세션 종료를 확인하지 못함', err);
+        },
+      );
     }
   } finally {
-    lock.release();
+    lock?.release();
+    releaseDisplay(d, display, opts.events);
   }
 }
 
@@ -436,7 +771,7 @@ export function renderInspectTable(model: ScreenModel, profile: AppProfile | nul
   return [
     '키 | 역할 | 이름 | 상태 | 영역 | 위험 | fast path | 탭 지점',
     ...rows,
-    `후보 ${model.candidates.length}개 · 가려진 노드 ${model.occludedNodeIds.length}개 · 텍스트 ${model.texts.length}줄${model.sparse ? ' · 희소(OCR 대상)' : ''}${model.overflow ? ' · 254개 초과' : ''}${s.depthCapped ? ' · 트리 깊이 상한 도달' : ''} · 포그라운드 ${s.foregroundApp ?? '알 수 없음'}`,
+    `후보 ${model.candidates.length}개 · 가려진 노드 ${model.occludedNodeIds.length}개 · 텍스트 ${model.texts.length}줄${model.sparse ? ' · 희소(OCR 대상)' : ''}${model.overflow ? ' · 254개 초과' : ''}${s.depthCapped ? ' · 트리 깊이 상한 도달' : ''} · 포그라운드 ${s.foregroundApp ?? '알 수 없음'}${s.pageUrl ? ` · 페이지 ${s.pageUrl}` : ''}`,
   ].join('\n');
 }
 
@@ -456,7 +791,10 @@ export interface CaptureResult {
   inventory: string;
 }
 
-/** Saves the current screen as a fixture triplet `fixtures/<platform>/<app>/<name>.{xml,png,meta.json}` + inventory. */
+/**
+ * Saves the current screen as a fixture triplet `fixtures/<platform>/<app>/<name>.{xml,png,meta.json}` + inventory.
+ * The XML and inventory pass the evidence sanitizer (password values, profile `redact`, built-in PII).
+ */
 export async function captureScreen(opts: ScreenOptions & { name: string }, deps?: Partial<RunnerDeps>): Promise<CaptureResult> {
   if (!/^[\w.-]+$/.test(opts.name)) throw new Error(`캡처 이름은 영문·숫자·._- 만 허용됩니다: ${opts.name}`);
   const d = resolveDeps(deps);
@@ -464,7 +802,9 @@ export async function captureScreen(opts: ScreenOptions & { name: string }, deps
     const snap = await driver.snapshot({ screenshot: true });
     const png = snap.screenshotPng ?? (await driver.screenshot());
     const base = join(d.fixturesDir, opts.platform, opts.app, opts.name);
-    writeSecure(`${base}.xml`, snap.rawSource);
+    const clean = new EvidenceSanitizer(profile.redact);
+    clean.observe(snap);
+    writeSecure(`${base}.xml`, clean.source(snap.rawSource));
     writeSecure(`${base}.png`, png);
     writeJson(`${base}.meta.json`, {
       platform: opts.platform,
@@ -475,12 +815,14 @@ export async function captureScreen(opts: ScreenOptions & { name: string }, deps
       device: `${device.id} (${device.name}, ${device.osVersion})`,
       source: 'app-qa capture (Appium /source)',
       foregroundApp: snap.foregroundApp,
+      surface: snap.surface,
+      pageUrl: snap.pageUrl === null ? null : clean.text(snap.pageUrl),
       keyboardShown: snap.keyboardShown,
       maxDepth: snap.maxDepth,
       depthCapped: snap.depthCapped,
     });
     const model = buildScreenModel(snap, { volatile: profile.volatile });
-    const inventory = writeInventory(d.inventoryDir, opts.app, opts.platform, opts.name, model, 'capture');
+    const inventory = writeInventory(d.inventoryDir, opts.app, opts.platform, opts.name, model, 'capture', clean);
     opts.events?.emit({ type: 'log', level: 'info', source: 'capture', message: `화면 캡처 저장: ${relative(d.root, base)} (후보 ${model.candidates.length}개)` });
     return { xml: `${base}.xml`, png: `${base}.png`, meta: `${base}.meta.json`, inventory };
   });

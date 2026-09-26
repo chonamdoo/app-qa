@@ -5,8 +5,7 @@ import { ROOT } from '../../core/config.ts';
 import type { QaEventBody } from '../../core/events.ts';
 import { generatePlan, LLM_PROVIDERS } from '../../plan/index.ts';
 import { runTests } from '../../runner/index.ts';
-
-const PLATFORMS: Record<string, 'android' | 'ios' | 'all'> = { android: 'android', ios: 'ios', all: 'all' };
+import { parsePlatform } from '../platforms.ts';
 
 export async function cmdPlan(argv: string[]): Promise<number> {
   let parsed;
@@ -39,9 +38,9 @@ export async function cmdPlan(argv: string[]): Promise<number> {
     console.error(`qa plan: --llm은 claude-cli | codex-cli 중 하나입니다 (현재: ${values.llm})`);
     return 2;
   }
-  const platform = PLATFORMS[values.platform];
-  if (!platform) {
-    console.error(`qa plan: --platform은 android | ios | all 중 하나입니다 (현재: ${values.platform})`);
+  const platform = parsePlatform(values.platform, true);
+  if (typeof platform === 'object') {
+    console.error(`qa plan: ${platform.error}`);
     return 2;
   }
 

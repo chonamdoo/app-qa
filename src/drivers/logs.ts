@@ -1,26 +1,39 @@
-// Device log capture to a file + time-range slicing (attached to FAIL evidence).
+// Device log capture to a file + time-range slicing (attached to FAIL evidence). Every captured line passes the
+// runner's sanitizer before it is written: raw device output never reaches .qa/logs.
 import { spawn, type ChildProcess } from 'node:child_process';
-import { closeSync, openSync, readFileSync } from 'node:fs';
+import { once } from 'node:events';
+import { createWriteStream, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pipeline, Transform, type TransformCallback } from 'node:stream';
+import { StringDecoder } from 'node:string_decoder';
+import { setTimeout as delay } from 'node:timers/promises';
+import { childEnv } from '../appium/exec.ts';
 import { adbPath, PATHS } from '../core/config.ts';
 import { ensureDir } from '../core/fsx.ts';
 import type { Platform } from '../core/types.ts';
-import { childEnv } from './common.ts';
 
-/** `logcat -v threadtime -v UTC -v year` → "2026-09-25 23:45:43.620 +0000  518  518 I tag: msg". */
-const ANDROID_TS = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) \+0000\b/;
-/** `log stream --style compact` → "2026-09-26 08:45:43.620 E  app[123:456] msg" (host local time). */
-const IOS_TS = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})\b/;
+/** Platforms whose device logs are captured to a file (desktop browsers report console logs through their driver). */
+export type DeviceLogPlatform = Extract<Platform, 'android' | 'ios'>;
+
+/**
+ * Timestamp of a log line per platform. Android `logcat -v threadtime -v UTC -v year` →
+ * "2026-09-25 23:45:43.620 +0000  518  518 I tag: msg" (UTC). iOS `log stream --style compact` →
+ * "2026-09-26 08:45:43.620 E  app[123:456] msg" (host local time).
+ */
+const LOG_TIME: Record<DeviceLogPlatform, { pattern: RegExp; zone: 'Z' | '' }> = {
+  android: { pattern: /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) \+0000\b/, zone: 'Z' },
+  ios: { pattern: /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})\b/, zone: '' },
+};
 
 /** Epoch ms of a log line's timestamp, or null for continuation/header lines. */
-export function logLineTime(platform: Platform, line: string): number | null {
-  const m = (platform === 'android' ? ANDROID_TS : IOS_TS).exec(line);
-  if (!m) return null;
-  return Date.parse(platform === 'android' ? `${m[1]}T${m[2]}Z` : `${m[1]}T${m[2]}`);
+export function logLineTime(platform: DeviceLogPlatform, line: string): number | null {
+  const { pattern, zone } = LOG_TIME[platform];
+  const m = pattern.exec(line);
+  return m ? Date.parse(`${m[1]}T${m[2]}${zone}`) : null;
 }
 
 /** Lines stamped within [from, to]; untimestamped lines follow the line before them. */
-export function sliceLog(platform: Platform, text: string, fromMs: number, toMs: number): string {
+export function sliceLog(platform: DeviceLogPlatform, text: string, fromMs: number, toMs: number): string {
   const out: string[] = [];
   let inRange = false;
   for (const line of text.split('\n')) {
@@ -54,39 +67,92 @@ export function iosLogArgs(udid: string, executable: string): string[] {
 }
 
 /**
+ * Splits a byte stream into lines and emits `sanitize(line)` for each one; a trailing line without a newline is
+ * sanitized when the stream ends. UTF-8 characters split across chunks are decoded whole. A throwing `sanitize`
+ * fails the stream, so nothing unsanitized is ever passed on.
+ * Multi-line secrets: device logs never carry them contiguously (logcat prefixes every line with a timestamp, pid and
+ * tag), so joining lines cannot find them. The line contract stays; the runner's sanitizer masks every line part of a
+ * multi-line secret on its own (`EvidenceSanitizer.addSecret`).
+ */
+export function sanitizeLines(sanitize: (line: string) => string): Transform {
+  const decoder = new StringDecoder('utf8');
+  let partial = '';
+  const pass = (lines: string[], done: TransformCallback) => {
+    if (!lines.length) return done();
+    let out: string;
+    try {
+      out = lines.map((line) => `${sanitize(line)}\n`).join('');
+    } catch (err) {
+      return done(err as Error);
+    }
+    done(null, out);
+  };
+  return new Transform({
+    transform(chunk: Buffer, _encoding, done) {
+      const lines = (partial + decoder.write(chunk)).split('\n');
+      partial = lines.pop()!;
+      pass(lines, done);
+    },
+    flush(done) {
+      const rest = partial + decoder.end();
+      partial = '';
+      pass(rest ? [rest] : [], done);
+    },
+  });
+}
+
+/** A running log process; `written` settles once its output is sanitized and written (or the pipeline failed). */
+interface Capture {
+  child: ChildProcess;
+  key: string;
+  written: Promise<void>;
+}
+
+/** How long `stop` lets a signalled log process close its output before the unread rest is dropped. */
+const DRAIN_MS = 2000;
+
+/**
  * One log file per driver session; streams are (re)armed per app process (a relaunch yields a new pid)
- * and all append to the same file, so slices span restarts.
+ * and all append to the same file, so slices span restarts. Every sanitizer ever armed keeps applying, in arm order,
+ * to every later line of the file: an app may still log an earlier test's secret after the next test re-armed it.
  */
 export class LogCapture {
-  readonly platform: Platform;
+  readonly platform: DeviceLogPlatform;
   readonly file: string;
-  #child: ChildProcess | null = null;
-  #key: string | null = null;
-  #onExit = () => this.stop();
+  /** Device clock minus host clock (ms). Lines carry device timestamps; `slice` shifts its host-time window by this. */
+  clockOffsetMs = 0;
+  #capture: Capture | null = null;
+  readonly #sanitizers = new Set<(line: string) => string>();
+  #onExit = () => void this.stop();
 
-  constructor(platform: Platform, deviceId: string) {
+  constructor(platform: DeviceLogPlatform, deviceId: string) {
     this.platform = platform;
     this.file = join(ensureDir(PATHS.logs), `${platform}-${deviceId.replace(/[^A-Za-z0-9._-]/g, '_')}-${Date.now()}.log`);
   }
 
-  /** Starts streaming `file args` unless a live stream for the same `key` (pid / executable) is already running. */
-  arm(key: string, file: 'adb' | 'xcrun', args: string[]): void {
-    if (this.#key === key && this.#child && this.#child.exitCode === null) return;
-    this.stop();
-    const fd = openSync(this.file, 'a', 0o600);
-    try {
-      this.#child = spawn(file === 'adb' ? adbPath() : 'xcrun', args, { env: childEnv(), stdio: ['ignore', fd, 'ignore'] });
-    } finally {
-      closeSync(fd);
-    }
-    this.#key = key;
+  /**
+   * Streams the stdout of `file args` into the log file line by line through every sanitizer armed so far plus
+   * `sanitize`. A live stream for the same `key` (pid / executable) keeps running.
+   */
+  async arm(key: string, file: 'adb' | 'xcrun', args: string[], sanitize: (line: string) => string): Promise<void> {
+    this.#sanitizers.add(sanitize);
+    const live = this.#capture;
+    if (live && live.key === key && live.child.exitCode === null && live.child.signalCode === null) return;
+    await this.stop();
+    const child = spawn(file === 'adb' ? adbPath() : 'xcrun', args, { env: childEnv(), stdio: ['ignore', 'pipe', 'ignore'] });
+    await once(child, 'spawn'); // a missing binary rejects here and reaches the startLogs caller
+    const written = Promise.withResolvers<void>();
+    const clean = sanitizeLines((line) => {
+      let out = line;
+      for (const s of this.#sanitizers) out = s(out);
+      return out;
+    });
+    pipeline(child.stdout!, clean, createWriteStream(this.file, { flags: 'a', mode: 0o600 }), () => written.resolve());
+    this.#capture = { child, key, written: written.promise };
     process.once('exit', this.#onExit);
   }
 
-  get armed(): boolean {
-    return this.#child !== null && this.#child.exitCode === null;
-  }
-
+  /** Lines logged between two host-time ISO instants (the window is shifted into device time by `clockOffsetMs`). */
   slice(fromIso: string, toIso: string): string {
     let text: string;
     try {
@@ -94,13 +160,19 @@ export class LogCapture {
     } catch {
       return '';
     }
-    return sliceLog(this.platform, text, Date.parse(fromIso), Date.parse(toIso));
+    return sliceLog(this.platform, text, Date.parse(fromIso) + this.clockOffsetMs, Date.parse(toIso) + this.clockOffsetMs);
   }
 
-  stop(): void {
+  /** Signals the log process; resolves once its remaining output is sanitized and written (unread output is dropped after `DRAIN_MS`). */
+  async stop(): Promise<void> {
     process.removeListener('exit', this.#onExit);
-    if (this.#child && this.#child.exitCode === null) this.#child.kill('SIGTERM');
-    this.#child = null;
-    this.#key = null;
+    const capture = this.#capture;
+    this.#capture = null;
+    if (!capture) return;
+    if (capture.child.exitCode === null && capture.child.signalCode === null) capture.child.kill('SIGTERM');
+    const drained = await Promise.race([capture.written.then(() => true), delay(DRAIN_MS, false, { ref: false })]);
+    if (drained) return;
+    capture.child.stdout?.destroy();
+    await capture.written;
   }
 }

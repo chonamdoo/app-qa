@@ -5,7 +5,7 @@ import { basename, dirname, join, relative, resolve } from 'node:path';
 import { isMap, isScalar, isSeq, LineCounter, parseDocument } from 'yaml';
 import type { z } from 'zod';
 import { expandHome, PATHS } from '../core/config.ts';
-import { AppProfile, FlowSpec, Step, TestSpec, type StepSpec } from './schema.ts';
+import { AppProfile, FlowSpec, STEP_BRANCHES, STEP_KINDS, Step, TestSpec, type StepKind, type StepSpec } from './schema.ts';
 
 export interface SpecProblem {
   /** Dotted/indexed path inside the document, e.g. `steps[2].tap`. Empty for the document root. */
@@ -215,11 +215,6 @@ function parseFile<S extends z.ZodType>(file: string, schema: S): z.infer<S> {
 
 type Issue = z.core.$ZodIssue;
 
-/** Step option by kind key (`tap`, `see`, …): the first key of each union member's shape. */
-const STEP_BY_KIND: Record<string, z.ZodType> = Object.fromEntries(
-  (Step.options as unknown as { shape: Record<string, unknown> }[]).map((o) => [Object.keys(o.shape)[0]!, o as unknown as z.ZodType]),
-);
-const STEP_KINDS = Object.keys(STEP_BY_KIND);
 
 const CUSTOM_MESSAGES: Record<string, string> = {
   'selector needs intent, text, desc or id': '셀렉터에는 intent, text, desc, id 중 하나가 필요합니다',
@@ -265,12 +260,12 @@ function explainIssues(issues: readonly Issue[], data: unknown, prefix: readonly
 
 function explainStep(value: unknown, data: unknown, path: PropertyKey[]): { path: PropertyKey[]; message: string }[] {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return [{ path, message: '스텝은 객체여야 합니다 (예: tap: 출국장)' }];
-  const kinds = Object.keys(value).filter((k) => STEP_BY_KIND[k] !== undefined);
+  const kinds = Object.keys(value).filter((k): k is StepKind => (STEP_KINDS as readonly string[]).includes(k));
   if (kinds.length === 0) {
     return [{ path, message: `알 수 없는 스텝 종류 (키: ${Object.keys(value).join(', ') || '없음'}). 허용: ${STEP_KINDS.join(', ')}` }];
   }
   if (kinds.length > 1) return [{ path, message: `한 스텝에 종류가 여러 개입니다: ${kinds.join(', ')}` }];
-  const checked = STEP_BY_KIND[kinds[0]!]!.safeParse(value);
+  const checked = STEP_BRANCHES[kinds[0]!].safeParse(value);
   return checked.success ? [{ path, message: '스텝 형식 오류' }] : explainIssues(checked.error.issues, data, path);
 }
 

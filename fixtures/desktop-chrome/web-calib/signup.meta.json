@@ -1,0 +1,17 @@
+{
+  "platform": "desktop-chrome",
+  "app": "web-calib",
+  "name": "signup",
+  "surface": "web",
+  "pageUrl": "http://localhost:4174/signup.html",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  },
+  "capturedAt": "2026-09-26T03:09:08+00:00",
+  "device": "macOS Chrome/153.0.8010.53 --headless=new, viewport 1280x800 @1x",
+  "source": "WEB_EXTRACT_SCRIPT via CDP Runtime.evaluate → webSourceFromExtract (canonical web XML)",
+  "notes": "회원가입: 이메일·비밀번호 입력됨, 비밀번호 표시, 약관 동의 체크됨, 약관 보기, 가입하기, 로그인 링크. (examples/web-calib, 입력값은 HTML value로 채워 둠)"
+}

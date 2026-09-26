@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
+import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import type { QaEvent } from '../../src/core/events.ts';
-import type { JobContext, JobOutcome, RunParams } from '../../src/server/jobs.ts';
+import { generatePlan } from '../../src/plan/index.ts';
+import type { JobContext, JobOutcome, PlanParams, RunParams } from '../../src/server/jobs.ts';
 import { createServer, type QaServer, type ServerHandlers } from '../../src/server/server.ts';
+import { fakeLlm, tempDir } from '../plan/helpers.ts';
 
 interface Reply {
   status: number;
@@ -19,6 +22,15 @@ let server: QaServer;
 let port: number;
 /** Run-handler behaviour per test; defaults to an immediate PASS. */
 let runImpl: (params: RunParams, ctx: JobContext) => Promise<JobOutcome>;
+/** Params every plan job handler received, in order. */
+const planCalls: PlanParams[] = [];
+const ok = async (): Promise<JobOutcome> => ({ ok: true, message: 'ok', resultPath: null });
+const recordPlan = async (params: PlanParams): Promise<JobOutcome> => {
+  planCalls.push(params);
+  return ok();
+};
+/** Plan-handler behaviour per test; defaults to recording the params in `planCalls` and succeeding. */
+let planImpl: (params: PlanParams, ctx: JobContext) => Promise<JobOutcome> = recordPlan;
 
 /** Raw HTTP (no URL normalization, so `..` reaches the server as sent). */
 function call(path: string, opts: { method?: string; headers?: Record<string, string>; body?: string | Buffer; auth?: boolean } = {}): Promise<Reply> {
@@ -76,11 +88,10 @@ before(async () => {
   writeFileSync(join(root, 'runs', 'run-1', 'step-01', 'before.png'), 'png-bytes');
   writeFileSync(join(root, 'secret.txt'), 'outside');
   symlinkSync(join(root, 'secret.txt'), join(root, 'runs', 'run-1', 'escape.txt'));
-  const ok = async (): Promise<JobOutcome> => ({ ok: true, message: 'ok', resultPath: null });
   const handlers: ServerHandlers = {
     run: (params, ctx) => runImpl(params, ctx),
     smoke: ok,
-    plan: ok,
+    plan: (params, ctx) => planImpl(params, ctx),
     calibrate: ok,
     capture: ok,
     devices: async () => [],
@@ -204,6 +215,39 @@ describe('jobs', { timeout: 10_000 }, () => {
     await specificFinished;
   });
 
+  test('plan jobs for the same app run one after another; other apps run concurrently', async () => {
+    const gates = new Map<string, PromiseWithResolvers<JobOutcome>>();
+    const started: string[] = [];
+    planImpl = (params) => {
+      const label = `${params.app}#${started.filter((s) => s.startsWith(`${params.app}#`)).length + 1}`;
+      started.push(label);
+      const gate = Promise.withResolvers<JobOutcome>();
+      gates.set(label, gate);
+      return gate.promise;
+    };
+    try {
+      const a1 = await postJob({ kind: 'plan', params: { app: 'alpha' } });
+      const a2 = await postJob({ kind: 'plan', params: { app: 'alpha' } });
+      const b1 = await postJob({ kind: 'plan', params: { app: 'beta' } });
+      assert.deepEqual([a1.state, a2.state, b1.state], ['running', 'queued', 'running']);
+      assert.deepEqual(started, ['alpha#1', 'beta#1']);
+
+      const a2Started = waitForEvent((e) => e.type === 'job.started' && e.jobId === a2.id);
+      gates.get('alpha#1')!.resolve({ ok: true, message: 'plan 1', resultPath: null });
+      await a2Started;
+      assert.deepEqual(started, ['alpha#1', 'beta#1', 'alpha#2']);
+
+      const finished = Promise.all([a2.id, b1.id].map((id) => waitForEvent((e) => e.type === 'job.finished' && e.jobId === id)));
+      gates.get('alpha#2')!.resolve({ ok: true, message: 'plan 2', resultPath: null });
+      gates.get('beta#1')!.resolve({ ok: true, message: 'plan 1', resultPath: null });
+      await finished;
+    } finally {
+      // A failed assertion must not leave handlers pending: the server's shutdown waits for them.
+      for (const gate of gates.values()) gate.resolve({ ok: false, message: 'test cleanup', resultPath: null });
+      planImpl = recordPlan;
+    }
+  });
+
   test('cancel aborts the running handler signal and the job ends cancelled', async () => {
     let seen: AbortSignal | undefined;
     runImpl = (_params, ctx) => {
@@ -229,6 +273,129 @@ describe('jobs', { timeout: 10_000 }, () => {
     const reply = await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'run', params: { platform: 'windows' } }) });
     assert.equal(reply.status, 400);
   });
+
+  test('a JSON body that is not an object is a 400, not a 500', async () => {
+    for (const body of ['null', '[]', '"on"', '1']) {
+      assert.equal((await call('/api/devices/android/emu-1/recording', { method: 'POST', body })).status, 400, body);
+      assert.equal((await call('/api/jobs', { method: 'POST', body })).status, 400, body);
+    }
+  });
+
+  test('plan job documents must stay inside the project, uploads, or the app profile docs', async () => {
+    const outside = mkdtempSync(join(tmpdir(), 'qa-outside-'));
+    try {
+      writeFileSync(join(outside, 'spec.md'), '# outside');
+      writeFileSync(join(outside, 'profile.md'), '# profile');
+      mkdirSync(join(root, 'apps'), { recursive: true });
+      writeFileSync(join(root, 'apps', 'demo.yaml'), JSON.stringify({ id: 'demo', name: 'Demo', android: { package: 'kr.demo.app' }, docs: [join(outside, 'profile.md')] }));
+      mkdirSync(join(root, 'docs', 'sub'), { recursive: true });
+      writeFileSync(join(root, 'docs', 'spec.md'), '# inside');
+      writeFileSync(join(root, 'docs', 'sub', 'a.md'), '# inside');
+      symlinkSync(join(outside, 'spec.md'), join(root, 'docs', 'linked.md'));
+      symlinkSync(outside, join(root, 'docs', 'linked-dir'));
+      for (const doc of [
+        join(outside, 'spec.md'),
+        '../spec.md',
+        'docs/linked.md',
+        'docs/linked-dir/spec.md',
+        `${outside}/*.md`,
+        'docs/linked*.md',
+        '~/.ssh/id_rsa',
+      ]) {
+        const reply = await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'plan', params: { app: 'demo', docs: [doc] } }) });
+        assert.equal(reply.status, 400, `${doc} → ${reply.status}`);
+        assert.match(reply.body.toString(), /허용된 위치 밖/, doc);
+      }
+      assert.equal(planCalls.length, 0);
+
+      mkdirSync(join(root, 'uploads'), { recursive: true });
+      writeFileSync(join(root, 'uploads', 'new.md'), '# upload');
+      const done = waitForEvent((e) => e.type === 'job.finished' && e.kind === 'plan');
+      await postJob({ kind: 'plan', params: { app: 'demo', docs: ['docs/spec.md', 'docs/sub/*.md', join(root, 'uploads', 'new.md'), join(outside, 'profile.md')], docRoots: ['/'] } });
+      await done;
+      // The job gets the files matched now (never the glob), and the realpaths the planner re-checks them against: a
+      // client-sent `docRoots` is dropped, and an app profile document widens the roots by that one file only.
+      assert.deepEqual(planCalls.at(-1)?.docs, [join(root, 'docs', 'spec.md'), join(root, 'docs', 'sub', 'a.md'), join(root, 'uploads', 'new.md'), join(outside, 'profile.md')]);
+      assert.deepEqual(planCalls.at(-1)?.docRoots, [realpathSync(root), realpathSync(join(root, 'uploads')), realpathSync(join(outside, 'profile.md'))]);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  test('a document swapped for a link leading out after enqueue fails the plan job before the LLM sees it', async () => {
+    const outside = mkdtempSync(join(tmpdir(), 'qa-outside-'));
+    const fake = fakeLlm('claude', [JSON.stringify({ tests: [], untestable: [] })]);
+    const { promise: queued, resolve: release } = Promise.withResolvers<void>();
+    planImpl = async (params, { events, signal }) => {
+      await queued;
+      const { planPath } = await generatePlan({
+        ...params,
+        events,
+        signal,
+        llm: 'claude-cli',
+        env: fake.env,
+        root: tempDir(),
+        contextDirs: { inventory: tempDir(), envExample: join(tempDir(), 'none') },
+        jev: { client: null, calibration: null, reason: 'jev_unavailable: test' },
+      });
+      return { ok: true, message: 'ok', resultPath: planPath };
+    };
+    try {
+      writeFileSync(join(outside, 'secret.md'), '# 비밀\n\n외부 파일의 비밀 문구 X7-OUTSIDE\n');
+      mkdirSync(join(root, 'x7'), { recursive: true });
+      writeFileSync(join(root, 'x7', 'parking.md'), '# 주차\n\n주차 탭에 빈자리가 보인다.\n');
+      const job = await postJob({ kind: 'plan', params: { app: 'tteonam', docs: ['x7/*.md'] } });
+      const finished = waitForEvent((e) => e.type === 'job.finished' && e.jobId === job.id);
+      rmSync(join(root, 'x7', 'parking.md'));
+      symlinkSync(join(outside, 'secret.md'), join(root, 'x7', 'parking.md'));
+      release();
+      await finished;
+      const view = JSON.parse((await call(`/api/jobs/${job.id}`)).body.toString()) as { state: string; message: string };
+      assert.equal(view.state, 'failed');
+      assert.match(view.message, /^문서가 허용된 위치 밖을 가리킵니다 .*: .*parking\.md$/);
+      assert.deepEqual(fake.calls(), [], 'the LLM CLI never ran, so the outside text never reached it');
+    } finally {
+      planImpl = recordPlan;
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('web targets', { timeout: 10_000 }, () => {
+  test('device-only routes refuse desktop browsers with 409 and a Korean reason; unknown platforms stay 400', async () => {
+    const screen = await call('/api/devices/desktop-chrome/desktop-chrome/screen');
+    assert.equal(screen.status, 409);
+    assert.match(JSON.parse(screen.body.toString()).error, /^Chrome \(macOS\): 데스크톱 브라우저는 실시간 화면이 없습니다/);
+    const recording = await call('/api/devices/desktop-safari/desktop-safari/recording', { method: 'POST', body: JSON.stringify({ on: true }) });
+    assert.equal(recording.status, 409);
+    assert.equal((await call('/api/apps?platform=desktop-chrome&device=desktop-chrome')).status, 409);
+    assert.equal((await call('/api/devices/windows/pc/screen')).status, 400);
+    assert.equal((await call('/api/devices/android/emu-1/screen')).status, 200);
+  });
+
+  test('app profiles expose web settings and the platforms each profile runs on', async () => {
+    mkdirSync(join(root, 'apps'), { recursive: true });
+    writeFileSync(join(root, 'apps', 'shop.yaml'), JSON.stringify({ id: 'shop', name: '상점', web: { url: 'http://localhost:4173/', platforms: ['desktop-chrome', 'android'] } }));
+    writeFileSync(join(root, 'apps', 'tteonam.yaml'), JSON.stringify({ id: 'tteonam', name: '떠남', android: { package: 'kr.tteonam.app' }, ios: { bundleId: 'kr.tteonam.app' } }));
+    const body = JSON.parse((await call('/api/app-profiles')).body.toString()) as { profiles: { id: string; platforms: string[]; web?: { url: string; viewport: { width: number } } }[] };
+    const shop = body.profiles.find((p) => p.id === 'shop');
+    assert.deepEqual(shop?.platforms, ['android', 'desktop-chrome']);
+    assert.equal(shop?.web?.url, 'http://localhost:4173/');
+    assert.equal(shop?.web?.viewport.width, 1280);
+    assert.deepEqual(body.profiles.find((p) => p.id === 'tteonam')?.platforms, ['android', 'ios']);
+  });
+
+  test('a smoke of a website on `all` claims its browsers (desktop by browser id) and is titled with web labels', async () => {
+    mkdirSync(join(root, 'apps'), { recursive: true });
+    writeFileSync(join(root, 'apps', 'shop.yaml'), JSON.stringify({ id: 'shop', name: '상점', web: { url: 'http://localhost:4173/', platforms: ['desktop-chrome', 'android'] } }));
+    const finished = waitForEvent((e) => e.type === 'job.finished' && e.kind === 'smoke');
+    const reply = await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'smoke', params: { app: 'shop', deviceIds: { android: 'emulator-5554' } } }) });
+    assert.equal(reply.status, 201, reply.body.toString());
+    const job = JSON.parse(reply.body.toString()) as { devices: string[]; title: string };
+    assert.deepEqual(job.devices, ['android:emulator-5554', 'desktop-chrome:desktop-chrome']);
+    assert.equal(job.title, '스모크 · shop · Android Chrome + Chrome (macOS)');
+    await finished;
+  });
 });
 
 describe('files', { timeout: 10_000 }, () => {
@@ -253,6 +420,53 @@ describe('files', { timeout: 10_000 }, () => {
       assert.ok(!reply.body.toString().includes('outside'), path);
     }
     assert.equal((await call('/api/runs/run-1/files/../../secret.txt')).status, 400);
+  });
+
+  test('a file that cannot be opened fails that request only; the server keeps serving', { skip: process.getuid?.() === 0 }, async () => {
+    const file = join(root, 'runs', 'run-1', 'locked.txt');
+    writeFileSync(file, 'locked');
+    chmodSync(file, 0);
+    const outcome = await call('/api/runs/run-1/files/locked.txt').then(
+      (reply) => reply.status,
+      () => 'closed',
+    );
+    assert.ok(outcome === 500 || outcome === 'closed', String(outcome));
+    assert.equal((await call('/api/runs/run-1/files/step-01/before.png')).status, 200);
+  });
+
+  test('events.jsonl that is not a regular file is a 404; the server keeps serving', async () => {
+    mkdirSync(join(root, 'runs', 'run-dir', 'events.jsonl'), { recursive: true });
+    assert.equal((await call('/api/runs/run-dir/events')).status, 404);
+    assert.equal((await call('/api/health')).status, 200);
+  });
+
+  test('events.jsonl that grows during the response is sent exactly up to the stat size', async () => {
+    const file = join(root, 'runs', 'run-grow', 'events.jsonl');
+    mkdirSync(join(root, 'runs', 'run-grow'));
+    const line = `${JSON.stringify({ seq: 1, ts: '2026-09-26T00:00:00.000Z', type: 'log', level: 'info', source: 'grow', message: 'x'.repeat(200) })}\n`;
+    const initial = Buffer.from(line.repeat(Math.ceil((16 * 1024 * 1024) / line.length)));
+    writeFileSync(file, initial);
+    // Raw socket with `Connection: close`: every byte the server writes is observed, not just `content-length` of them.
+    const socket = connect(port, '127.0.0.1');
+    const chunks: Buffer[] = [];
+    const ended = Promise.withResolvers<void>();
+    socket.on('data', (chunk: Buffer) => {
+      // Server and client share this event loop, so the append lands while the server is still mid-file.
+      if (chunks.length === 0) appendFileSync(file, line.repeat(4096));
+      chunks.push(chunk);
+    });
+    socket.on('end', () => ended.resolve());
+    socket.on('error', ended.reject);
+    socket.write(`GET /api/runs/run-grow/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer ${server.token}\r\nConnection: close\r\n\r\n`);
+    await ended.promise;
+    const raw = Buffer.concat(chunks);
+    const split = raw.indexOf('\r\n\r\n');
+    const head = raw.subarray(0, split).toString();
+    assert.match(head, /^HTTP\/1\.1 200/);
+    assert.equal(Number(/^content-length: (\d+)$/im.exec(head)?.[1]), initial.length);
+    const body = raw.subarray(split + 4);
+    assert.equal(body.length, initial.length);
+    assert.ok(body.equals(initial));
   });
 });
 

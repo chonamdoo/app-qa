@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>캠핑 후기 게시판 · 산들 커뮤니티</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="community.html">산들 커뮤니티</a>
+    <nav><a href="community.html">게시판</a><a href="messages.html">쪽지</a></nav>
+  </header>
+
+  <main class="narrow">
+    <article class="card">
+      <h1>가평 오토캠핑장 2박 후기</h1>
+      <div class="spread">
+        <span class="muted">김하늘 · 팔로워 1,284 · 3시간 전</span>
+        <button type="button" class="ghost" data-status="김하늘 님을 팔로우합니다">팔로우</button>
+      </div>
+      <p>사이트 간격이 넓고 개수대가 깨끗했어요. 밤에는 기온이 많이 떨어지니 침낭 꼭 챙기세요.</p>
+      <div class="row"><span class="muted">좋아요 24 · 댓글 3</span><button type="button" class="link">신고</button></div>
+    </article>
+
+    <section class="card" aria-label="댓글">
+      <div class="spread">
+        <h2>댓글 3</h2>
+        <div class="row" data-pressed-group>
+          <button type="button" class="link" aria-pressed="true">등록순</button>
+          <button type="button" class="link" aria-pressed="false">최신순</button>
+        </div>
+      </div>
+      <p><b>박서준</b> 저도 지난달에 다녀왔는데 매점이 일찍 닫더라고요. <button type="button" class="link">답글 쓰기</button></p>
+      <p><b>이도윤</b> 전기 사이트 예약은 어디서 하셨어요? <button type="button" class="link">답글 쓰기</button></p>
+      <button type="button" class="link">댓글 더 보기</button>
+      <form data-done="댓글이 등록되었습니다">
+        <label for="comment">댓글 쓰기</label>
+        <textarea id="comment">좋은 정보 감사합니다! 다음 주에 가 보려고요.</textarea>
+        <div class="row end"><button type="submit">댓글 남기기</button></div>
+      </form>
+      <p role="status"></p>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

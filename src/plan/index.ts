@@ -1,19 +1,23 @@
 // `qa plan` programmatic API (architecture §6, §10): documents → requirements → LLM tests → deterministic validation →
 // Jev review → tests/generated/<app>/<doc-slug>/<test-id>.e2e.yaml + tests/generated/<app>/plan.json.
 // plan.json is merged per document: re-planning a document replaces only that document's requirements, tests and
-// untestable entries (the inline scenario is the document `inline.md`).
-import { existsSync, readdirSync, readFileSync, rmdirSync, rmSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+// untestable entries (the inline scenario is the document `inline.md`). One generation per app at a time: the plan lock
+// is held from reading the previous plan to the commit, and a concurrent generation fails fast. The new generation is
+// swapped in atomically (`commit.ts`): the previous one stays intact until the new one is complete.
+import { existsSync, readFileSync } from 'node:fs';
+import { join, relative, resolve, sep } from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 import { loadEnv, ROOT } from '../core/config.ts';
 import type { EventSink } from '../core/events.ts';
-import { newRunId, writeJson, writeSecure } from '../core/fsx.ts';
+import type { Surface } from '../core/types.ts';
+import { newRunId } from '../core/fsx.ts';
 import { JevClient } from '../jev/client.ts';
 import { loadJevConfig } from '../jev/config.ts';
 import { reviewGenerated } from '../jev/decide.ts';
 import { loadCalibration, type Calibration } from '../jev/gates.ts';
 import { createRedactor, type Redactor } from '../jev/redact.ts';
 import { PlanFile, type Requirement } from '../spec/schema.ts';
+import { acquirePlanLock, commitGeneration, nextCreatedAt, recoverStaging, type PlanLock } from './commit.ts';
 import { DEFAULT_CONTEXT_DIRS, loadAppContext, type ContextDirs } from './context.ts';
 import { generateTests, type DroppedTest, type GeneratedTest } from './generate.ts';
 import { ingestDocuments, INLINE_DOC } from './ingest.ts';
@@ -40,6 +44,8 @@ export interface GeneratePlanOptions {
   app: string;
   /** Paths, globs or directories; empty = the app profile's `docs` (unless `text` is given). */
   docs: string[];
+  /** Set with `docs` by a server plan job: `docs` are exact files, each re-confined to these realpaths when read. */
+  docRoots?: string[];
   /** Scenario typed in the UI / `--text` (virtual document `inline.md`). */
   text?: string;
   llm?: LlmProvider;
@@ -90,6 +96,7 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
   const model = opts.model ?? (envModel || DEFAULT_LLM_MODELS[provider]);
 
   const hasText = Boolean(opts.text?.trim());
+  let lock: PlanLock | null = null;
   try {
     if (opts.signal?.aborted) throw new Error('계획 생성이 취소되었습니다');
     const context = loadAppContext(opts.app, { ...DEFAULT_CONTEXT_DIRS, ...opts.contextDirs });
@@ -98,12 +105,14 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
     context.warnings.forEach(warn);
     if (!sources.length && !hasText) throw new Error(`문서가 없습니다: 문서 경로나 --text를 주거나 apps/${opts.app}.yaml에 docs를 적으세요`);
 
+    lock = acquirePlanLock(planDir, opts.app);
+    for (const note of recoverStaging(lock)) warn(note);
     const previous = readPlan(planPath);
     const reservedSlugs = new Map<string, string>();
     for (const r of previous?.requirements ?? []) reservedSlugs.set(r.doc, r.id.slice(0, r.id.indexOf('#')));
 
     progress('ingest', `문서 ${sources.length + (hasText ? 1 : 0)}개 읽는 중`);
-    const docs = await ingestDocuments(sources, { text: opts.text, cwd: opts.cwd, reservedSlugs });
+    const docs = await ingestDocuments(sources, { text: opts.text, cwd: opts.cwd, reservedSlugs, confinedTo: opts.docs.length ? opts.docRoots : undefined });
     progress('ingest', `문서 ${docs.length}개: ${docs.map((d) => d.path).join(', ')}`);
     const requirements = segmentRequirements(docs);
     if (!requirements.length) throw new Error('문서에서 요구사항을 찾지 못했습니다');
@@ -132,13 +141,14 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
     const jev = opts.jev ?? resolveJev(env);
     if (!jev.client) warn(`Jev를 쓸 수 없어 모든 테스트를 draft로 둡니다: ${jev.reason ?? 'unavailable'}`);
     const redact = createRedactor(context.profile.redact);
+    const surface: Surface = context.profile.web ? 'web' : 'app';
     const entries: PlanTest[] = new Array(placed.length);
     let next = 0;
     const worker = async () => {
       while (next < placed.length) {
         const k = next++;
         const { test, id, file } = placed[k]!;
-        entries[k] = await reviewTest(test, id, rel(file), byId, jev, redact, opts.approve === true, opts.signal);
+        entries[k] = await reviewTest(test, id, rel(file), byId, jev, redact, surface, opts.approve === true, opts.signal);
       }
     };
     await Promise.all(Array.from({ length: Math.min(REVIEW_CONCURRENCY, placed.length) }, worker));
@@ -163,7 +173,7 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
     const plan = PlanFile.parse({
       version: 1,
       app: opts.app,
-      createdAt: new Date().toISOString(),
+      createdAt: nextCreatedAt(previous?.createdAt),
       llm: { provider, model },
       docs: [...(previous?.docs.filter((d) => !newPaths.has(d.path)) ?? []), ...docs.map((d) => ({ path: d.path, sha256: d.sha256, kind: d.kind }))],
       requirements: [...keptReqs, ...requirements],
@@ -171,23 +181,21 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
       untestable: [...keptUntestable, ...generated.untestable],
     });
 
-    // ── write ──
-    if (opts.signal?.aborted) throw new Error('계획 생성이 취소되었습니다');
+    // ── write: stage → swap → prune (a failure leaves the previous generation intact) ──
     const newFiles = new Set(placed.map((p) => p.file));
-    for (const t of removedTests) {
-      const file = resolve(root, t.file);
-      if (!file.startsWith(planDir + sep) || newFiles.has(file) || !existsSync(file)) continue;
-      rmSync(file);
-      const dir = dirname(file);
-      if (dir !== planDir && readdirSync(dir).length === 0) rmdirSync(dir);
-    }
-    placed.forEach(({ test, id, file }, k) => {
-      const status = entries[k]!.status;
-      const { id: _id, name, platforms, tags, covers, app, ...rest } = test.spec;
-      const body = { id, name, app, ...(platforms ? { platforms } : {}), ...(tags ? { tags } : {}), covers, source: { plan: rel(planPath), status }, ...rest };
-      writeSecure(file, `# qa plan으로 생성됨 · 상태 ${status} · 계획 ${rel(planPath)}\n${stringifyYaml(body, { lineWidth: 0 })}`);
+    const stale = removedTests.map((t) => resolve(root, t.file)).filter((file) => file.startsWith(planDir + sep) && !newFiles.has(file));
+    const tests = new Map(
+      placed.map(({ test, id, file }, k): [string, string] => {
+        const status = entries[k]!.status;
+        const { id: _id, name, platforms, tags, covers, app, ...rest } = test.spec;
+        const body = { id, name, app, ...(platforms ? { platforms } : {}), ...(tags ? { tags } : {}), covers, source: { plan: rel(planPath), status }, ...rest };
+        return [relative(planDir, file), `# qa plan으로 생성됨 · 상태 ${status} · 계획 ${rel(planPath)}\n${stringifyYaml(body, { lineWidth: 0 })}`];
+      }),
+    );
+    commitGeneration(lock, planId, { tests, plan, stale: stale.map((file) => relative(planDir, file)) }, () => {
+      progress('write', `새 계획 준비 완료 (테스트 ${placed.length}개) — 기존 계획과 교체`);
+      if (opts.signal?.aborted) throw new Error('계획 생성이 취소되었습니다');
     });
-    writeJson(planPath, plan);
     progress('write', `테스트 ${placed.length}개 저장: ${rel(planDir)}`);
     const message = `요구사항 ${requirements.length}개 · 테스트 ${placed.length}개 · 테스트 불가 ${generated.untestable.length}개`;
     events?.emit({ type: 'plan.finished', planId, planPath, requirements: requirements.length, tests: placed.length, untestable: generated.untestable.length, ok: true, message });
@@ -195,6 +203,8 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
   } catch (err) {
     events?.emit({ type: 'plan.finished', planId, planPath, requirements: 0, tests: 0, untestable: 0, ok: false, message: (err as Error).message });
     throw err;
+  } finally {
+    lock?.release();
   }
 }
 
@@ -231,6 +241,7 @@ async function reviewTest(
   requirements: ReadonlyMap<string, Requirement>,
   jev: JevAccess,
   redact: Redactor,
+  surface: Surface,
   approve: boolean,
   signal: AbortSignal | undefined,
 ): Promise<PlanTest> {
@@ -239,7 +250,7 @@ async function reviewTest(
     return { file, covers, status: 'draft', review: { addressesRequirement: null, unrelatedSteps: null, needsClarification: null, issues: [jev.reason ?? 'jev_unavailable', ...test.warnings] } };
   }
   const requirement = { id: covers.join(', '), text: covers.map((c) => `[${c}] ${requirements.get(c)?.text ?? ''}`).join('\n\n') };
-  const decision = await reviewGenerated(jev.client, { requirement, test: { ...test.spec, id } }, { redact, calibration: jev.calibration, signal });
+  const decision = await reviewGenerated(jev.client, { requirement, test: { ...test.spec, id } }, { redact, calibration: jev.calibration, surface, signal });
   const issues = [...decision.review.issues, ...test.warnings];
   const status = approve && decision.verdict === 'approvable' && !test.warnings.length ? 'approved' : 'draft';
   return { file, covers, status, review: { ...decision.review, issues } };

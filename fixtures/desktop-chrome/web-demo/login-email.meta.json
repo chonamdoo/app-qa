@@ -1,0 +1,17 @@
+{
+  "platform": "desktop-chrome",
+  "app": "web-demo",
+  "name": "login-email",
+  "surface": "web",
+  "pageUrl": "http://localhost:4173/login.html",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  },
+  "capturedAt": "2026-09-26T02:46:12+00:00",
+  "device": "macOS Chrome 153.0.8010.53 --headless=new, viewport 1280x800 @1x",
+  "source": "WEB_EXTRACT_SCRIPT via CDP Runtime.evaluate → webSourceFromExtract (canonical web XML)",
+  "notes": "login.html 에서 이메일 칸에 qa@example.com 을 실제 입력으로 타이핑한 상태. 비밀번호 칸에도 pw1234 를 입력했지만 XML/추출에는 •••••• 만 남음."
+}

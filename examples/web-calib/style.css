@@ -1,0 +1,54 @@
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.5 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Helvetica Neue", sans-serif; color: #1b1f24; background: #f5f6f8; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.top { display: flex; align-items: center; gap: 16px; padding: 10px 24px; background: #fff; border-bottom: 1px solid #e3e6ea; }
+.top .brand { font-weight: 700; font-size: 18px; color: #111; text-decoration: none; margin-right: 8px; }
+.top nav { display: flex; gap: 14px; align-items: center; margin-left: auto; }
+.top form { display: flex; gap: 6px; flex: 1; max-width: 420px; }
+main { padding: 20px 24px; max-width: 1080px; margin: 0 auto; }
+main.narrow { max-width: 640px; }
+.with-side { display: grid; grid-template-columns: 220px 1fr; gap: 24px; }
+h1 { font-size: 22px; margin: 0 0 12px; }
+h2 { font-size: 17px; margin: 0 0 8px; }
+p { margin: 0 0 8px; }
+a { color: #2f6fed; }
+input, select, textarea { font: inherit; padding: 8px 10px; border: 1px solid #c7ccd3; border-radius: 8px; background: #fff; }
+textarea { width: 100%; min-height: 72px; resize: vertical; }
+label { display: block; font-size: 13px; color: #4a525c; margin: 8px 0 4px; }
+label.inline { display: inline-flex; gap: 6px; align-items: center; margin: 4px 12px 4px 0; font-size: 14px; color: inherit; }
+button { font: inherit; padding: 8px 14px; border: 0; border-radius: 8px; background: #2f6fed; color: #fff; cursor: pointer; }
+button.ghost { background: #eef1f5; color: #1b1f24; }
+button.link { background: none; color: #2f6fed; padding: 4px 6px; }
+button.danger { background: #fff; color: #c62828; border: 1px solid #e0a3a3; }
+button.dark { background: #111; }
+button[aria-pressed="true"] { background: #1b1f24; color: #fff; }
+.card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 14px; border: 1px solid #e6e8ec; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.row.end { justify-content: flex-end; }
+.spread { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.muted { color: #6b7380; font-size: 13px; }
+.price { font-weight: 700; }
+.grid { list-style: none; padding: 0; margin: 12px 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.grid li { background: #fff; border: 1px solid #e6e8ec; border-radius: 12px; padding: 12px; display: grid; gap: 6px; }
+.soldout { color: #c62828; font-size: 13px; }
+fieldset { border: 0; padding: 0; margin: 0 0 12px; }
+legend { font-weight: 600; margin-bottom: 4px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid #e3e6ea; margin: 16px 0 10px; }
+.tabs [role="tab"] { background: none; color: #4a525c; border-radius: 0; border-bottom: 2px solid transparent; }
+.tabs [role="tab"][aria-selected="true"] { color: #111; border-bottom-color: #111; }
+.acc-body[hidden] { display: none; }
+.switch { display: inline-flex; align-items: center; gap: 8px; background: #eef1f5; color: #1b1f24; }
+.switch[aria-checked="true"] { background: #1b1f24; color: #fff; }
+.cookie { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 12px; align-items: center; justify-content: center; padding: 12px 24px; background: #fff; border-top: 1px solid #d5d9df; box-shadow: 0 -2px 10px rgba(0,0,0,.06); }
+.cookie[hidden] { display: none; }
+.cookie p { margin: 0; }
+.modal[hidden] { display: none; }
+.modal { position: fixed; inset: 0; z-index: 10; }
+.modal .scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); }
+.modal .sheet { position: absolute; left: 50%; top: 28%; width: 420px; transform: translateX(-50%); padding: 22px; background: #fff; border-radius: 14px; }
+.chat { display: grid; gap: 8px; margin: 12px 0; }
+.bubble { max-width: 70%; padding: 8px 12px; border-radius: 12px; background: #fff; border: 1px solid #e6e8ec; }
+.bubble.me { justify-self: end; background: #dfe9ff; border-color: #c6d6fb; }
+.steps { display: flex; gap: 16px; list-style: none; padding: 0; margin: 0 0 14px; color: #6b7380; font-size: 14px; }
+.steps [aria-current="step"] { color: #111; font-weight: 700; }
+[role="status"] { color: #2e7d32; font-size: 13px; min-height: 1em; }

@@ -1,0 +1,82 @@
+{
+  "key": "9f585fd0a94641c656fc0105f37aa81408ad7430f4141da6fac16b245681d929",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb536657e6e886db19d5399ea6b",
+  "latencyMs": 200,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | 도움말 | - | top",
+          "e2 | heading | QA 데모 상점 | - | top",
+          "e3 | link | 로그인 | - | top",
+          "e4 | other | 상품 검색 | - | top",
+          "e5 | input | 상품 검색 | - | top",
+          "e6 | button | 검색 | - | top",
+          "e7 | text | 상품 검색 | - | top",
+          "e8 | text | 상품 3개 | - | top",
+          "e9 | button | 장바구니 담기 | - | top",
+          "e10 | text | 사과 | - | top",
+          "e11 | text | 1,200원 | - | top",
+          "e12 | button | 장바구니 담기 | - | middle",
+          "e13 | text | 바나나 | - | middle",
+          "e14 | text | 2,500원 | - | middle",
+          "e15 | button | 장바구니 담기 | - | middle",
+          "e16 | text | 체리 | - | middle",
+          "e17 | text | 9,800원 | - | middle",
+          "e18 | text | 장바구니 0개 | - | middle",
+          "e19 | other | 안내 | - | bottom",
+          "e20 | heading | 배송 안내 | - | middle",
+          "e21 | text | 평일 오후 2시 전 주문은 당일 출고됩니다. | - | bottom",
+          "e22 | button | 주문하기 | - | bottom"
+        ],
+        "texts": [
+          "도움말",
+          "QA 데모 상점",
+          "로그인",
+          "검색",
+          "상품 검색",
+          "상품 3개",
+          "장바구니 담기",
+          "사과",
+          "1,200원",
+          "장바구니 담기",
+          "바나나",
+          "2,500원",
+          "장바구니 담기",
+          "체리",
+          "9,800원",
+          "장바구니 0개",
+          "배송 안내",
+          "평일 오후 2시 전 주문은 당일 출고됩니다.",
+          "주문하기"
+        ]
+      },
+      "target": "e9 | button | 장바구니 담기 | - | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.14
+      }
+    },
+    "usage": {
+      "input_tokens": 915,
+      "output_tokens": 21
+    }
+  }
+}

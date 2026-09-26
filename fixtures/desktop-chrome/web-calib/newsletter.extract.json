@@ -1,0 +1,382 @@
+{
+  "url": "http://localhost:4174/newsletter.html",
+  "title": "Why sourdough needs time · The Crumb Journal",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "Why sourdough needs time · The Crumb Journal",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "The Crumb Journal",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 151.609375,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1152.65625,
+      "y": 12.25,
+      "w": 103.34375,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "Archive",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1152.65625,
+      "y": 12.25,
+      "w": 47.34375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "Sign in",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1214,
+      "y": 12.25,
+      "w": 42,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 445,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 190,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "heading",
+      "name": null,
+      "text": "Why sourdough needs time",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 85,
+      "w": 558,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "text",
+      "name": null,
+      "text": "By Ana Ruiz · 6 min read",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 130,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "text",
+      "name": null,
+      "text": "Long fermentation lets wild yeast and bacteria break down starches, which is where the tang and the open crumb come from.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 157.5,
+      "w": 558,
+      "h": 45,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "button",
+      "name": null,
+      "text": "Show baker's notes",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 210.5,
+      "w": 133.84375,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 272,
+      "w": 592,
+      "h": 166,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "heading",
+      "name": null,
+      "text": "Get the weekly bake",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 289,
+      "w": 558,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "text",
+      "name": null,
+      "text": "One recipe every Friday, straight to your inbox.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 322.5,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 353,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "text",
+      "name": null,
+      "text": "Email",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 374.75,
+      "w": 1,
+      "h": 1,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "input",
+      "name": "Email",
+      "text": null,
+      "id": "email",
+      "value": "jordan.lee@example.com",
+      "hint": null,
+      "x": 361,
+      "y": 353,
+      "w": 459.0625,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable",
+        "occluder"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "button",
+      "name": null,
+      "text": "Subscribe",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 830.0625,
+      "y": 354,
+      "w": 88.9375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 393.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "link",
+      "name": null,
+      "text": "RSS feed",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 394.5,
+      "w": 48.328125,
+      "h": 16,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 452,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

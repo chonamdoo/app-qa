@@ -1,0 +1,65 @@
+{
+  "key": "705207e87f952ae2a21fa3e5dad81b117f2acc711d9f3f6f81e52ab913f28928",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb530fe7d0e84b748e98b48a15b",
+  "latencyMs": 230,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 모아마켓 | - | top",
+          "e2 | link | 자주 묻는 질문 | - | top",
+          "e3 | heading | 1:1 문의 | - | top",
+          "e4 | text | 문의 유형 | - | top",
+          "e5 | input | 문의 유형 | value=\"교환·반품\" | top",
+          "e6 | text | 주문 번호 | - | top",
+          "e7 | input | 주문 번호 | value=\"20260921-000183\" | top",
+          "e8 | text | 내용 | - | middle",
+          "e9 | input | 내용 | value=\"받은 이어폰 왼쪽이 충전되지 않습니다. 교환 가능할까요?\" | middle",
+          "e10 | text | 답변은 영업일 기준 1일 안에 가입한 이메일로 보내 드립니다. | - | middle",
+          "e11 | button | 파일 첨부 | - | middle",
+          "e12 | button | 문의 접수 | - | middle"
+        ],
+        "texts": [
+          "모아마켓",
+          "자주 묻는 질문",
+          "1:1 문의",
+          "문의 유형",
+          "문의 유형",
+          "주문 번호",
+          "20260921-000183",
+          "내용",
+          "받은 이어폰 왼쪽이 충전되지 않습니다. 교환 가능할까요?",
+          "답변은 영업일 기준 1일 안에 가입한 이메일로 보내 드립니다.",
+          "파일 첨부",
+          "문의 접수"
+        ]
+      },
+      "target": "e11 | button | 파일 첨부 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.07
+      }
+    },
+    "usage": {
+      "input_tokens": 770,
+      "output_tokens": 21
+    }
+  }
+}

@@ -6,6 +6,7 @@ import { sha256 } from '../../src/core/fsx.ts';
 import { regenerateReport } from '../../src/report/index.ts';
 import type { PlanFile } from '../../src/spec/schema.ts';
 import { FakeDriver, fixtureSnapshot } from '../helpers/fake-driver.ts';
+import { commitSafe } from '../helpers/jev-stub.ts';
 import { runYaml } from '../helpers/run.ts';
 
 const DOC_V1 = '# 떠남\n\n## 출국장\n혼잡 단계는 대기 시간과 맞아야 한다.\n';
@@ -69,8 +70,33 @@ describe('report', () => {
 
   it('counts INCONCLUSIVE as a JUnit failure and omits the matrix without covers', async () => {
     const yaml = 'name: noop\napp: tteonam\nstart: attach\nsteps:\n  - tap: 설정\n';
-    const { result } = await runYaml({ 'tests/noop.e2e.yaml': yaml }, new FakeDriver(fixtureSnapshot('android', 'tteonam', 'launch', { foreground: 'kr.tteonam.app' })), { junit: true });
+    const { result } = await runYaml({ 'tests/noop.e2e.yaml': yaml }, new FakeDriver(fixtureSnapshot('android', 'tteonam', 'launch', { foreground: 'kr.tteonam.app' })), { junit: true, jev: commitSafe().setup });
     assert.match(readFileSync(result.junitPath!, 'utf8'), /<failure type="INCONCLUSIVE:no_effect"/);
     assert.doesNotMatch(readFileSync(result.reportPath, 'utf8'), /요구사항 추적 매트릭스/);
+  });
+
+  it('re-renders a v1 summary (before websites: no qaStatus/qaCounts/surface) with the QA status derived, and refuses unknown schemas', async () => {
+    const files = {
+      'tests/ok.e2e.yaml': 'name: ok\napp: tteonam\nstart: attach\nsteps:\n  - assertText: 출국장\n',
+      'tests/noop.e2e.yaml': 'name: noop\napp: tteonam\nstart: attach\nsteps:\n  - tap: 설정\n',
+      'tests/bad.e2e.yaml': 'name: bad\napp: tteonam\nstart: attach\nsteps:\n  - nope: 1\n',
+    };
+    const { result, root } = await runYaml(files, new FakeDriver(fixtureSnapshot('android', 'tteonam', 'launch', { foreground: 'kr.tteonam.app' })), { junit: true, jev: commitSafe().setup });
+    const file = join(result.runDir, 'summary.json');
+    const v2 = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown> & { tests: Record<string, unknown>[] };
+    assert.equal(v2.$schema, 'app-qa/summary/v2');
+    // The v1 fixture: the same run as an older app-qa wrote it.
+    const { qaCounts: _counts, ...rest } = v2;
+    const v1 = { ...rest, $schema: 'app-qa/summary/v1', tests: v2.tests.map(({ qaStatus: _s, surface: _f, ...t }) => t) };
+    writeFileSync(file, JSON.stringify(v1));
+
+    const again = regenerateReport(result.runId, { runsDir: join(root, '.qa', 'runs'), root });
+    const html = readFileSync(again.reportPath, 'utf8');
+    assert.match(html, /QA 상태: <span><span class="qa qa-PASS">PASS<\/span> 1<\/span><span><span class="qa qa-INCONCLUSIVE">INCONCLUSIVE<\/span> 1<\/span><span><span class="qa qa-NOT_RUN">NOT_RUN<\/span> 1<\/span>/);
+    assert.match(html, /<span class="qa qa-NOT_RUN">NOT_RUN<\/span> bad/);
+    assert.match(readFileSync(again.junitPath!, 'utf8'), /<property name="qaStatus" value="INCONCLUSIVE"\/><property name="target" value="Android"\/>/);
+
+    writeFileSync(file, JSON.stringify({ ...v1, $schema: 'app-qa/summary/v9' }));
+    assert.throws(() => regenerateReport(result.runId, { runsDir: join(root, '.qa', 'runs'), root }), /지원하지 않는 summary 형식: app-qa\/summary\/v9/);
   });
 });

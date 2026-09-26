@@ -1,0 +1,68 @@
+{
+  "key": "4a307a6f003d2f837bdcec44c7d49aea294a27e1c4a2ef418d4ea90a63ee0063",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfde8d749ab12ce790db48ab3b",
+  "latencyMs": 182,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | Paperback Club | - | top",
+          "e2 | link | Threads | - | top",
+          "e3 | heading | What should we read in November? | - | top",
+          "e4 | text | Poll by Mateo · 58 votes · closes Sunday · votes are final and shown by name | - | top",
+          "e5 | text | Piranesi | - | top",
+          "e6 | text | The Remains of the Day | - | top",
+          "e7 | text | Klara and the Sun | - | top",
+          "e8 | checkbox | Piranesi | unchecked | top",
+          "e9 | checkbox | The Remains of the Day | checked | top",
+          "e10 | checkbox | Klara and the Sun | unchecked | top",
+          "e11 | button | Vote | - | top",
+          "e12 | button | See results | - | top",
+          "e13 | heading | Comments (14) | - | middle",
+          "e14 | button | Sort by top | - | middle",
+          "e15 | text | I'd love something short after last month's brick. | - | middle"
+        ],
+        "texts": [
+          "Paperback Club",
+          "Threads",
+          "What should we read in November?",
+          "Poll by Mateo · 58 votes · closes Sunday · votes are final and shown by name",
+          "Piranesi",
+          "The Remains of the Day",
+          "Klara and the Sun",
+          "Vote",
+          "See results",
+          "Comments (14)",
+          "Sort by top",
+          "I'd love something short after last month's brick."
+        ]
+      },
+      "target": "e12 | button | See results | - | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.03
+      }
+    },
+    "usage": {
+      "input_tokens": 754,
+      "output_tokens": 21
+    }
+  }
+}

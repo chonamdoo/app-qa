@@ -6,11 +6,19 @@ import { AppiumClient } from '../../appium/client.ts';
 import { appiumPort } from '../../appium/server.ts';
 import { checkAdb, checkXcode, installedDriverVersions, PINNED_DRIVERS, printChecks, type Check } from '../../appium/setup.ts';
 import { loadEnv, PATHS } from '../../core/config.ts';
-import { listDevices } from '../../drivers/devices.ts';
+import { PLATFORM_INFO } from '../../core/platform.ts';
+import type { DeviceInfo } from '../../core/types.ts';
+import { androidChromeChecks, desktopBrowserChecks, iosSafariChecks, listDevices } from '../../drivers/index.ts';
 import { JEV_MODEL, loadCalibration, loadJevConfig, QUESTION_VERSION } from '../../jev/index.ts';
+import { listAppProfiles } from '../../server/store.ts';
+import { browserReadiness } from '../browsers.ts';
+import { displayStateCheck } from '../display.ts';
 
 const USAGE = `사용법: qa doctor
-  Node·의존성·Appium 드라이버·OCR 도우미·adb·Xcode·디바이스·Jev 키·보정 기록을 점검합니다.
+  Node·의존성·Appium 드라이버·OCR 도우미·adb·Xcode·디바이스·Jev 키·보정 기록과 웹 브라우저(데스크톱 Chrome/Safari,
+  데스크톱 화면 "알 수 없음" 표시, Android Chrome, iOS Safari) 준비 상태를 점검합니다. 읽기만 하며 기기 설정은 바꾸지
+  않습니다 (준비: qa setup --browsers).
+  웹 항목은 apps/에 웹 프로필이 있을 때만 종료 코드에 반영됩니다.
 종료 코드: 0 = 모두 정상, 1 = 하나 이상 실패, 2 = 사용법 오류`;
 
 function nodeCheck(): Check {
@@ -55,18 +63,18 @@ function ocrCheck(): Check {
   }
 }
 
-async function devicesCheck(): Promise<Check> {
-  try {
-    const booted = (await listDevices()).filter((d) => d.state === 'booted');
-    return {
-      label: '디바이스',
-      ok: booted.length > 0,
-      detail: booted.length ? booted.map((d) => `${d.platform} ${d.name} (${d.id})`).join(', ') : '부팅된 에뮬레이터/시뮬레이터 없음',
-      hint: 'Android 에뮬레이터 또는 iOS 시뮬레이터를 부팅하세요',
-    };
-  } catch (err) {
-    return { label: '디바이스', ok: false, detail: (err as Error).message };
-  }
+function devicesCheck(devices: DeviceInfo[] | Error): Check {
+  if (devices instanceof Error) return { label: '디바이스', ok: false, detail: devices.message };
+  const booted = devices.filter((d) => d.state === 'booted');
+  const mobile = booted.filter((d) => PLATFORM_INFO[d.platform].host !== 'desktop');
+  return {
+    label: '디바이스',
+    ok: booted.length > 0,
+    detail: mobile.length
+      ? mobile.map((d) => `${d.platform} ${d.name} (${d.id})`).join(', ')
+      : `부팅된 에뮬레이터/시뮬레이터 없음${booted.length ? ' (데스크톱 브라우저만 사용 가능)' : ''}`,
+    hint: 'Android 에뮬레이터 또는 iOS 시뮬레이터를 부팅하세요',
+  };
 }
 
 function jevChecks(): Check[] {
@@ -114,10 +122,30 @@ export async function cmdDoctor(argv: string[]): Promise<number> {
     return 0;
   }
   loadEnv();
-  const [adb, xcode, devices, server] = await Promise.all([checkAdb(), checkXcode(), devicesCheck(), appiumServerCheck()]);
-  const checks = [nodeCheck(), depsCheck(), driversCheck(), ocrCheck(), adb, xcode, devices, ...jevChecks(), server];
+  const [adb, xcode, devices, server, profiles] = await Promise.all([
+    checkAdb(),
+    checkXcode(),
+    listDevices().catch((err: unknown) => (err instanceof Error ? err : new Error(String(err)))),
+    appiumServerCheck(),
+    listAppProfiles(PATHS.apps),
+  ]);
+  const checks = [nodeCheck(), depsCheck(), driversCheck(), ocrCheck(), adb, xcode, devicesCheck(devices), ...jevChecks(), server];
   console.log('qa doctor');
-  const ok = printChecks(checks);
-  console.log(ok ? '\n모든 항목 정상.' : '\n실패한 항목을 위 안내에 따라 수정하세요.');
+  const coreOk = printChecks(checks);
+
+  const webRequired = profiles.profiles.some((p) => p.web !== undefined);
+  console.log(`\n웹 (브라우저)${webRequired ? '' : ' — apps/에 웹 프로필이 없어 참고용'}`);
+  const groups = await browserReadiness(devices instanceof Error ? [] : devices, {}, {
+    desktop: async () => [...(await desktopBrowserChecks()), displayStateCheck()],
+    mobile: { android: androidChromeChecks, ios: iosSafariChecks },
+  });
+  let webOk = true;
+  for (const group of groups) {
+    console.log(`  ${group.title}`);
+    webOk = printChecks(group.checks, (line) => console.log(`  ${line}`)) && webOk;
+  }
+
+  const ok = coreOk && (webOk || !webRequired);
+  console.log(ok ? (webOk ? '\n모든 항목 정상.' : '\n필수 항목 정상 (웹 항목은 웹 테스트 전에 `qa setup --browsers`로 준비하세요).') : '\n실패한 항목을 위 안내에 따라 수정하세요.');
   return ok ? 0 : 1;
 }

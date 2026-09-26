@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>내 물건 팔기 · 동네장터</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="sell.html">동네장터</a>
+    <nav><a href="sell.html#chat">채팅</a></nav>
+  </header>
+
+  <main class="narrow">
+    <h1>내 물건 팔기</h1>
+    <form class="card" data-done="판매글이 올라갔습니다. 동네 이웃에게 보여요.">
+      <div class="row"><button type="button" class="ghost">사진 추가</button><span class="muted">사진 3/10</span></div>
+      <label for="title">제목</label>
+      <input id="title" value="캠핑 의자 2개 일괄" style="width: 100%">
+      <div class="row" style="margin-top: 8px"><button type="button" class="ghost">카테고리 선택</button><span class="muted">스포츠/레저</span></div>
+      <label for="price">가격</label>
+      <input id="price" value="25,000원">
+      <div class="row" style="margin-top: 8px"><button type="button" role="switch" class="switch" aria-checked="false">가격 제안 받기</button></div>
+      <label for="desc">설명</label>
+      <textarea id="desc">두 번 사용했어요. 망원동 직거래 원해요.</textarea>
+      <div class="row end"><button type="submit">판매글 올리기</button></div>
+    </form>
+    <p role="status"></p>
+  </main>
+  <script src="../app.js"></script>
+</body>
+</html>

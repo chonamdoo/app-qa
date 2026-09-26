@@ -1,0 +1,546 @@
+{
+ "url": "http://localhost:4173/",
+ "title": "QA 데모 상점",
+ "width": 1280,
+ "height": 800,
+ "dpr": 1,
+ "scrollX": 0,
+ "scrollY": 0,
+ "truncated": false,
+ "nodes": [
+  {
+   "parent": -1,
+   "kind": "document",
+   "name": "QA 데모 상점",
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "flags": [
+    "enabled",
+    "scrollable"
+   ]
+  },
+  {
+   "parent": 0,
+   "kind": "generic",
+   "name": null,
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 0,
+   "y": 0,
+   "w": 1265,
+   "h": 69,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 1,
+   "kind": "heading",
+   "name": null,
+   "text": "QA 데모 상점",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 16,
+   "y": 19,
+   "w": 106.703125,
+   "h": 30,
+   "flags": [
+    "enabled",
+    "heading"
+   ]
+  },
+  {
+   "parent": 1,
+   "kind": "generic",
+   "name": null,
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 1121.9375,
+   "y": 12,
+   "w": 127.0625,
+   "h": 44,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 3,
+   "kind": "link",
+   "name": null,
+   "text": "로그인",
+   "id": "login-link",
+   "value": null,
+   "hint": null,
+   "x": 1121.9375,
+   "y": 22,
+   "w": 41.53125,
+   "h": 24,
+   "flags": [
+    "clickable",
+    "focusable",
+    "enabled"
+   ]
+  },
+  {
+   "parent": 3,
+   "kind": "button",
+   "name": null,
+   "text": "도움말",
+   "id": "help-open",
+   "value": null,
+   "hint": null,
+   "x": 1175.46875,
+   "y": 12,
+   "w": 73.53125,
+   "h": 44,
+   "flags": [
+    "clickable",
+    "focusable",
+    "enabled"
+   ]
+  },
+  {
+   "parent": 0,
+   "kind": "generic",
+   "name": null,
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 272.5,
+   "y": 69,
+   "w": 720,
+   "h": 1525.8125,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 6,
+   "kind": "generic",
+   "name": "상품 검색",
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 288.5,
+   "y": 85,
+   "w": 688,
+   "h": 46,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 7,
+   "kind": "text",
+   "name": null,
+   "text": "상품 검색",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 288.5,
+   "y": 96,
+   "w": 59.578125,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 7,
+   "kind": "input",
+   "name": "상품 검색",
+   "text": null,
+   "id": "query",
+   "value": "",
+   "hint": "상품 이름 입력",
+   "x": 356.078125,
+   "y": 85,
+   "w": 200,
+   "h": 46,
+   "flags": [
+    "clickable",
+    "focusable",
+    "enabled",
+    "editable"
+   ]
+  },
+  {
+   "parent": 7,
+   "kind": "button",
+   "name": null,
+   "text": "검색",
+   "id": "search",
+   "value": null,
+   "hint": null,
+   "x": 564.078125,
+   "y": 86,
+   "w": 59.6875,
+   "h": 44,
+   "flags": [
+    "clickable",
+    "focusable",
+    "enabled"
+   ]
+  },
+  {
+   "parent": 6,
+   "kind": "text",
+   "name": null,
+   "text": "상품 3개",
+   "id": "result-count",
+   "value": null,
+   "hint": null,
+   "x": 288.5,
+   "y": 147,
+   "w": 688,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 6,
+   "kind": "generic",
+   "name": null,
+   "text": null,
+   "id": "products",
+   "value": null,
+   "hint": null,
+   "x": 288.5,
+   "y": 187,
+   "w": 688,
+   "h": 220,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 12,
+   "kind": "listitem",
+   "name": null,
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 288.5,
+   "y": 187,
+   "w": 688,
+   "h": 68,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 13,
+   "kind": "text",
+   "name": null,
+   "text": "사과",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 300.5,
+   "y": 209,
+   "w": 27.6875,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 13,
+   "kind": "text",
+   "name": null,
+   "text": "1,200원",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 340.1875,
+   "y": 209,
+   "w": 51.609375,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 13,
+   "kind": "button",
+   "name": null,
+   "text": "장바구니 담기",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 845.25,
+   "y": 199,
+   "w": 119.25,
+   "h": 44,
+   "flags": [
+    "clickable",
+    "focusable",
+    "enabled"
+   ]
+  },
+  {
+   "parent": 12,
+   "kind": "listitem",
+   "name": null,
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 288.5,
+   "y": 263,
+   "w": 688,
+   "h": 68,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 17,
+   "kind": "text",
+   "name": null,
+   "text": "바나나",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 300.5,
+   "y": 285,
+   "w": 41.53125,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 17,
+   "kind": "text",
+   "name": null,
+   "text": "2,500원",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 354.03125,
+   "y": 285,
+   "w": 54.140625,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 17,
+   "kind": "button",
+   "name": null,
+   "text": "장바구니 담기",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 845.25,
+   "y": 275,
+   "w": 119.25,
+   "h": 44,
+   "flags": [
+    "clickable",
+    "focusable",
+    "enabled"
+   ]
+  },
+  {
+   "parent": 12,
+   "kind": "listitem",
+   "name": null,
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 288.5,
+   "y": 339,
+   "w": 688,
+   "h": 68,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 21,
+   "kind": "text",
+   "name": null,
+   "text": "체리",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 300.5,
+   "y": 361,
+   "w": 27.6875,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 21,
+   "kind": "text",
+   "name": null,
+   "text": "9,800원",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 340.1875,
+   "y": 361,
+   "w": 54.546875,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 21,
+   "kind": "button",
+   "name": null,
+   "text": "장바구니 담기",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 845.25,
+   "y": 351,
+   "w": 119.25,
+   "h": 44,
+   "flags": [
+    "clickable",
+    "focusable",
+    "enabled"
+   ]
+  },
+  {
+   "parent": 6,
+   "kind": "text",
+   "name": null,
+   "text": "장바구니 0개",
+   "id": "cart",
+   "value": null,
+   "hint": null,
+   "x": 288.5,
+   "y": 423,
+   "w": 688,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 6,
+   "kind": "generic",
+   "name": "안내",
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 288.5,
+   "y": 466.90625,
+   "w": 688,
+   "h": 871.90625,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 26,
+   "kind": "heading",
+   "name": null,
+   "text": "배송 안내",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 288.5,
+   "y": 466.90625,
+   "w": 688,
+   "h": 36,
+   "flags": [
+    "enabled",
+    "heading"
+   ]
+  },
+  {
+   "parent": 26,
+   "kind": "text",
+   "name": null,
+   "text": "평일 오후 2시 전 주문은 당일 출고됩니다.",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 288.5,
+   "y": 522.8125,
+   "w": 688,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 26,
+   "kind": "text",
+   "name": null,
+   "text": "제주·도서 지역은 1~2일 더 걸립니다.",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 288.5,
+   "y": 786.8125,
+   "w": 688,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 0,
+   "kind": "overlay",
+   "name": null,
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 0,
+   "y": 731,
+   "w": 1265,
+   "h": 69,
+   "flags": [
+    "enabled",
+    "clickable",
+    "occluder"
+   ]
+  },
+  {
+   "parent": 30,
+   "kind": "button",
+   "name": null,
+   "text": "주문하기",
+   "id": "order",
+   "value": null,
+   "hint": null,
+   "x": 16,
+   "y": 744,
+   "w": 1233,
+   "h": 44,
+   "flags": [
+    "clickable",
+    "focusable",
+    "enabled"
+   ]
+  }
+ ]
+}

@@ -9,10 +9,7 @@ export {
   judgeCommit,
   judgeWhich,
   reviewGenerated,
-  type CommitDecision,
   type JudgeOptions,
   type ReviewDecision,
 } from './decide.ts';
 export { createRedactor, type Redactor } from './redact.ts';
-export { runCalibration, type CalibrationReport } from './calibrate.ts';
-export { cmdCalibrate } from '../cli/commands/calibrate.ts';

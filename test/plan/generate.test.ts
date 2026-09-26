@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { chmodSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 import { describe, test } from 'node:test';
 import { PATHS } from '../../src/core/config.ts';
 import type { QaEventBody } from '../../src/core/events.ts';
@@ -126,6 +126,26 @@ describe('LLM adapters (fake CLI)', () => {
     await assert.rejects(cancelled, /취소되었습니다/);
   });
 
+  test('the CLI gets a scoped environment: its own auth/config variables, never TYPESAFE_API_KEY or app secrets', async () => {
+    for (const mode of ['claude', 'codex'] as const) {
+      const fake = fakeLlm(mode, [], { printEnv: true });
+      const env = { ...fake.env, TYPESAFE_API_KEY: 'test-key-not-real', APP_PASSWORD: 'pw', ANTHROPIC_API_KEY: 'a', OPENAI_API_KEY: 'o', CLAUDE_CONFIG_DIR: '/tmp/c', LC_ALL: 'C' };
+      const llm = createLlm({ provider: mode === 'claude' ? 'claude-cli' : 'codex-cli', env });
+      const names: string[] = JSON.parse(await llm.complete('prompt', { schema: {} }));
+      for (const name of ['PATH', 'HOME', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'CLAUDE_CONFIG_DIR', 'LC_ALL', mode === 'claude' ? 'QA_CLAUDE_BIN' : 'QA_CODEX_BIN']) {
+        assert.ok(names.includes(name), `${mode}: ${name} passed`);
+      }
+      assert.ok(!names.includes('TYPESAFE_API_KEY') && !names.includes('APP_PASSWORD'), `${mode}: ${names.join(',')}`);
+    }
+  });
+
+  test('output over the 8 MiB cap kills the CLI and fails', async () => {
+    const llm = createLlm({ provider: 'claude-cli', env: fakeLlm('claude', ['{}'], { floodBytes: 9 * 1024 * 1024 }).env });
+    await assert.rejects(llm.complete('prompt', { schema: {} }), /stdout 출력이 8 MiB 제한을 넘어 중단했습니다/);
+    const small = createLlm({ provider: 'claude-cli', env: fakeLlm('claude', ['{}'], { floodBytes: 1024 * 1024 }).env });
+    await assert.rejects(small.complete('prompt', { schema: {} }), /claude CLI 출력이 JSON이 아닙니다/, 'under the cap the output is parsed as usual');
+  });
+
   test('extractJson accepts bare JSON, fenced blocks and surrounding prose', () => {
     assert.deepEqual(extractJson('{"a":1}'), { a: 1 });
     assert.deepEqual(extractJson('앞말\n```\n{"a":2}\n```\n뒷말'), { a: 2 });
@@ -135,7 +155,8 @@ describe('LLM adapters (fake CLI)', () => {
 });
 
 describe('generatePlan', () => {
-  async function run(opts: { root: string; text: string; docs?: string[]; replies: string[]; approve?: boolean; jev?: Parameters<typeof generatePlan>[0]['jev'] }) {
+  type RunOptions = { root: string; text: string; docs?: string[]; replies: string[]; approve?: boolean; jev?: Parameters<typeof generatePlan>[0]['jev']; signal?: AbortSignal; onEvent?: (e: QaEventBody) => void };
+  async function run(opts: RunOptions) {
     const fake = fakeLlm('claude', opts.replies);
     const events: QaEventBody[] = [];
     const result = await generatePlan({
@@ -144,14 +165,43 @@ describe('generatePlan', () => {
       text: opts.text,
       llm: 'claude-cli',
       approve: opts.approve,
-      events: { emit: (e) => events.push(e) },
+      events: {
+        emit: (e) => {
+          events.push(e);
+          opts.onEvent?.(e);
+        },
+      },
       env: fake.env,
       root: opts.root,
       contextDirs: { inventory: tempDir(), envExample: join(tempDir(), 'none') },
       jev: opts.jev ?? { client: null, calibration: null, reason: 'jev_unavailable: test' },
+      signal: opts.signal,
     });
     return { result, events };
   }
+
+  /** Every file and directory under `dir` (relative path → bytes; directories → null). */
+  function snapshot(dir: string): Map<string, Buffer | null> {
+    const out = new Map<string, Buffer | null>();
+    for (const entry of readdirSync(dir, { withFileTypes: true, recursive: true })) {
+      const abs = join(entry.parentPath, entry.name);
+      out.set(relative(dir, abs), entry.isDirectory() ? null : readFileSync(abs));
+    }
+    return out;
+  }
+
+  const parkingTest = { id: 'parking-free', name: '주차 빈자리', covers: ['parking#주차'], steps: [{ tap: '주차' }, { assertText: '빈자리' }] };
+  /** First generation: inline (2 tests) + parking.md (1 test). Returns the plan directory and the parking doc. */
+  async function firstGeneration(root: string) {
+    const doc = join(tempDir(), 'parking.md');
+    writeFileSync(doc, '# 주차\n\n주차 탭에 빈자리가 보인다.\n');
+    await run({ root, text: SCENARIO, docs: [doc], replies: [JSON.stringify({ tests: [goodTest, termsTest, parkingTest], untestable: [] })] });
+    return { planDir: join(root, 'tests', 'generated', 'tteonam'), doc };
+  }
+  const secondReply = JSON.stringify({
+    tests: [{ ...goodTest, name: '출국장 대기시간 (2세대)' }, { ...parkingTest, name: '주차 빈자리 (2세대)' }],
+    untestable: [{ requirement: REQ_B, reason: '화면 인벤토리에 없음: 2세대' }],
+  });
 
   test('writes validated YAML + plan.json; Jev gate + --approve promotes; events cover every phase', async () => {
     const root = tempDir();
@@ -211,16 +261,16 @@ describe('generatePlan', () => {
     assert.ok(unavailable.result.plan.tests.every((t) => t.status === 'draft' && t.review.issues[0] === 'jev_unavailable: test' && t.review.addressesRequirement === null));
   });
 
-  test('re-planning one document replaces only its entries and files', async () => {
+  test('re-planning one document replaces only its entries; only its stale files are removed', async () => {
     const root = tempDir();
-    const docDir = tempDir();
-    const doc = join(docDir, 'parking.md');
-    writeFileSync(doc, '# 주차\n\n주차 탭에 빈자리가 보인다.\n');
-    const parkingTest = { id: 'parking-free', name: '주차 빈자리', covers: ['parking#주차'], steps: [{ tap: '주차' }, { assertText: '빈자리' }] };
-    const first = await run({ root, text: SCENARIO, docs: [doc], replies: [JSON.stringify({ tests: [goodTest, termsTest, parkingTest], untestable: [] })] });
-    assert.equal(first.result.testFiles.length, 3);
-    const termsFile = join(root, 'tests', 'generated', 'tteonam', 'inline', 'departures-terms.e2e.yaml');
+    const { planDir } = await firstGeneration(root);
+    const termsFile = join(planDir, 'inline', 'departures-terms.e2e.yaml');
+    const parkingFile = join(planDir, 'parking', 'parking-free.e2e.yaml');
     assert.ok(existsSync(termsFile));
+    const parkingBytes = readFileSync(parkingFile);
+    // Files the plan does not reference are never touched, even in a re-planned document's directory.
+    writeFileSync(join(planDir, 'inline', 'manual.e2e.yaml'), 'name: 손으로 쓴 테스트\n');
+    writeFileSync(join(planDir, 'inline', 'notes.txt'), '메모\n');
 
     const second = await run({ root, text: '# 출국장\n\n출국장 탭에 대기시간이 보인다.\n', replies: [JSON.stringify({ tests: [goodTest], untestable: [] })] });
     const plan = second.result.plan;
@@ -235,8 +285,83 @@ describe('generatePlan', () => {
       plan.tests.map((t) => t.file),
       ['tests/generated/tteonam/parking/parking-free.e2e.yaml', 'tests/generated/tteonam/inline/departures-wait.e2e.yaml'],
     );
-    assert.ok(!existsSync(termsFile), 'files of the replaced document are removed');
-    assert.ok(existsSync(join(root, 'tests', 'generated', 'tteonam', 'parking', 'parking-free.e2e.yaml')));
+    assert.deepEqual(
+      [...snapshot(planDir).keys()].sort(),
+      ['inline', 'inline/departures-wait.e2e.yaml', 'inline/manual.e2e.yaml', 'inline/notes.txt', 'parking', 'parking/parking-free.e2e.yaml', 'plan.json'].map((p) => p.split('/').join(sep)),
+      'the stale departures-terms file is gone; no staging directory is left behind',
+    );
+    assert.deepEqual(readFileSync(parkingFile), parkingBytes, 'the other document’s test is untouched');
+    assert.deepEqual(JSON.parse(readFileSync(join(planDir, 'plan.json'), 'utf8')), plan);
+  });
+
+  test('a second generation of the same app while one runs fails fast; the files are exactly the first generation', async () => {
+    const root = tempDir();
+    const planDir = join(root, 'tests', 'generated', 'tteonam');
+    const late = fakeLlm('claude', [JSON.stringify({ tests: [termsTest], untestable: [] })]);
+    const lateEvents: QaEventBody[] = [];
+    let second: Promise<unknown> | null = null;
+    // The second generation starts while the first holds the plan lock (between its LLM step and its commit).
+    const onEvent = (e: QaEventBody) => {
+      if (second || e.type !== 'plan.progress' || e.phase !== 'review') return;
+      second = generatePlan({
+        app: 'tteonam',
+        docs: [],
+        text: SCENARIO,
+        llm: 'claude-cli',
+        env: late.env,
+        root,
+        events: { emit: (event) => lateEvents.push(event) },
+        contextDirs: { inventory: tempDir(), envExample: join(tempDir(), 'none') },
+        jev: { client: null, calibration: null, reason: 'jev_unavailable: test' },
+      });
+    };
+    const first = await run({ root, text: SCENARIO, replies: [JSON.stringify({ tests: [goodTest], untestable: [] })], onEvent });
+    const pending = second as Promise<unknown> | null;
+    assert.ok(pending);
+    await assert.rejects(pending, /^FileLockedError: 앱 tteonam의 계획 생성: 다른 qa 프로세스\(pid \d+, .+부터\)가 잠금을 갖고 있습니다\.$/);
+    assert.deepEqual(late.calls(), [], 'the second generation never reached the LLM');
+    const last = lateEvents.at(-1)!;
+    assert.ok(last.type === 'plan.finished' && !last.ok);
+
+    assert.deepEqual([...snapshot(planDir).keys()].sort(), ['inline', join('inline', 'departures-wait.e2e.yaml'), 'plan.json']);
+    assert.deepEqual(JSON.parse(readFileSync(join(planDir, 'plan.json'), 'utf8')), first.result.plan);
+    assert.match(readFileSync(first.result.testFiles[0]!, 'utf8'), /name: 출국장 탭 대기시간 표시/);
+
+    // The lock is released with the first generation: the next one runs and orders after it.
+    const next = await run({ root, text: SCENARIO, replies: [JSON.stringify({ tests: [goodTest, termsTest], untestable: [] })] });
+    assert.ok(Date.parse(next.result.plan.createdAt) > Date.parse(first.result.plan.createdAt));
+  });
+
+  test('cancelling after the new generation is staged leaves the previous tests and plan.json byte-identical', async () => {
+    const root = tempDir();
+    const { planDir, doc } = await firstGeneration(root);
+    const before = snapshot(planDir);
+    const controller = new AbortController();
+    const onEvent = (e: QaEventBody) => {
+      if (e.type === 'plan.progress' && e.phase === 'write' && e.message.startsWith('새 계획 준비 완료')) controller.abort();
+    };
+    await assert.rejects(run({ root, text: SCENARIO, docs: [doc], replies: [secondReply], signal: controller.signal, onEvent }), /계획 생성이 취소되었습니다/);
+    assert.deepEqual(snapshot(planDir), before);
+  });
+
+  test('a failure in the middle of the swap restores every file already swapped in', { skip: process.getuid?.() === 0 && 'root ignores directory permissions' }, async () => {
+    const root = tempDir();
+    const { planDir, doc } = await firstGeneration(root);
+    const before = snapshot(planDir);
+    // Files swap in path order: inline/* first, then parking/* fails because its directory is read-only.
+    chmodSync(join(planDir, 'parking'), 0o500);
+    try {
+      await assert.rejects(run({ root, text: SCENARIO, docs: [doc], replies: [secondReply] }), /테스트 파일 교체에 실패해 이전 계획으로 되돌렸습니다: .*(EACCES|EPERM)/);
+    } finally {
+      chmodSync(join(planDir, 'parking'), 0o700);
+    }
+    assert.deepEqual(snapshot(planDir), before);
+
+    // The same regeneration succeeds once the directory is writable again.
+    const ok = await run({ root, text: SCENARIO, docs: [doc], replies: [secondReply] });
+    assert.match(readFileSync(join(planDir, 'parking', 'parking-free.e2e.yaml'), 'utf8'), /주차 빈자리 \(2세대\)/);
+    assert.ok(!existsSync(join(planDir, 'inline', 'departures-terms.e2e.yaml')));
+    assert.deepEqual(ok.result.plan.untestable, [{ requirement: REQ_B, reason: '화면 인벤토리에 없음: 2세대' }]);
   });
 
   test('failures emit plan.finished ok:false and write nothing', async () => {

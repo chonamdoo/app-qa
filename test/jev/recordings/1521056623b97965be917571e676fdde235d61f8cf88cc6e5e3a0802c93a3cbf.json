@@ -1,0 +1,63 @@
+{
+  "key": "1521056623b97965be917571e676fdde235d61f8cf88cc6e5e3a0802c93a3cbf",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb53350721184a24d910f41e440",
+  "latencyMs": 193,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 하루기록 매거진 | - | top",
+          "e2 | link | 글쓰기 | - | top",
+          "e3 | heading | 베란다에서 시작하는 도시 텃밭 | - | top",
+          "e4 | text | 에디터 정유진 · 5분 분량 | - | top",
+          "e5 | button | 목차 펼치기 | - | top",
+          "e6 | text | 상추와 바질은 햇빛이 네 시간만 들어도 잘 자랍니다. 배수 구멍이 있는 화분을 고르세요. | - | top",
+          "e7 | link | 이전 글 | - | top",
+          "e8 | link | 다음 글 | - | top",
+          "e9 | heading | 매주 월요일, 새 글을 메일로 | - | middle",
+          "e10 | input | 이메일 | value=\"[REDACTED]\" | middle",
+          "e11 | button | 뉴스레터 받기 | - | middle"
+        ],
+        "texts": [
+          "하루기록 매거진",
+          "글쓰기",
+          "베란다에서 시작하는 도시 텃밭",
+          "에디터 정유진 · 5분 분량",
+          "목차 펼치기",
+          "상추와 바질은 햇빛이 네 시간만 들어도 잘 자랍니다. 배수 구멍이 있는 화분을 고르세요.",
+          "이전 글",
+          "다음 글",
+          "매주 월요일, 새 글을 메일로",
+          "[REDACTED]",
+          "뉴스레터 받기"
+        ]
+      },
+      "target": "e8 | link | 다음 글 | - | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.03
+      }
+    },
+    "usage": {
+      "input_tokens": 771,
+      "output_tokens": 21
+    }
+  }
+}

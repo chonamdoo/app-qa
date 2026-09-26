@@ -1,0 +1,54 @@
+{
+  "key": "a261c0fc2227e29002fd25a93884e8cae87006c7901877ad9a34be7f3065b675",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb537e07aa6812af19dc5cb7222",
+  "latencyMs": 185,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | other | QA 데모 상점 | - | middle",
+          "e2 | other | 도움말, 웹 대화상자 | - | middle",
+          "e3 | other | 메인 | - | bottom",
+          "e4 | heading | 도움말 | value=\"2\" | middle",
+          "e5 | heading | 도움말 | - | middle",
+          "e6 | text | 검색창에 상품 이름을 입력하고 검색을 누르세요. | - | middle",
+          "e7 | button | 닫기 | - | middle",
+          "e8 | other | 안내, 영역 | - | bottom",
+          "e9 | text | 제주·도서 지역은 1~2일 더 걸립니다. | - | bottom"
+        ],
+        "texts": [
+          "도움말",
+          "검색창에 상품 이름을 입력하고 검색을 누르세요.",
+          "닫기",
+          "제주·도서 지역은 1~2일 더 걸립니다."
+        ]
+      },
+      "target": "e7 | button | 닫기 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.05
+      }
+    },
+    "usage": {
+      "input_tokens": 620,
+      "output_tokens": 21
+    }
+  }
+}

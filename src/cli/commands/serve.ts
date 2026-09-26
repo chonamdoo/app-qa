@@ -1,20 +1,25 @@
 // `qa serve`: engine server for the macOS app. Runner/planner/drivers are imported lazily at use time, so the server
 // starts even while those modules are missing and the affected job/route fails with a clear message instead.
-import { chmodSync, existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { loadEnv, PATHS } from '../../core/config.ts';
 import type { EventSink } from '../../core/events.ts';
-import { writeJson } from '../../core/fsx.ts';
+import { writeJsonAtomic } from '../../core/fsx.ts';
+import { PLATFORM_INFO } from '../../core/platform.ts';
 import type { DeviceInfo, Platform, Verdict } from '../../core/types.ts';
-import type { JobOutcome } from '../../server/jobs.ts';
+import type { JobContext, JobOutcome, SmokeParams } from '../../server/jobs.ts';
 import { createServer, HttpError, type ServerHandlers } from '../../server/server.ts';
+import { loadAppProfile } from '../../spec/load.ts';
+import { profilePlatforms } from '../../spec/schema.ts';
+import { smokeEach } from '../smoke-each.ts';
 
 /** §10 RunResult fields the queue reports. */
 interface RunResultLike {
   runId: string;
   counts: Record<Verdict, number>;
+  tests: { code: string | null }[];
   reportPath: string;
 }
 
@@ -68,8 +73,9 @@ async function load<T>(specifier: string, label: string, exportsNeeded: string[]
   return mod as T;
 }
 
-function runOutcome(results: RunResultLike[]): JobOutcome {
-  const counts: Record<Verdict, number> = { PASS: 0, FAIL: 0, INCONCLUSIVE: 0, ERROR: 0, SKIPPED: 0 };
+/** Job outcome of runner results; each `notRun` reason is one platform never started, counted as ERROR. */
+function runOutcome(results: RunResultLike[], notRun: readonly string[] = []): JobOutcome {
+  const counts: Record<Verdict, number> = { PASS: 0, FAIL: 0, INCONCLUSIVE: 0, ERROR: notRun.length, SKIPPED: 0 };
   for (const result of results) for (const verdict of VERDICT_ORDER) counts[verdict] += result.counts[verdict] ?? 0;
   const executed = VERDICT_ORDER.reduce((sum, v) => sum + counts[v], 0);
   const summary = VERDICT_ORDER.filter((v) => counts[v] > 0)
@@ -78,9 +84,24 @@ function runOutcome(results: RunResultLike[]): JobOutcome {
   return {
     // Fail-closed: anything but PASS/SKIPPED (or nothing executed) is not a successful job.
     ok: executed > 0 && counts.FAIL + counts.ERROR + counts.INCONCLUSIVE === 0,
-    message: summary || '실행된 테스트가 없습니다',
+    message: [summary || '실행된 테스트가 없습니다', ...notRun].join(' · '),
     resultPath: results.at(-1)?.reportPath ?? null,
   };
+}
+
+/** Smoke job over `platforms` in order, with the runner's `runSmoke` passed in (see `smokeEach`). */
+export async function smokeJob(runSmoke: RunnerModule['runSmoke'], platforms: readonly Platform[], params: SmokeParams, { events, signal }: JobContext): Promise<JobOutcome> {
+  const results: RunResultLike[] = [];
+  const notRun: string[] = [];
+  const each = smokeEach(platforms, (platform) => {
+    signal.throwIfAborted();
+    return runSmoke({ app: params.app, platform, deviceId: params.deviceIds[platform], crawl: params.crawl, events, signal });
+  });
+  for await (const smoke of each) {
+    if (smoke.result) results.push(smoke.result);
+    else notRun.push(`${PLATFORM_INFO[smoke.platform].label}: ${smoke.notRun}`);
+  }
+  return runOutcome(results, notRun);
 }
 
 function realHandlers(): ServerHandlers {
@@ -92,15 +113,9 @@ function realHandlers(): ServerHandlers {
       const { runTests } = await runner();
       return runOutcome([await runTests({ ...params, events, signal })]);
     },
-    async smoke(params, { events, signal }) {
+    async smoke(params, ctx) {
       const { runSmoke } = await runner();
-      const platforms: Platform[] = params.platform === 'all' ? ['android', 'ios'] : [params.platform];
-      const results: RunResultLike[] = [];
-      for (const platform of platforms) {
-        signal.throwIfAborted();
-        results.push(await runSmoke({ app: params.app, platform, deviceId: params.deviceIds[platform], crawl: params.crawl, events, signal }));
-      }
-      return runOutcome(results);
+      return smokeJob(runSmoke, params.platform === 'all' ? profilePlatforms(loadAppProfile(params.app)) : [params.platform], params, ctx);
     },
     async plan(params, { events, signal }) {
       const { generatePlan } = await load<PlannerModule>('../../plan/index.ts', '플래너', ['generatePlan']);
@@ -133,6 +148,28 @@ function realHandlers(): ServerHandlers {
   };
 }
 
+/**
+ * Starts the engine server and publishes its connection info (port, token): the 0600 temp file is renamed into place,
+ * so the token is never readable by others nor torn. `close()` stops the server and removes the file while it is ours.
+ */
+export async function startEngine(opts: { port: number; infoFile: string; handlers: ServerHandlers }): Promise<{ port: number; close(): Promise<void> }> {
+  const server = createServer({ handlers: opts.handlers });
+  const port = await server.listen(opts.port);
+  writeJsonAtomic(opts.infoFile, { port, token: server.token, pid: process.pid, startedAt: new Date().toISOString() });
+  return {
+    port,
+    async close() {
+      await server.close();
+      try {
+        const info: unknown = JSON.parse(readFileSync(opts.infoFile, 'utf8'));
+        if (typeof info === 'object' && info !== null && 'pid' in info && info.pid === process.pid) rmSync(opts.infoFile);
+      } catch {
+        // Already removed or replaced by another instance.
+      }
+    },
+  };
+}
+
 export async function cmdServe(argv: string[]): Promise<number> {
   const { values } = parseArgs({
     args: argv,
@@ -149,12 +186,9 @@ export async function cmdServe(argv: string[]): Promise<number> {
     return 2;
   }
   loadEnv();
-  const server = createServer({ handlers: realHandlers() });
-  const bound = await server.listen(port);
   const infoFile = join(PATHS.state, 'server.json');
-  writeJson(infoFile, { port: bound, token: server.token, pid: process.pid, startedAt: new Date().toISOString() });
-  chmodSync(infoFile, 0o600);
-  console.log(`qa serve: http://127.0.0.1:${bound} (접속 정보 ${relative(PATHS.root, infoFile)})`);
+  const engine = await startEngine({ port, infoFile, handlers: realHandlers() });
+  console.log(`qa serve: http://127.0.0.1:${engine.port} (접속 정보 ${relative(PATHS.root, infoFile)})`);
 
   const { promise: stopped, resolve: stop } = Promise.withResolvers<string>();
   process.once('SIGINT', () => stop('SIGINT'));
@@ -167,11 +201,6 @@ export async function cmdServe(argv: string[]): Promise<number> {
   const reason = await stopped;
   console.log(`qa serve: 종료 (${reason})`);
   process.stdin.pause();
-  await server.close();
-  try {
-    if ((JSON.parse(readFileSync(infoFile, 'utf8')) as { pid?: number }).pid === process.pid) rmSync(infoFile);
-  } catch {
-    // Already removed or replaced by another instance.
-  }
+  await engine.close();
   return 0;
 }

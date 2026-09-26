@@ -28,6 +28,24 @@ describe('refind', () => {
     assert.equal(refind(input, after), null);
   });
 
+  it('returns null when another element took the same place, name and state (resource id differs)', () => {
+    const before = loadModel('android/web-demo/index');
+    const help = before.candidates.find((c) => c.name === '도움말' && c.actionable)!;
+    assert.equal(help.resourceId, 'help-open');
+    assert.equal(refind(help, before)?.nodeId, help.nodeId);
+    for (const replaced of ['resource-id="help-replacement"', 'resource-id=""']) {
+      const after = loadModel('android/web-demo/index', {}, (xml) => xml.replace('resource-id="help-open"', replaced));
+      const same = after.candidates.find((c) => c.nodeId === help.nodeId)!;
+      assert.deepEqual({ ...same, resourceId: help.resourceId }, help, 'only the resource id changed');
+      assert.equal(refind(help, after), null, replaced);
+    }
+    // A node without a resource id matches only a node without one.
+    const bare = loadModel('android/web-demo/index', {}, (xml) => xml.replace('resource-id="help-open"', 'resource-id=""'));
+    const unnamed = bare.candidates.find((c) => c.nodeId === help.nodeId)!;
+    assert.equal(refind(unnamed, bare)?.nodeId, help.nodeId);
+    assert.equal(refind(unnamed, before), null);
+  });
+
   it('returns null when the target disappeared (now occluded)', () => {
     const launch = loadModel('android/tteonam/launch');
     const settings = launch.candidates.find((c) => c.name === '설정')!;

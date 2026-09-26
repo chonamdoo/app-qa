@@ -1,0 +1,654 @@
+{
+  "url": "http://localhost:4174/account-en.html",
+  "title": "Workspace settings · Tasklane",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "Workspace settings · Tasklane",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 59.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "Tasklane",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 15.75,
+      "w": 69.09375,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1074.421875,
+      "y": 10,
+      "w": 181.578125,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "text",
+      "name": null,
+      "text": "jordan@acme.io",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1074.421875,
+      "y": 19.5,
+      "w": 87.828125,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "button",
+      "name": null,
+      "text": "Sign out",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1176.25,
+      "y": 10,
+      "w": 79.75,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 100,
+      "y": 59.5,
+      "w": 1080,
+      "h": 589.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 79.5,
+      "w": 220,
+      "h": 549.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 79.5,
+      "w": 220,
+      "h": 159,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "heading",
+      "name": null,
+      "text": "Profile",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 96.5,
+      "w": 186,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "text",
+      "name": null,
+      "text": "Jordan Lee · Product designer",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 130,
+      "w": 186,
+      "h": 45,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "button",
+      "name": null,
+      "text": "Edit profile",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 183,
+      "w": 97.25,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 252.5,
+      "w": 220,
+      "h": 106,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "heading",
+      "name": null,
+      "text": "Appearance",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 269.5,
+      "w": 186,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "switch",
+      "name": null,
+      "text": "Dark mode",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 303,
+      "w": 96.875,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 79.5,
+      "w": 788,
+      "h": 549.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 79.5,
+      "w": 788,
+      "h": 215.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "heading",
+      "name": null,
+      "text": "Email preferences",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 96.5,
+      "w": 754,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "text",
+      "name": null,
+      "text": "Weekly summary",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 134,
+      "w": 126.15625,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 18,
+      "kind": "checkbox",
+      "name": "Weekly summary",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 389,
+      "y": 138,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "text",
+      "name": null,
+      "text": "Mentions only",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 527.109375,
+      "y": 134,
+      "w": 109.109375,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 20,
+      "kind": "checkbox",
+      "name": "Mentions only",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 531.109375,
+      "y": 138,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "text",
+      "name": null,
+      "text": "Time zone",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 167,
+      "w": 754,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "select",
+      "name": "Time zone",
+      "text": null,
+      "id": "tz",
+      "value": "Central European Time",
+      "hint": null,
+      "x": 385,
+      "y": 190.5,
+      "w": 186,
+      "h": 39,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 239.5,
+      "w": 754,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 24,
+      "kind": "button",
+      "name": null,
+      "text": "Save changes",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1026.375,
+      "y": 239.5,
+      "w": 112.625,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 309,
+      "w": 788,
+      "h": 135.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 26,
+      "kind": "heading",
+      "name": null,
+      "text": "Team members",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 326,
+      "w": 754,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 26,
+      "kind": "text",
+      "name": null,
+      "text": "3 of 5 seats used",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 359.5,
+      "w": 754,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 26,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 387,
+      "w": 754,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 29,
+      "kind": "text",
+      "name": null,
+      "text": "Email address",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 408.75,
+      "w": 1,
+      "h": 1,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 29,
+      "kind": "input",
+      "name": "Email address",
+      "text": null,
+      "id": "invite",
+      "value": "sam.kim@acme.io",
+      "hint": null,
+      "x": 385,
+      "y": 387,
+      "w": 624.125,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable",
+        "occluder"
+      ]
+    },
+    {
+      "parent": 29,
+      "kind": "button",
+      "name": null,
+      "text": "Invite member",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1019.125,
+      "y": 388,
+      "w": 119.875,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 458.5,
+      "w": 788,
+      "h": 135.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 33,
+      "kind": "heading",
+      "name": null,
+      "text": "Danger zone",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 475.5,
+      "w": 754,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 33,
+      "kind": "text",
+      "name": null,
+      "text": "Closing your account removes you from all workspaces.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 509,
+      "w": 754,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 33,
+      "kind": "button",
+      "name": null,
+      "text": "Close account",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 536.5,
+      "w": 117.46875,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 608,
+      "w": 788,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

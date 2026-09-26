@@ -1,0 +1,71 @@
+{
+  "key": "0ad965f0482d1b3da8793478ab9eeb3d98cd723b6c440ff12bbc06606d05f123",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfdb4d7419ac6b05373d6cd45d",
+  "latencyMs": 243,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 동네장터 | - | top",
+          "e2 | link | 채팅 | - | top",
+          "e3 | heading | 내 물건 팔기 | - | top",
+          "e4 | button | 사진 추가 | - | top",
+          "e5 | text | 사진 3/10 | - | top",
+          "e6 | text | 제목 | - | top",
+          "e7 | input | 제목 | value=\"캠핑 의자 2개 일괄\" | top",
+          "e8 | button | 카테고리 선택 | - | middle",
+          "e9 | text | 스포츠/레저 | - | middle",
+          "e10 | text | 가격 | - | middle",
+          "e11 | input | 가격 | value=\"25,000원\" | middle",
+          "e12 | switch | 가격 제안 받기 | unchecked | middle",
+          "e13 | text | 설명 | - | middle",
+          "e14 | input | 설명 | value=\"두 번 사용했어요. 망원동 직거래 원해요.\" | middle",
+          "e15 | button | 판매글 올리기 | - | bottom"
+        ],
+        "texts": [
+          "동네장터",
+          "채팅",
+          "내 물건 팔기",
+          "사진 추가",
+          "사진 3/10",
+          "제목",
+          "캠핑 의자 2개 일괄",
+          "카테고리 선택",
+          "스포츠/레저",
+          "가격",
+          "25,000원",
+          "가격 제안 받기",
+          "설명",
+          "두 번 사용했어요. 망원동 직거래 원해요.",
+          "판매글 올리기"
+        ]
+      },
+      "target": "e8 | button | 카테고리 선택 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.03
+      }
+    },
+    "usage": {
+      "input_tokens": 794,
+      "output_tokens": 21
+    }
+  }
+}

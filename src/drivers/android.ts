@@ -1,19 +1,36 @@
-// Android (UiAutomator2) driver. Host-side work (launch, logs, permissions, reset) goes through adb directly.
+// Android (UiAutomator2) driver. Host-side work (launch, logs, permissions, reset) goes through adb directly;
+// every device-shell argument is single-quoted and every app id is validated first.
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ActionOutcome, AppTarget, RawNode, Rect, TypeOutcome } from '../core/types.ts';
-import { parseAndroidSource } from '../observe/index.ts';
-import { AppiumDriver, PERMISSION_GROUPS, RefusedError, shq, type FieldValue, type Key, type LaunchOptions } from './base.ts';
-import { adb } from './common.ts';
+import { setTimeout as delay } from 'node:timers/promises';
+import { unexpectedResponse } from '../appium/client.ts';
+import { adb, adbShell, shq } from '../appium/exec.ts';
+import { PLATFORM_INFO } from '../core/platform.ts';
+import type { ActionOutcome, AppTarget, NativeTarget, RawNode, Rect, TypeOutcome, WebTarget } from '../core/types.ts';
+import { parseAndroidSource } from '../observe/android.ts';
+import { navigationProblem } from './appid.ts';
+import { AppiumDriver, assertNoWebLaunchOptions, PERMISSION_GROUPS, RefusedError, StepError, type FieldValue, type Key, type LaunchOptions } from './base.ts';
+import { androidChromeChecks, prepareAndroidChrome, readinessProblem } from './browser-prep.ts';
 import { androidLogArgs, LogCapture } from './logs.ts';
 
 const KEYCODES: Record<Key, number> = { enter: 66, back: 4, tab: 61, escape: 111, delete: 67 };
 const KEYCODE_PASTE = 279;
 
+/** Chrome loads VIEW intents that carry the same browser application id into the same tab. */
+const CHROME_TAB_OWNER = 'app-qa';
+
+/** `adb reverse --list` lines (`<transport> <device spec> <host spec>`) → device spec → host spec. */
+function reverseMappings(out: string): Map<string, string> {
+  return new Map([...out.matchAll(/^\S+\s+(\S+)\s+(\S+)\s*$/gm)].map((m) => [m[1]!, m[2]!]));
+}
+
 /** `am start` exits 0 even when it fails; failures are reported on stdout. */
 function assertAmStarted(out: string): void {
   if (/^Error|Exception|Error type \d|unable to resolve|does not exist/im.test(out)) throw new RefusedError(`am start 실패: ${out.trim().split('\n').slice(-2).join(' ')}`);
 }
+
+/** Permissions the app never requested (or unknown on this API level) cannot be changed: those are skipped. */
+const UNCHANGEABLE_PERMISSION = /has not requested|Unknown permission|not a changeable permission type/i;
 
 /** Soft keyboard visibility from `dumpsys window InputMethod` (the IME window's `isVisible` / surface state). */
 export function imeVisible(dump: string): boolean {
@@ -40,6 +57,12 @@ export class AndroidDriver extends AppiumDriver {
   readonly platform = 'android' as const;
   protected readonly depthLimit = 70; // UiAutomator2 default snapshotMaxDepth
   protected readonly keyboardInSource = false; // the IME is a separate window, absent with enableMultiWindows:false
+  protected readonly browserChecks = androidChromeChecks;
+  protected readonly addressBarId = `${PLATFORM_INFO.android.browser}:id/url_bar`;
+  /** `adb reverse` device specs (`tcp:P`) this driver created; `close` removes them, never a mapping it only reused. */
+  private readonly ownedReverse = new Set<string>();
+  /** Device clock minus host clock (ms), from the last `measureClockOffset`; null until measured. */
+  private clockOffsetMs: number | null = null;
 
   protected capabilities(_app: AppTarget): Record<string, unknown> {
     return {
@@ -67,7 +90,7 @@ export class AndroidDriver extends AppiumDriver {
 
   /** Host-side `dumpsys window InputMethod` (~30 ms, runs beside /source instead of queueing behind it in the session). */
   protected async keyboardShown(): Promise<boolean> {
-    return imeVisible(await adb(this.deviceId, ['shell', 'dumpsys', 'window', 'InputMethod'], { timeoutMs: 10_000 }));
+    return imeVisible(await adbShell(this.deviceId, ['dumpsys', 'window', 'InputMethod'], { timeoutMs: 10_000 }));
   }
 
   protected async focusedElement(): Promise<string | null> {
@@ -88,33 +111,74 @@ export class AndroidDriver extends AppiumDriver {
   }
 
   press(key: Key): Promise<ActionOutcome> {
-    return this.act(() => this.api.execute('mobile: pressKey', { keycode: KEYCODES[key] }));
+    return this.act(async () => {
+      await this.api.execute('mobile: pressKey', { keycode: KEYCODES[key] });
+    });
   }
 
   back(): Promise<ActionOutcome> {
     return this.press('back');
   }
 
-  /** ESC first; BACK only while the keyboard is still shown (the IME consumes it). Never an unconditional BACK. */
+  /**
+   * BACK only while the keyboard is shown (the IME consumes it); never an unconditional BACK. Apps try ESC first. Web
+   * pages never get ESC: it reaches the page (Chrome clears a `type=search` field on Escape, pages close dialogs on it).
+   * On web pages the keyboard is checked again right before BACK, and the address bar is compared around it: if the
+   * keyboard closed in between, BACK reached Chrome and navigated — `uncertain`, never `completed`.
+   */
   async hideKeyboard(): Promise<ActionOutcome> {
     const t0 = performance.now();
     const o = await this.act(async () => {
       if (!(await this.keyboardShown())) return;
-      await this.api.execute('mobile: pressKey', { keycode: KEYCODES.escape });
-      if (!(await this.waitKeyboard(false, 1500))) return;
+      if (this.opened?.kind !== 'web') {
+        await this.api.execute('mobile: pressKey', { keycode: KEYCODES.escape });
+        if (!(await this.waitKeyboard(false, 1500))) return;
+        if (!(await this.keyboardShown())) return;
+        await this.api.execute('mobile: pressKey', { keycode: KEYCODES.back });
+        if (await this.waitKeyboard(false, 1500)) throw new RefusedError('키보드가 닫히지 않았습니다');
+        return;
+      }
+      const before = await this.addressBarText();
       if (!(await this.keyboardShown())) return;
       await this.api.execute('mobile: pressKey', { keycode: KEYCODES.back });
-      if (await this.waitKeyboard(false, 1500)) throw new RefusedError('키보드가 닫히지 않았습니다');
+      const stillShown = await this.waitKeyboard(false, 1500);
+      // A back navigation updates the address bar on commit, shortly after the key.
+      let after = await this.addressBarText();
+      for (const end = Date.now() + 500; after === before && Date.now() < end; after = await this.addressBarText()) await delay(100);
+      if (after !== before) throw new StepError({ status: 'uncertain', ms: 0, error: `키보드 닫기 중 페이지 이동 발생 (주소 ${JSON.stringify(before)} → ${JSON.stringify(after)})` });
+      if (stillShown) throw new RefusedError('키보드가 닫히지 않았습니다');
     });
     return { ...o, ms: Math.round(performance.now() - t0) };
   }
 
-  private async launchActivity(app: AppTarget): Promise<string> {
-    if (app.activity) return app.activity.startsWith('.') ? `${app.appId}/${app.activity}` : app.activity.includes('/') ? app.activity : `${app.appId}/${app.activity}`;
-    const out = await adb(this.deviceId, ['shell', 'cmd', 'package', 'resolve-activity', '--brief', '-c', 'android.intent.category.LAUNCHER', app.appId]);
+  /** Chrome's address bar text, or null when it is not on screen (toolbar scrolled away, Chrome left). */
+  private async addressBarText(): Promise<string | null> {
+    const [id] = await this.api.findElements({ using: 'id', value: this.addressBarId });
+    return id ? this.api.elementText(id) : null;
+  }
+
+  private async launchActivity(app: NativeTarget): Promise<string> {
+    const appId = this.appId(app);
+    if (app.activity) return app.activity.startsWith('.') ? `${appId}/${app.activity}` : app.activity.includes('/') ? app.activity : `${appId}/${app.activity}`;
+    const out = await adbShell(this.deviceId, ['cmd', 'package', 'resolve-activity', '--brief', '-c', 'android.intent.category.LAUNCHER', appId]);
     const component = out.trim().split('\n').pop()?.trim() ?? '';
-    if (!component.includes('/')) throw new RefusedError(`${app.appId}의 실행 액티비티를 찾을 수 없습니다 (설치 여부 확인)`);
+    if (!component.includes('/')) throw new RefusedError(`${appId}의 실행 액티비티를 찾을 수 없습니다 (설치 여부 확인)`);
     return component;
+  }
+
+  /**
+   * Runs a permission-changing device command and fails unless it exited 0 (or, when `skippable`, reported an
+   * unchangeable permission). A requested permission state that was not applied is never ignored. Output without the
+   * trailing exit status (stream cut) or with a signal status (≥ 128, e.g. 137 = SIGKILL) means the command may have
+   * run: `uncertain`, checked before any refusal.
+   */
+  private async permissionCommand(argv: string[], skippable: boolean): Promise<void> {
+    const out = await adb(this.deviceId, ['shell', `${argv.map(shq).join(' ')} 2>&1; echo "exit=$?"`]);
+    const exit = [...out.matchAll(/^exit=(\d+)$/gm)].at(-1)?.[1];
+    if (exit === undefined) throw new Error(`${argv.slice(0, 3).join(' ')}: 종료 상태를 받지 못했습니다 (기기 연결 끊김 가능)`);
+    if (Number(exit) >= 128) throw new Error(`${argv.slice(0, 3).join(' ')}: 신호로 종료되었습니다 (exit=${exit}, 적용 여부 불명)`);
+    if (exit === '0' || (skippable && UNCHANGEABLE_PERMISSION.test(out))) return;
+    throw new RefusedError(`${argv.slice(0, 3).join(' ')} 실패: ${out.trim().split('\n').slice(-2).join(' ')}`);
   }
 
   private async applyPermissions(appId: string, permissions: Record<string, 'allow' | 'deny' | 'unset'>): Promise<void> {
@@ -123,42 +187,76 @@ export class AndroidDriver extends AppiumDriver {
       const perms = group?.android ?? (name.includes('.') ? [name] : null);
       if (!perms) throw new RefusedError(`알 수 없는 권한 이름: ${name}`);
       for (const perm of new Set(perms)) {
-        const verb = state === 'allow' ? 'grant' : 'revoke';
-        const r = await adb(this.deviceId, ['shell', `pm ${verb} ${shq(appId)} ${shq(perm)} 2>&1; echo "exit=$?"`]);
-        // Permissions the app never requested (or unknown on this API level) cannot be granted: skip them.
-        if (!/exit=0/.test(r) && !/has not requested|Unknown permission|not a changeable permission type/i.test(r)) throw new RefusedError(`pm ${verb} ${perm}: ${r.trim()}`);
-        if (state === 'unset') await adb(this.deviceId, ['shell', 'pm', 'clear-permission-flags', appId, perm, 'user-set', 'user-fixed'], { allowFail: true });
+        await this.permissionCommand(['pm', state === 'allow' ? 'grant' : 'revoke', appId, perm], true);
+        if (state === 'unset') await this.permissionCommand(['pm', 'clear-permission-flags', appId, perm, 'user-set', 'user-fixed'], true);
       }
       for (const op of group?.appops ?? []) {
-        const mode = state === 'allow' ? 'allow' : state === 'deny' ? 'ignore' : 'default';
-        await adb(this.deviceId, ['shell', 'cmd', 'appops', 'set', appId, op, mode], { allowFail: true });
+        await this.permissionCommand(['cmd', 'appops', 'set', appId, op, state === 'allow' ? 'allow' : state === 'deny' ? 'ignore' : 'default'], false);
       }
     }
   }
 
+  /**
+   * Routes the device's localhost ports of `urls` (localhost / 127.0.0.1, scheme default port when absent) to the same
+   * host ports with `adb reverse tcp:P tcp:P`. An identical existing mapping is reused without taking ownership; one
+   * pointing elsewhere is refused, never rebound. Created mappings are recorded for `close`.
+   */
+  private async ensureReverse(urls: readonly string[]): Promise<void> {
+    const specs = new Set<string>();
+    for (const url of urls) {
+      const u = new URL(url);
+      if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') specs.add(`tcp:${u.port || (u.protocol === 'https:' ? 443 : 80)}`);
+    }
+    if (specs.size === 0) return;
+    const current = reverseMappings(await adb(this.deviceId, ['reverse', '--list'], { timeoutMs: 15_000 }));
+    for (const spec of specs) {
+      const to = current.get(spec);
+      if (to === spec) continue;
+      if (to !== undefined) throw new RefusedError(`기기 포트 ${spec}가 이미 호스트 ${to}로 연결되어 있어 바꾸지 않습니다 (adb reverse). 그 연결을 쓰는 도구를 먼저 정리하세요.`);
+      await adb(this.deviceId, ['reverse', '--no-rebind', spec, spec], { timeoutMs: 15_000 });
+      this.ownedReverse.add(spec);
+    }
+  }
+
+  /** Loads `url` in Chrome's app-qa tab (reused across calls) after routing the target's localhost ports to the host. */
+  private async viewInChrome(target: WebTarget, url: string): Promise<void> {
+    await this.ensureReverse([url, ...target.origins]);
+    const intent = ['-a', 'android.intent.action.VIEW', '-d', url, '-p', target.appId, '--es', 'com.android.browser.application_id', CHROME_TAB_OWNER];
+    assertAmStarted(await adbShell(this.deviceId, ['am', 'start', '-W', ...intent], { timeoutMs: 60_000 }));
+  }
+
   launch(app: AppTarget, opts: LaunchOptions = {}): Promise<ActionOutcome> {
     return this.act(async () => {
-      if (opts.permissions) await this.applyPermissions(app.appId, opts.permissions);
-      const component = await this.launchActivity(app);
-      const args = ['am', 'start', '-W', '-n', component, ...(opts.arguments ?? [])].map(shq).join(' ');
-      assertAmStarted(await adb(this.deviceId, ['shell', args], { timeoutMs: 60_000 }));
-      if (this.logApp?.appId === app.appId) await this.startLogs(app);
+      const appId = this.appId(app);
+      if (app.kind === 'web') {
+        assertNoWebLaunchOptions(opts);
+        await this.viewInChrome(app, app.url);
+      } else {
+        if (opts.permissions) await this.applyPermissions(appId, opts.permissions);
+        const component = await this.launchActivity(app);
+        assertAmStarted(await adbShell(this.deviceId, ['am', 'start', '-W', '-n', component, ...(opts.arguments ?? [])], { timeoutMs: 60_000 }));
+      }
+      if (this.logTarget?.app.appId === appId) await this.startLogs(app, this.logTarget.sanitize);
     });
   }
 
   terminate(app: AppTarget): Promise<ActionOutcome> {
     return this.act(async () => {
-      await adb(this.deviceId, ['shell', 'am', 'force-stop', app.appId]);
+      await adbShell(this.deviceId, ['am', 'force-stop', this.appId(app)]);
     });
   }
 
+  /** `pm clear`; for Chrome the automation prep runs again (it is part of the declared browser environment). */
   protected async clearData(app: AppTarget): Promise<void> {
-    const out = await adb(this.deviceId, ['shell', 'pm', 'clear', app.appId]);
+    const out = await adbShell(this.deviceId, ['pm', 'clear', this.appId(app)]);
     if (!/Success/.test(out)) throw new Error(`pm clear 실패: ${out.trim()}`);
+    if (app.kind !== 'web') return;
+    const problem = readinessProblem(PLATFORM_INFO.android.webLabel, await prepareAndroidChrome(this.deviceId));
+    if (problem) throw new Error(`Chrome 데이터를 지운 뒤 ${problem}`);
   }
 
   protected async reinstall(app: AppTarget, binary: string): Promise<void> {
-    await adb(this.deviceId, ['uninstall', app.appId], { timeoutMs: 120_000, allowFail: true });
+    await adb(this.deviceId, ['uninstall', this.appId(app)], { timeoutMs: 120_000, allowFail: true });
     if (binary.endsWith('.apks')) {
       const parts = readdirSync(binary).filter((f) => f.endsWith('.apk')).map((f) => join(binary, f));
       await adb(this.deviceId, ['install-multiple', '-r', '-d', ...parts], { timeoutMs: 600_000 });
@@ -167,11 +265,32 @@ export class AndroidDriver extends AppiumDriver {
     }
   }
 
+  /** Web: loads an allowed-origin http(s) URL in the app-qa Chrome tab. App: VIEW intent (deep link) to the app. */
   openUrl(app: AppTarget, url: string): Promise<ActionOutcome> {
     return this.act(async () => {
-      const cmd = ['am', 'start', '-W', '-a', 'android.intent.action.VIEW', '-d', url, app.appId].map(shq).join(' ');
-      assertAmStarted(await adb(this.deviceId, ['shell', cmd], { timeoutMs: 60_000 }));
+      const appId = this.appId(app);
+      if (app.kind === 'web') {
+        const problem = navigationProblem(app, url);
+        if (problem) throw new RefusedError(problem);
+        await this.viewInChrome(app, new URL(url).href);
+        return;
+      }
+      assertAmStarted(await adbShell(this.deviceId, ['am', 'start', '-W', '-a', 'android.intent.action.VIEW', '-d', url, appId], { timeoutMs: 60_000 }));
     });
+  }
+
+  /** Removes the reverse mappings this driver created that still point where it set them, then closes the session. */
+  async close(): Promise<void> {
+    const owned = [...this.ownedReverse];
+    this.ownedReverse.clear();
+    if (owned.length > 0) {
+      // A device that cannot list its mappings has lost them with the transport.
+      const current = await adb(this.deviceId, ['reverse', '--list'], { timeoutMs: 15_000 }).then(reverseMappings, () => new Map<string, string>());
+      for (const spec of owned) {
+        if (current.get(spec) === spec) await adb(this.deviceId, ['reverse', '--remove', spec], { timeoutMs: 15_000, allowFail: true }).catch(() => undefined);
+      }
+    }
+    await super.close();
   }
 
   setLocation(lat: number, lon: number): Promise<ActionOutcome> {
@@ -184,36 +303,56 @@ export class AndroidDriver extends AppiumDriver {
   }
 
   async foregroundApp(): Promise<string | null> {
-    return (await this.api.execute<string | null>('mobile: getCurrentPackage')) || null;
+    const pkg = await this.api.query('mobile: getCurrentPackage');
+    if (pkg !== null && typeof pkg !== 'string') throw unexpectedResponse('mobile: getCurrentPackage', pkg);
+    return pkg || null;
   }
 
-  /** logcat for the app's current pid (re-armed after every launch); falls back to the app uid when it is not running. */
-  async startLogs(app: AppTarget): Promise<void> {
-    this.logApp = app;
+  /**
+   * Device clock minus host clock (ms), from `date` on the device bracketed by host timestamps (midpoint). logcat stamps
+   * and ANR mtimes are device time; emulator clocks drift seconds away from the host. `%N` missing → second precision.
+   */
+  private async measureClockOffset(): Promise<number> {
+    const t0 = Date.now();
+    const out = (await adbShell(this.deviceId, ['date', '+%s.%N'], { timeoutMs: 15_000 })).trim();
+    const t1 = Date.now();
+    const m = /^(\d+)(?:\.(\d+))?/.exec(out);
+    if (!m) throw new Error(`기기 시계를 읽지 못했습니다: ${JSON.stringify(out.slice(0, 80))}`);
+    const device = Number(m[1]) * 1000 + Number((m[2] ?? '').padEnd(3, '0').slice(0, 3));
+    this.clockOffsetMs = Math.round(device - (t0 + t1) / 2);
+    return this.clockOffsetMs;
+  }
+
+  /** logcat for the app's current pid (re-armed after every launch); falls back to the app uid when it is not running. Slices shift by the device clock offset. */
+  async startLogs(app: AppTarget, sanitize: (line: string) => string): Promise<void> {
+    const appId = this.appId(app);
+    this.logTarget = { app, sanitize };
     this.logs ??= new LogCapture('android', this.deviceId);
-    const pid = (await adb(this.deviceId, ['shell', 'pidof', app.appId], { allowFail: true })).trim().split(/\s+/)[0] ?? '';
-    const since = Date.now() - 30_000;
+    this.logs.clockOffsetMs = await this.measureClockOffset();
+    const pid = (await adbShell(this.deviceId, ['pidof', appId], { allowFail: true })).trim().split(/\s+/)[0] ?? '';
+    const since = Date.now() + this.logs.clockOffsetMs - 30_000;
     if (/^\d+$/.test(pid)) {
-      this.logs.arm(`pid:${pid}`, 'adb', androidLogArgs(this.deviceId, { pid }, since));
+      await this.logs.arm(`pid:${pid}`, 'adb', androidLogArgs(this.deviceId, { pid }, since), sanitize);
       return;
     }
-    const uid = /uid:(\d+)/.exec(await adb(this.deviceId, ['shell', 'pm', 'list', 'packages', '-U', app.appId]))?.[1];
-    if (!uid) throw new Error(`${app.appId}가 설치되어 있지 않습니다.`);
-    this.logs.arm(`uid:${uid}`, 'adb', androidLogArgs(this.deviceId, { uid }, since));
+    const uid = /uid:(\d+)/.exec(await adbShell(this.deviceId, ['pm', 'list', 'packages', '-U', appId]))?.[1];
+    if (!uid) throw new Error(`${appId}가 설치되어 있지 않습니다.`);
+    await this.logs.arm(`uid:${uid}`, 'adb', androidLogArgs(this.deviceId, { uid }, since), sanitize);
   }
 
   async crashArtifacts(app: AppTarget, sinceIso: string): Promise<{ name: string; content: string }[]> {
-    const since = Date.parse(sinceIso);
+    const appId = this.appId(app);
+    const since = Date.parse(sinceIso) + (this.clockOffsetMs ?? (await this.measureClockOffset()));
     const out: { name: string; content: string }[] = [];
     const crash = await adb(this.deviceId, ['logcat', '-b', 'crash', '-d', '-v', 'threadtime', '-v', 'UTC', '-v', 'year'], { allowFail: true, timeoutMs: 30_000 });
-    const blocks = crashBlocks(crash, app.appId, since);
+    const blocks = crashBlocks(crash, appId, since);
     if (blocks) out.push({ name: 'logcat-crash.txt', content: blocks });
     // /data/anr is readable on emulator/userdebug images only.
     const listing = await adb(this.deviceId, ['shell', 'for f in /data/anr/*; do [ -r "$f" ] && echo "$(stat -c %Y "$f") $f"; done 2>/dev/null'], { allowFail: true });
     for (const m of listing.matchAll(/^(\d+) (\/data\/anr\/\S+)$/gm)) {
       if (Number(m[1]) * 1000 < since) continue;
-      const content = await adb(this.deviceId, ['shell', 'cat', m[2]!], { allowFail: true, timeoutMs: 30_000 });
-      if (content.includes(`Cmd line: ${app.appId}`)) out.push({ name: m[2]!.split('/').pop()!, content });
+      const content = await adbShell(this.deviceId, ['cat', m[2]!], { allowFail: true, timeoutMs: 30_000 });
+      if (content.includes(`Cmd line: ${appId}`)) out.push({ name: m[2]!.split('/').pop()!, content });
     }
     return out;
   }

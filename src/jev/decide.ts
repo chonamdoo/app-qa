@@ -1,7 +1,7 @@
 // Jev-backed decisions for the runner and planner. Every function fails closed: no calibration, a failed call or an
 // invalid response yields verdict 'error' (with the receipt when Jev was reached) and never a guessed answer.
-import type { Candidate, ClaimDecision, GroundingDecision, JevReceipt, WhichDecision } from '../core/types.ts';
-import { candidateRow } from '../observe/index.ts';
+import type { Candidate, ClaimDecision, GroundingDecision, JevReceipt, Surface, WhichDecision } from '../core/types.ts';
+import { candidateRow } from '../core/candidate-row.ts';
 import { JevCallError, type JevClient } from './client.ts';
 import { gateClaim, gateGrounding, gateWhich, usableGate, type Calibration } from './gates.ts';
 import {
@@ -25,6 +25,8 @@ export interface JudgeOptions {
   /** App-profile redactor; defaults to the built-in PII patterns only. */
   redact?: Redactor;
   calibration: Calibration | null | undefined;
+  /** The surface judged (the target's, not the snapshot's): picks the gate where the calibration has one per surface. */
+  surface: Surface;
   signal?: AbortSignal;
 }
 
@@ -35,11 +37,6 @@ export interface ReviewDecision {
   review: { addressesRequirement: number | null; unrelatedSteps: number | null; needsClarification: number | null; issues: string[] };
   receipt: JevReceipt | null;
   reason: string;
-}
-
-/** Commit judgement; `advisory` = the commit gate did not meet its criteria, so log it but never block on it alone. */
-export interface CommitDecision extends ClaimDecision {
-  advisory: boolean;
 }
 
 /** Exact request a decision sends; calibration builds requests through the same functions so recordings replay. */
@@ -67,7 +64,7 @@ export function whichRequest(cands: readonly Candidate[], options: readonly stri
 
 export function commitRequest(cands: readonly Candidate[], target: Candidate, texts: readonly string[], redact: Redactor): JevRequest {
   return {
-    state: { screen: screenState(cands, texts, redact), target: redact(candidateRow(target)) },
+    state: { screen: screenState(cands, texts, redact), target: redactedRow(target, redact) },
     questions: { [QUESTION_IDS.commit]: commitQuestion() },
   };
 }
@@ -84,7 +81,7 @@ export async function groundChoice(
   intent: string,
   opts: JudgeOptions & { strict?: boolean },
 ): Promise<GroundingDecision> {
-  const usable = usableGate(opts.calibration, client.model, 'grounding');
+  const usable = usableGate(opts.calibration, client.model, 'grounding', opts.surface);
   if (!usable.gate) return { verdict: 'error', candidate: null, probabilities: null, decisionSource: 'none', receipt: null, reason: usable.reason };
   if (cands.length === 0) return { verdict: 'not_found', candidate: null, probabilities: null, decisionSource: 'none', receipt: null, reason: '후보 없음' };
   if (cands.length >= MAX_CHOICE_OPTIONS) {
@@ -115,7 +112,7 @@ export async function groundChoice(
 
 /** Noul: does the current screen support `claim`? pass / fail / inconclusive by the calibrated band. */
 export async function judgeClaim(client: JevClient, cands: readonly Candidate[], claim: string, opts: JudgeOptions): Promise<ClaimDecision> {
-  const usable = usableGate(opts.calibration, client.model, 'claim');
+  const usable = usableGate(opts.calibration, client.model, 'claim', opts.surface);
   if (!usable.gate) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: null, reason: usable.reason };
   const call = await ask(client, claimRequest(cands, claim, opts.texts, opts.redact ?? BUILTIN_REDACTOR), opts.signal);
   if (!call.ok) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: call.receipt, reason: call.reason };
@@ -130,7 +127,7 @@ export async function judgeClaim(client: JevClient, cands: readonly Candidate[],
  * (`s0..sN` in option order, plus `none` = still loading / none of these).
  */
 export async function judgeWhich(client: JevClient, cands: readonly Candidate[], options: readonly string[], opts: JudgeOptions): Promise<WhichDecision> {
-  const usable = usableGate(opts.calibration, client.model, 'which');
+  const usable = usableGate(opts.calibration, client.model, 'which', opts.surface);
   if (!usable.gate) return { verdict: 'error', option: null, probabilities: null, receipt: null, reason: usable.reason };
   if (options.length < 1 || options.length >= MAX_CHOICE_OPTIONS) {
     return { verdict: 'error', option: null, probabilities: null, receipt: null, reason: `which 선택지 수 ${options.length} (허용 1..${MAX_CHOICE_OPTIONS - 1})` };
@@ -151,24 +148,28 @@ export async function judgeWhich(client: JevClient, cands: readonly Candidate[],
 
 /**
  * Would activating `target` commit an irreversible/external change? verdict 'pass' = yes (treat as risky).
- * Refusal-add only: callers may block on 'pass' (unless `advisory`) but must never unblock a deterministic risk on 'fail'.
+ * Refusal-add only: callers block on 'pass' and never unblock a deterministic risk on 'fail'. A commit section that
+ * did not meet its criteria, a `surface` without its own calibrated gate, or any failed call is 'error', which callers
+ * must treat as the check being unavailable.
  */
-export async function judgeCommit(client: JevClient, cands: readonly Candidate[], target: Candidate, opts: JudgeOptions): Promise<CommitDecision> {
-  const usable = usableGate(opts.calibration, client.model, 'commit');
-  const advisory = opts.calibration?.commit.status === 'advisory';
-  if (!usable.gate) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: null, reason: usable.reason, advisory };
+export async function judgeCommit(
+  client: JevClient,
+  cands: readonly Candidate[],
+  target: Candidate,
+  opts: JudgeOptions,
+): Promise<ClaimDecision> {
+  const usable = usableGate(opts.calibration, client.model, 'commit', opts.surface);
+  if (!usable.gate) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: null, reason: usable.reason };
   const call = await ask(client, commitRequest(cands, target, opts.texts, opts.redact ?? BUILTIN_REDACTOR), opts.signal);
-  if (!call.ok) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: call.receipt, reason: call.reason, advisory };
+  if (!call.ok) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: call.receipt, reason: call.reason };
   const p = (call.answers[QUESTION_IDS.commit] as NoulAnswer).noul;
   const risky = p >= usable.gate.risky;
-  const note = advisory ? ' [참고용: commit 보정 기준 미달, 단독 차단 금지]' : '';
   return {
     verdict: risky ? 'pass' : 'fail',
     pYes: p,
     decisionSource: 'jev',
     receipt: call.receipt,
-    reason: `${risky ? `Jev: 되돌릴 수 없는 변경일 수 있음 (P=${fmt(p)} ≥ ${fmt(usable.gate.risky)})` : `Jev: 커밋 동작 아님 (P=${fmt(p)})`}${note}`,
-    advisory,
+    reason: risky ? `Jev: 되돌릴 수 없는 변경일 수 있음 (P=${fmt(p)} ≥ ${fmt(usable.gate.risky)})` : `Jev: 커밋 동작 아님 (P=${fmt(p)})`,
   };
 }
 
@@ -176,10 +177,10 @@ export async function judgeCommit(client: JevClient, cands: readonly Candidate[]
 export async function reviewGenerated(
   client: JevClient,
   input: { requirement: { id: string; text: string }; test: unknown },
-  opts: { redact?: Redactor; calibration: Calibration | null | undefined; signal?: AbortSignal },
+  opts: { redact?: Redactor; calibration: Calibration | null | undefined; surface: Surface; signal?: AbortSignal },
 ): Promise<ReviewDecision> {
   const empty = { addressesRequirement: null, unrelatedSteps: null, needsClarification: null };
-  const usable = usableGate(opts.calibration, client.model, 'review');
+  const usable = usableGate(opts.calibration, client.model, 'review', opts.surface);
   if (!usable.gate) return { verdict: 'error', review: { ...empty, issues: [usable.reason] }, receipt: null, reason: usable.reason };
   const gate = usable.gate;
   const call = await ask(client, reviewRequest(input, opts.redact ?? BUILTIN_REDACTOR), opts.signal);
@@ -200,9 +201,17 @@ export async function reviewGenerated(
   };
 }
 
-/** Rows via Observe's single row format, then redaction of every screen string. */
+/** Rows via Observe's single row format (fields redacted first), then redaction of every screen string. */
 function screenState(cands: readonly Candidate[], texts: readonly string[], redact: Redactor): ScreenState {
-  return { rows: cands.map((c) => redact(candidateRow(c))), texts: texts.map(redact) };
+  return { rows: cands.map((c) => redactedRow(c, redact)), texts: texts.map(redact) };
+}
+
+/**
+ * Redacts the raw free-text fields, then formats the row: the format rewrites `|` to `¦`, so a secret containing `|`
+ * would no longer match once the row is built.
+ */
+function redactedRow(c: Candidate, redact: Redactor): string {
+  return candidateRow({ ...c, name: redact(c.name), value: c.value === null ? null : redact(c.value), state: c.state.map(redact) });
 }
 
 type Asked = { ok: true; answers: Record<string, JevAnswer>; receipt: JevReceipt } | { ok: false; receipt: JevReceipt; reason: string };

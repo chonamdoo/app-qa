@@ -1,0 +1,398 @@
+{
+  "url": "http://localhost:4174/messages.html",
+  "title": "쪽지 · 산들 커뮤니티",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "쪽지 · 산들 커뮤니티",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "산들 커뮤니티",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 98.15625,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1177.109375,
+      "y": 12.25,
+      "w": 78.890625,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "게시판",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1177.109375,
+      "y": 12.25,
+      "w": 38.9375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "쪽지",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1230.046875,
+      "y": 12.25,
+      "w": 25.953125,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 523,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 45,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "heading",
+      "name": null,
+      "text": "박서준 님과의 대화",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 163.8125,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "button",
+      "name": null,
+      "text": "대화 검색",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 852.140625,
+      "y": 71.25,
+      "w": 83.859375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": "대화 내용",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 125,
+      "w": 592,
+      "h": 195.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 10,
+      "kind": "text",
+      "name": null,
+      "text": "혹시 다음 주 토요일 캠핑 같이 가실래요?",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 142,
+      "w": 390.59375,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 10,
+      "kind": "text",
+      "name": null,
+      "text": "좋아요! 몇 시에 출발해요?",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 740.765625,
+      "y": 198.5,
+      "w": 178.234375,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 10,
+      "kind": "text",
+      "name": null,
+      "text": "오전 9시에 합정역에서 만나요.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 255,
+      "w": 390.59375,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 332.5,
+      "w": 592,
+      "h": 183.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "text",
+      "name": null,
+      "text": "쪽지 쓰기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 357.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "input",
+      "name": "쪽지 쓰기",
+      "text": null,
+      "id": "msg",
+      "value": "네, 내일 3시에 장비 목록 정리해서 보내 드릴게요.",
+      "hint": null,
+      "x": 361,
+      "y": 381,
+      "w": 558,
+      "h": 72,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 460.5,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 460.5,
+      "w": 173.765625,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 18,
+      "kind": "button",
+      "name": null,
+      "text": "이모티콘",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 460.5,
+      "w": 79.90625,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 18,
+      "kind": "button",
+      "name": null,
+      "text": "사진 첨부",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 450.90625,
+      "y": 460.5,
+      "w": 83.859375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "button",
+      "name": null,
+      "text": "보내기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 852.0625,
+      "y": 460.5,
+      "w": 66.9375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 530,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

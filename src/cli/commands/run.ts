@@ -1,30 +1,17 @@
-// `qa run [paths...] --platform android|ios|all --device <id> --tag <t> --junit`
+// `qa run [paths...] --platform <platform>|all --device <platform>:<id> --tag <t> --junit`
 import { parseArgs } from 'node:util';
-import type { Platform } from '../../core/types.ts';
-import { consoleSink, exitCodeFor, formatCounts } from '../../report/console.ts';
+import { consoleSink, exitCodeFor, formatCounts, formatQaCounts } from '../../report/console.ts';
 import { runTests } from '../../runner/index.ts';
 import { SpecError } from '../../spec/load.ts';
+import { parseDevices, parsePlatform, PLATFORM_CHOICE_LIST } from '../platforms.ts';
 
-const USAGE = `사용법: qa run [경로...] [--platform android|ios|all] [--device <id>] [--tag <태그>] [--junit]
+const USAGE = `사용법: qa run [경로...] [--platform ${PLATFORM_CHOICE_LIST}] [--device <id>] [--tag <태그>] [--junit]
   경로: *.e2e.yaml 파일 또는 디렉터리 (기본 tests/)
-  --device: 한 플랫폼이면 기기 ID, 여러 플랫폼이면 android:<id> / ios:<id> (반복 가능)
+  --platform all: 각 테스트의 앱 프로필이 가진 플랫폼 전부 (앱: android/ios, 웹: 프로필 web.platforms)
+  --device: 한 플랫폼이면 기기 ID, 여러 플랫폼이면 <플랫폼>:<id> (예: android:emulator-5554, 반복 가능)
   --tag: 해당 태그가 있는 테스트만 (반복 가능)
   --junit: junit.xml도 생성
 종료 코드: 0 = 모두 통과, 1 = 실패·판정 불가·오류 있음, 2 = 사용법·환경 오류`;
-
-const PLATFORM_CHOICE: Record<string, Platform | 'all'> = { android: 'android', ios: 'ios', all: 'all' };
-
-/** `--device` values → per-platform ids; null with a message on misuse. */
-export function parseDevices(values: readonly string[], platform: Platform | 'all'): Partial<Record<Platform, string>> | string {
-  const out: Partial<Record<Platform, string>> = {};
-  for (const v of values) {
-    const m = /^(android|ios):(.+)$/.exec(v);
-    if (m) out[m[1] as Platform] = m[2]!;
-    else if (platform === 'all') return `--platform all에서는 --device android:<id> 또는 ios:<id> 형식을 쓰세요: ${v}`;
-    else out[platform] = v;
-  }
-  return out;
-}
 
 export async function cmdRun(argv: string[]): Promise<number> {
   let parsed;
@@ -50,14 +37,14 @@ export async function cmdRun(argv: string[]): Promise<number> {
     console.log(USAGE);
     return 0;
   }
-  const platform = PLATFORM_CHOICE[values.platform];
-  if (!platform) {
-    console.error(`--platform은 android, ios, all 중 하나여야 합니다.\n${USAGE}`);
+  const platform = parsePlatform(values.platform, true);
+  if (typeof platform === 'object') {
+    console.error(`${platform.error}\n${USAGE}`);
     return 2;
   }
   const deviceIds = parseDevices(values.device, platform);
-  if (typeof deviceIds === 'string') {
-    console.error(deviceIds);
+  if ('error' in deviceIds) {
+    console.error(deviceIds.error);
     return 2;
   }
   const controller = new AbortController();
@@ -79,6 +66,7 @@ export async function cmdRun(argv: string[]): Promise<number> {
     const specErrors = result.tests.filter((t) => t.code === 'spec_invalid');
     for (const t of specErrors) console.error(`\n테스트 파일 오류:\n${t.reason}`);
     console.log(`\n결과: ${formatCounts(result.counts) || '실행된 테스트 없음'}`);
+    console.log(`QA 상태: ${formatQaCounts(result.qaCounts)}`);
     console.log(`리포트: ${result.reportPath}`);
     if (result.junitPath) console.log(`JUnit: ${result.junitPath}`);
     return exitCodeFor(result.counts);

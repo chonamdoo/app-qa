@@ -39,6 +39,15 @@ test('defaults pin jev-1.13.0 on the public endpoint; base URL override drops tr
   assert.equal(loadJevConfig({ TYPESAFE_API_KEY: KEY }).baseUrl, 'https://api.typesafe.ai/v1');
 });
 
+test('plain http is refused for remote hosts (the key is a bearer header); loopback http and https are accepted', () => {
+  for (const url of ['http://api.typesafe.ai/v1', 'http://10.0.0.5:8080', 'http://127.0.0.1.evil.test/v1', 'ftp://127.0.0.1', 'not a url']) {
+    assert.throws(() => loadJevConfig({ TYPESAFE_API_KEY: KEY, TYPESAFE_BASE_URL: url }), isConfigError, url);
+  }
+  for (const url of ['http://127.0.0.1:9999/v1', 'http://localhost:8080', 'https://proxy.example.com/v1']) {
+    assert.equal(loadJevConfig({ TYPESAFE_API_KEY: KEY, TYPESAFE_BASE_URL: url }).baseUrl, url);
+  }
+});
+
 test('model aliases are refused (the response would never match the pinned id)', () => {
   assert.throws(() => loadJevConfig({ TYPESAFE_API_KEY: KEY, QA_JEV_MODEL: 'jev-latest' }), isConfigError);
 });

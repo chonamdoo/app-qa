@@ -1,13 +1,19 @@
 // Geometry, hit-testing and un-occluded tap-point selection.
 import type { Point, RawNode, Rect } from '../core/types.ts';
 
-/** Occluder candidates: only nodes that intercept touches. Plain containers/backgrounds never hide anything. */
+/**
+ * Occluder candidates: only nodes that intercept touches. Plain containers/backgrounds never hide anything.
+ * Desktop DOM nodes (`web:*`): only click targets, editable/checkable controls and the extract's hit-tested occluders
+ * (flagged clickable) count. Focusable (tabindex) wrappers and scroll containers are not covering layers, and DOM order
+ * alone does not prove paint order.
+ */
 export function isTouchable(n: RawNode): boolean {
   const f = n.flags;
+  if (n.className.startsWith('web:')) return f.clickable || f.editable || f.checkable;
   return f.clickable || f.longClickable || f.focusable || f.scrollable;
 }
 
-const SCROLL_CLASS = /ScrollView|RecyclerView|ListView|GridView|ViewPager|^Table$|^CollectionView$|^WebView$/;
+const SCROLL_CLASS = /ScrollView|RecyclerView|ListView|GridView|ViewPager|^Table$|^CollectionView$|^WebView$|^web:scroll$/;
 
 /** Containers that clip their children to their own bounds (scroll viewports). */
 export function isScrollContainer(n: RawNode): boolean {

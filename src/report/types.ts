@@ -1,7 +1,9 @@
-// `summary.json` data model (v1): written by the runner, read by report generation, `qa report` and the server.
-import type { HealthFinding, Platform, Point, Verdict } from '../core/types.ts';
+// `summary.json` data model (v2): written by the runner, read by report generation, `qa report` and the server.
+// v2 added `qaCounts` and per-result `surface` / `qaStatus`; `qa report` still reads v1 (`report/index.ts`).
+import type { HealthFinding, Platform, Point, Surface, Verdict } from '../core/types.ts';
+import type { QaStatus } from './status.ts';
 
-export const SUMMARY_SCHEMA = 'app-qa/summary/v1';
+export const SUMMARY_SCHEMA = 'app-qa/summary/v2';
 
 export interface DecisionSummary {
   kind: 'grounding' | 'claim' | 'which' | 'commit' | 'check';
@@ -50,10 +52,14 @@ export interface TestResult {
   file: string | null;
   app: string;
   platform: Platform;
+  /** Native app or website; null when the test file could not be loaded (its profile is unknown). */
+  surface: Surface | null;
   deviceId: string | null;
   deviceName: string | null;
   verdict: Verdict;
   code: string | null;
+  /** web-qa vocabulary derived from `verdict` + `code` (`report/status.ts`); the verdict stays authoritative. */
+  qaStatus: QaStatus;
   reason: string;
   durationMs: number;
   covers: string[];
@@ -80,6 +86,7 @@ export interface RunSummary {
   platform: Platform | 'all';
   devices: { platform: Platform; id: string; name: string }[];
   counts: Record<Verdict, number>;
+  qaCounts: Record<QaStatus, number>;
   tests: TestResult[];
   /** Relative to the run dir. */
   reportPath: string;

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>이용 만족도 조사 · 동네장터</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="survey.html">동네장터</a>
+  </header>
+
+  <main class="narrow">
+    <h1>이용 만족도 조사 (5/5)</h1>
+    <form class="card" data-done="응답이 제출되었습니다. 참여해 주셔서 고마워요.">
+      <p>마지막 문항: 직거래 약속을 잡을 때 불편했던 점이 있나요?</p>
+      <textarea aria-label="답변">약속 장소를 지도에서 고를 수 있으면 좋겠어요.</textarea>
+      <p class="muted">제출하면 답변을 고칠 수 없어요.</p>
+      <div class="spread">
+        <div class="row"><button type="button" class="ghost">이전 문항</button><button type="button" class="link">나중에 하기</button></div>
+        <button type="submit">응답 제출</button>
+      </div>
+    </form>
+    <p role="status"></p>
+  </main>
+  <script src="../app.js"></script>
+</body>
+</html>

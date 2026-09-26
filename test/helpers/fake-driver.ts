@@ -1,10 +1,11 @@
 // Device-free Driver built from fixtures (`fixtures/<platform>/<app>/<name>.{xml,png,meta.json}`) plus a virtual clock.
-// Screens change only when the test's `onTap` / `onAction` script says so; every call is recorded.
+// Screens change only when the test's `onTap` / `onAction` script says so; every call is recorded. Website fixtures
+// (meta `surface: web`) carry the page URL; desktop ones are canonical web XML (`observe/web.ts`).
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PATHS } from '../../src/core/config.ts';
-import type { ActionOutcome, ActionStatus, AppTarget, Driver, Platform, Point, ResetMode, Snapshot, TypeOutcome } from '../../src/core/types.ts';
-import { parseAndroidSource, parseIosSource } from '../../src/observe/index.ts';
+import type { ActionOutcome, ActionStatus, AppTarget, Driver, Platform, Point, Rect, ResetMode, Snapshot, Surface, TypeOutcome } from '../../src/core/types.ts';
+import { SOURCE_PARSERS } from '../../src/observe/index.ts';
 import type { Clock } from '../../src/runner/engine.ts';
 
 /** Virtual monotonic clock: `sleep` advances time instantly. */
@@ -23,16 +24,16 @@ const pngCache = new Map<string, Uint8Array>();
 
 /**
  * Snapshot of a fixture screen. `patch` replaces literal strings in the XML (tampered variants); the PNG is shared per
- * fixture so identical screens hash identically.
+ * fixture so identical screens hash identically. `pageUrl` overrides the fixture's page URL (web fixtures).
  */
 export function fixtureSnapshot(
   platform: Platform,
   app: string,
   name: string,
-  opts: { patch?: [string, string][]; foreground?: string | null; keyboardShown?: boolean } = {},
+  opts: { patch?: [string, string][]; foreground?: string | null; keyboardShown?: boolean; pageUrl?: string | null } = {},
 ): Snapshot {
   const base = join(PATHS.fixtures, platform, app, name);
-  const meta = JSON.parse(readFileSync(`${base}.meta.json`, 'utf8')) as { windowRect: Snapshot['screen'] };
+  const meta = JSON.parse(readFileSync(`${base}.meta.json`, 'utf8')) as { windowRect: Snapshot['screen']; surface?: Surface; pageUrl?: string };
   let xml = readFileSync(`${base}.xml`, 'utf8');
   for (const [from, to] of opts.patch ?? []) xml = xml.split(from).join(to);
   const screen = meta.windowRect;
@@ -43,12 +44,14 @@ export function fixtureSnapshot(
   }
   return {
     platform,
+    surface: meta.surface ?? 'app',
     takenAt: new Date(0).toISOString(),
     screen,
-    nodes: platform === 'android' ? parseAndroidSource(xml, screen) : parseIosSource(xml, screen),
+    nodes: SOURCE_PARSERS[platform](xml, screen),
     rawSource: xml,
     screenshotPng: png,
     foregroundApp: opts.foreground === undefined ? null : opts.foreground,
+    pageUrl: opts.pageUrl !== undefined ? opts.pageUrl : (meta.pageUrl ?? null),
     keyboardShown: opts.keyboardShown ?? false,
     maxDepth: null,
     depthCapped: false,
@@ -71,12 +74,34 @@ export class FakeDriver implements Driver {
   onTap: (p: Point, driver: FakeDriver) => Snapshot | null = () => null;
   /** Called for every other mutating action (swipe, back, press, launch…); may replace `screen`. */
   onAction: (method: string, driver: FakeDriver) => void = () => undefined;
+  /** Called before every snapshot (e.g. content that keeps moving, or a screen that changes between observations). */
+  onSnapshot: (driver: FakeDriver) => void = () => undefined;
   /** Outcome status for the next taps (default completed). */
   tapStatus: ActionStatus = 'completed';
   /** Read-back error for typeText (e.g. `INPUT_UNVERIFIED: …`). */
   typeError: string | null = null;
+  /** What `clearText` leaves in the field (non-empty = INPUT_UNVERIFIED quoting it raw, as the real driver does). */
+  clearLeft = '';
+  /** Makes `open` (the automation session) fail: a message throws a plain Error (outcome unknown), an Error is thrown as is. */
+  openError: string | Error | null = null;
+  /** Makes `close` fail (e.g. a session end the driver could not confirm). */
+  closeError: Error | null = null;
+  /**
+   * Makes session ends inside a test (`terminate`, `reset` clear) unconfirmed, as a failed DELETE in the desktop driver:
+   * the call is `uncertain`, and from then on `displayProblem()` reports this reason and `close()` fails with it.
+   */
+  endError: string | null = null;
+  private displayLost: string | null = null;
   logText = '09-26 08:21:00.000  1234  1234 E ReactNativeJS: boom\n';
   crashes: { name: string; content: string }[] = [];
+  /** The sanitizer the runner handed to `startLogs`; captured lines pass it, as in the real drivers. */
+  logSanitize: ((line: string) => string) | null = null;
+  /** Hit-test answer (iOS WDA / desktop `elementFromPoint`); undefined = the driver cannot tell (the default). */
+  hittable: (p: Point, target: Rect | null) => boolean | undefined = () => undefined;
+  /** Identity of the element with box `box` at a point (desktop web: the target element's reference); unset = the driver has none (native, mobile web). */
+  elementIdAt?: (p: Point, box: Rect | null) => Promise<string | null>;
+  /** Identity of the element keys go to (desktop web `document.activeElement`); unset = the driver has none. */
+  focusedElementId?: () => Promise<string | null>;
 
   constructor(screen: Snapshot, clock = new FakeClock()) {
     this.platform = screen.platform;
@@ -98,12 +123,25 @@ export class FakeDriver implements Driver {
 
   async open(app: AppTarget): Promise<void> {
     this.record('open', app);
+    if (this.openError !== null) throw typeof this.openError === 'string' ? new Error(this.openError) : this.openError;
   }
   async close(): Promise<void> {
     this.record('close');
+    if (this.closeError !== null) throw this.closeError;
+    if (this.displayLost !== null) throw new Error(this.displayLost);
+  }
+  displayProblem(): string | null {
+    return this.displayLost;
+  }
+  /** A session end inside a test: unconfirmed (and remembered) while `endError` is set. */
+  private endSession(): ActionOutcome {
+    if (this.endError === null) return this.done();
+    this.displayLost = this.endError;
+    return { status: 'uncertain', ms: 5, error: this.endError };
   }
   async snapshot(opts: { screenshot?: boolean } = {}): Promise<Snapshot> {
     this.record('snapshot', opts.screenshot ?? false);
+    this.onSnapshot(this);
     return { ...this.screen, takenAt: new Date(this.clock.now()).toISOString(), screenshotPng: opts.screenshot ? this.screen.screenshotPng : null };
   }
   async screenshot(): Promise<Uint8Array> {
@@ -124,6 +162,7 @@ export class FakeDriver implements Driver {
   }
   async clearText(at: Point): Promise<TypeOutcome> {
     this.record('clearText', at);
+    if (this.clearLeft) return { status: 'completed', ms: 5, readBack: this.clearLeft, path: 'setValue', error: `INPUT_UNVERIFIED: 지운 뒤 값 "${this.clearLeft}"` };
     return { status: 'completed', ms: 5, readBack: '', path: 'setValue' };
   }
   async longPress(p: Point, holdMs: number): Promise<ActionOutcome> {
@@ -159,10 +198,11 @@ export class FakeDriver implements Driver {
   }
   async terminate(app: AppTarget): Promise<ActionOutcome> {
     this.record('terminate', app);
-    return this.done();
+    return this.endSession();
   }
   async reset(app: AppTarget, mode: ResetMode): Promise<ActionOutcome> {
     this.record('reset', app, mode);
+    if (mode === 'clear' && this.endError !== null) return this.endSession();
     this.onAction('reset', this);
     return this.done();
   }
@@ -178,12 +218,17 @@ export class FakeDriver implements Driver {
   async foregroundApp(): Promise<string | null> {
     return this.screen.foregroundApp;
   }
-  async startLogs(app: AppTarget): Promise<void> {
+  async isHittable(p: Point, target: Rect | null): Promise<boolean | undefined> {
+    this.record('isHittable', p, target);
+    return this.hittable(p, target);
+  }
+  async startLogs(app: AppTarget, sanitize: (line: string) => string): Promise<void> {
     this.record('startLogs', app);
+    this.logSanitize = sanitize;
   }
   async logSlice(fromIso: string, toIso: string): Promise<string> {
     this.record('logSlice', fromIso, toIso);
-    return this.logText;
+    return this.logSanitize ? this.logText.split('\n').map(this.logSanitize).join('\n') : this.logText;
   }
   async crashArtifacts(app: AppTarget, sinceIso: string): Promise<{ name: string; content: string }[]> {
     this.record('crashArtifacts', app, sinceIso);

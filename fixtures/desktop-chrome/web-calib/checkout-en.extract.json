@@ -1,0 +1,539 @@
+{
+  "url": "http://localhost:4174/checkout-en.html",
+  "title": "Checkout — Shipping · Northwind Goods",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "Checkout — Shipping · Northwind Goods",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "Northwind Goods",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 141.078125,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1208.296875,
+      "y": 12.25,
+      "w": 47.703125,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "Cart (3)",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1208.296875,
+      "y": 12.25,
+      "w": 47.703125,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 510.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "Cart",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 24.46875,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "Shipping",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 384.46875,
+      "y": 68,
+      "w": 54.203125,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "Payment",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 454.671875,
+      "y": 68,
+      "w": 51.59375,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "Review",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 522.265625,
+      "y": 68,
+      "w": 42.28125,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 103,
+      "w": 592,
+      "h": 421.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "heading",
+      "name": null,
+      "text": "Shipping address",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 120,
+      "w": 558,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "text",
+      "name": null,
+      "text": "Full name",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 153.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "input",
+      "name": "Full name",
+      "text": null,
+      "id": "name",
+      "value": "Jordan Lee",
+      "hint": null,
+      "x": 361,
+      "y": 177,
+      "w": 172,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "text",
+      "name": null,
+      "text": "Address",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 225.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "input",
+      "name": "Address",
+      "text": null,
+      "id": "addr",
+      "value": "221 Market St, Apt 4",
+      "hint": null,
+      "x": 361,
+      "y": 249,
+      "w": 172,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "text",
+      "name": null,
+      "text": "City",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 297.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "input",
+      "name": "City",
+      "text": null,
+      "id": "city",
+      "value": "San Francisco",
+      "hint": null,
+      "x": 361,
+      "y": 321,
+      "w": 172,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "text",
+      "name": null,
+      "text": "Standard (3–5 days) — free",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 536.953125,
+      "y": 326.5,
+      "w": 184.796875,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "radio",
+      "name": "Standard (3–5 days) — free",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 541.953125,
+      "y": 332,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "text",
+      "name": null,
+      "text": "Express (1–2 days) — $9.00",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 365.5,
+      "w": 187.4375,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 21,
+      "kind": "radio",
+      "name": "Express (1–2 days) — $9.00",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 366,
+      "y": 371,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 403.5,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 23,
+      "kind": "text",
+      "name": null,
+      "text": "Promo code",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 425.25,
+      "w": 1,
+      "h": 1,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 23,
+      "kind": "input",
+      "name": "Promo code",
+      "text": null,
+      "id": "promo",
+      "value": "SPRING15",
+      "hint": "Promo code",
+      "x": 361,
+      "y": 403.5,
+      "w": 172,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable",
+        "occluder"
+      ]
+    },
+    {
+      "parent": 23,
+      "kind": "button",
+      "name": null,
+      "text": "Apply",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 543,
+      "y": 404.5,
+      "w": 64.0625,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 444,
+      "w": 558,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 469,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 28,
+      "kind": "link",
+      "name": null,
+      "text": "Back to cart",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 477,
+      "w": 75.359375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 28,
+      "kind": "button",
+      "name": null,
+      "text": "Continue to payment",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 757.78125,
+      "y": 469,
+      "w": 161.21875,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    }
+  ]
+}

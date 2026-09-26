@@ -1,8 +1,9 @@
-// Executes one test on one platform (architecture §5 + §11): observe → resolve → policy → freshness → journal → act →
-// settle → health → expect, with budgets, interrupts, variables, subflows and fail-closed verdicts for every step.
+// Executes one test on one platform (architecture §5 + §11): observe → resolve → prepare (freshness, policy, commit check
+// on the final fresh observation) → journal → act → settle → health → expect, with budgets, interrupts, variables,
+// subflows and fail-closed verdicts for every step. Every write goes through the session's evidence sanitizer.
 import { dirname, resolve as resolvePath } from 'node:path';
-import jsonLogic from 'json-logic-js';
-import type { QaEventBody } from '../core/events.ts';
+import type { ActionKind, QaEventBody } from '../core/events.ts';
+import { PLATFORM_INFO } from '../core/platform.ts';
 import type {
   ActionOutcome,
   AppTarget,
@@ -16,25 +17,44 @@ import type {
   Point,
   Rect,
   ScreenModel,
+  Surface,
+  TypeOutcome,
   Verdict,
 } from '../core/types.ts';
 import type { JevClient } from '../jev/client.ts';
 import { JEV_MODEL } from '../jev/config.ts';
 import { groundChoice, judgeClaim, judgeCommit, judgeWhich } from '../jev/decide.ts';
 import { usableGate, type CalibratedPrimitive, type Calibration } from '../jev/gates.ts';
-import { createRedactor, type Redactor } from '../jev/redact.ts';
-import { buildScreenModel, isUnoccludedAt, refind, type OcrLine } from '../observe/index.ts';
+import { buildScreenModel, refind, type OcrLine } from '../observe/index.ts';
 import { cleanText } from '../observe/text.ts';
 import type { DecisionSummary, StepResult, TestResult } from '../report/types.ts';
 import type { LoadedTest } from '../spec/load.ts';
-import type { Condition as ConditionSchema, Expectation as ExpectationSchema, StepSpec, TextMatch } from '../spec/schema.ts';
+import {
+  patternGroups,
+  profilePlatforms,
+  ruleProblem,
+  stepKind,
+  stepLabel,
+  type Condition as ConditionSchema,
+  type Expectation as ExpectationSchema,
+  type RepeatStepSpec,
+  type StepKind,
+  type StepSpec,
+  type TextMatch,
+  type WhichStepSpec,
+} from '../spec/schema.ts';
 import type { z } from 'zod';
 import { checkHealth } from './health.ts';
 import { dHash, decodePng, hammingHex, type Raster } from './image.ts';
-import { asSelector, nodeOf, notFoundDiagnostics, resolveDeterministic, stateMatches, targetText, type TargetQuery, type TargetSpec } from './resolve.ts';
 import { findTabs, screenSlug, writeInventory } from './inventory.ts';
-import { assessRisk, labelRisk, type RiskAssessment } from './risk.ts';
-import { expandStep, stepKind, stepLabel, UnsetVariableError, type StepKind } from './steps.ts';
+import { navigationProblem } from '../policy/navigation.ts';
+import { assessRisk, labelRisk, type RiskAssessment } from '../policy/risk.ts';
+import { qaStatus } from '../report/status.ts';
+import { ActionPreparer, TRUNCATED_TARGET, type Approval, type Mutation, type Obs, type Refusal } from './prepare.ts';
+import { asSelector, notFoundDiagnostics, resolveDeterministic, stateMatches, targetText, type TargetQuery, type TargetSpec } from './resolve.ts';
+import { groupData, judgeLines, type LineMatch } from './rule.ts';
+import { EvidenceSanitizer, maskValue, SanitizedStore } from './sanitize.ts';
+import { expandStep, UnsetVariableError } from './steps.ts';
 import type { RunStore } from './store.ts';
 import { worstVerdict } from './verdict.ts';
 
@@ -56,6 +76,11 @@ export type OcrFn = (png: Uint8Array, screen: Rect) => Promise<OcrLine[]>;
 export interface SessionEnv {
   runId: string;
   store: RunStore;
+  /**
+   * The test's evidence sanitizer (profile `redact`); the session adds every secret it learns, so a record the caller
+   * writes for this test outside the session (a session failure) masks them too.
+   */
+  clean: EvidenceSanitizer;
   driver: Driver;
   device: DeviceInfo;
   clock: Clock;
@@ -73,8 +98,6 @@ export const DEFAULT_TIMEOUT_MS = 5000;
 const POLL_MS = 150;
 const STABLE_GAP_MS = 250;
 const HOLD_MS = 500;
-const STABILIZE_POLL_MS = 100;
-const STABILIZE_CAP_MS = 3000;
 const DHASH_SAME = 4;
 const DHASH_DIFF = 7;
 const MAX_REPEAT = 10;
@@ -82,6 +105,8 @@ const MAX_INTERRUPT_ROUNDS = 10;
 const DEFAULT_BUDGET = { steps: 80, seconds: 600, jevCalls: 120 };
 /** Findings whose FAIL attaches crash artifacts (the app died or was replaced). */
 const CRASH_KINDS: Record<string, true> = { app_not_foreground: true, crash_dialog: true, anr_dialog: true, rn_redbox: true };
+const LINE_BREAK = /[\r\n]/;
+const TYPED_LINE_BREAK: RiskAssessment = { risky: true, unknown: false, reasons: ['줄바꿈은 제출(Enter)이 될 수 있음'] };
 
 const HEALTH_LABEL: Record<HealthFinding['kind'], string> = {
   app_not_foreground: '앱이 포그라운드가 아님',
@@ -92,6 +117,8 @@ const HEALTH_LABEL: Record<HealthFinding['kind'], string> = {
   rn_logbox_warning: 'React Native LogBox 경고',
   flutter_error: 'Flutter 오류',
   blank_screen: '빈 화면',
+  origin_mismatch: '허용 origin 밖 페이지',
+  page_load_error: '페이지 로드 오류',
 };
 
 interface Outcome {
@@ -107,12 +134,6 @@ class StepAbort extends Error {
     super(reason);
     this.outcome = { verdict, code, reason };
   }
-}
-
-interface Obs {
-  model: ScreenModel;
-  png: Uint8Array | null;
-  ocr: boolean;
 }
 
 interface StepCtx {
@@ -139,27 +160,33 @@ interface StepCtx {
 
 type Resolved = { ok: true; candidate: Candidate; source: 'selector' | 'fast_path' | 'jev'; obs: Obs } | { ok: false; outcome: Outcome; obs: Obs };
 
-type ActKind = 'tap' | 'longPress' | 'type' | 'clear' | 'press' | 'hideKeyboard' | 'swipe' | 'scroll' | 'back' | 'open' | 'location' | 'launch' | 'terminate' | 'reset';
-
-/** Journal keeps the exact kind; the event contract has fewer kinds (see report: contract request). */
-const EVENT_KIND: Record<ActKind, Extract<QaEventBody, { type: 'action' }>['kind']> = {
-  tap: 'tap',
-  longPress: 'tap',
-  type: 'type',
-  clear: 'type',
-  press: 'type',
-  hideKeyboard: 'back',
-  swipe: 'swipe',
-  scroll: 'scroll',
-  back: 'back',
-  open: 'launch',
-  location: 'launch',
-  launch: 'launch',
-  terminate: 'terminate',
-  reset: 'reset',
+/** A refused preparation's step verdict (nothing dispatched). */
+const REFUSAL_VERDICT: Record<Refusal, Verdict> = {
+  blocked_by_policy: 'ERROR',
+  commit_check_unavailable: 'ERROR',
+  stale_target: 'FAIL',
+  not_editable: 'FAIL',
+  observation_truncated: 'INCONCLUSIVE',
 };
 
+/** The approved preparation, or the step's verdict (`REFUSAL_VERDICT`). */
+function approved<T extends object>(approval: Approval<T>): { status: 'approved' } & T {
+  if (approval.status === 'approved') return approval;
+  throw new StepAbort(REFUSAL_VERDICT[approval.status], approval.status, approval.reason);
+}
+
+/** A deterministic check's decision verdict (event + report). */
+const DECISION_VERDICT: Record<Verdict, string> = { PASS: 'pass', FAIL: 'fail', INCONCLUSIVE: 'inconclusive', ERROR: 'error', SKIPPED: 'skipped' };
+
 const PASS = (reason: string): Outcome => ({ verdict: 'PASS', code: null, reason });
+
+/**
+ * Absence is never judged on a truncated observation (`depthCapped`: the web node cap, the iOS depth cap): what the
+ * check says is missing may lie past the cut. Presence checks still count what was observed.
+ */
+function truncatedAbsence(what: string): Outcome {
+  return { verdict: 'INCONCLUSIVE', code: 'observation_truncated', reason: `화면 구조가 잘려 관찰됨(노드·깊이 상한) — 없음을 판정할 수 없음: ${what}` };
+}
 
 function fingerprint(model: ScreenModel): string {
   return `${model.fingerprints.identity}|${model.fingerprints.layout}`;
@@ -205,19 +232,15 @@ function pngHash(png: Uint8Array | null): string | null {
   return h;
 }
 
-/** Numbers from digit-only groups ("27", "1,234", "-3.5"); other groups stay strings; missing groups are null. */
-function groupData(groups: Record<string, string | undefined>): Record<string, string | number | null> {
-  const data: Record<string, string | number | null> = {};
-  for (const [k, v] of Object.entries(groups)) data[k] = v === undefined ? null : /^[+-]?\d[\d,]*(\.\d+)?$/.test(v) ? Number(v.replace(/,/g, '')) : v;
-  return data;
-}
-
 export class TestSession {
-  private readonly env: SessionEnv;
+  /** Everything but the raw run store and its sanitizer: the session reaches the store only through `out`. */
+  private readonly env: Omit<SessionEnv, 'store' | 'clean'>;
   private readonly test: LoadedTest;
   private readonly platform: Platform;
   private readonly app: AppTarget;
-  private readonly redact: Redactor;
+  /** The only way this session writes evidence and events: everything passes the evidence sanitizer. */
+  private readonly out: SanitizedStore;
+  private readonly preparer: ActionPreparer<StepCtx>;
   private readonly budget: { steps: number; seconds: number; jevCalls: number };
   private readonly results: StepResult[] = [];
   private readonly warnings: string[] = [];
@@ -241,21 +264,38 @@ export class TestSession {
   private readonly testDir: string;
 
   constructor(env: SessionEnv, test: LoadedTest, platform: Platform, app: AppTarget) {
-    this.env = env;
+    const { store, clean, ...rest } = env;
+    this.env = rest;
     this.test = test;
     this.platform = platform;
     this.app = app;
-    this.redact = createRedactor(test.profile.redact);
+    this.out = new SanitizedStore(store, clean);
+    this.preparer = new ActionPreparer<StepCtx>({
+      profile: test.profile,
+      clock: env.clock,
+      observe: (ocr, screenshot) => this.observe({ ocr, screenshot }),
+      recentScroll: () => this.recentScroll,
+      isHittable: async (p, target) => env.driver.isHittable?.(p, target),
+      elementIdAt: async (p, box) => env.driver.elementIdAt?.(p, box),
+      focusedElementId: async () => env.driver.focusedElementId?.(),
+      // The target decides the surface (gate availability and the threshold used): a web target stays web even if a
+      // driver mislabels a snapshot (fail-closed). Every Jev decision names it (`jevProblem`, `judgeOpts`).
+      commitProblem: () => this.jevProblem('commit', app.kind),
+      judgeCommit: (ctx, model, target) => this.jevCall(ctx, () => judgeCommit(this.env.jev.client!, model.candidates, target, this.judgeOpts(model))),
+      decide: (ctx, d) => this.decide(ctx, d),
+      policy: (ctx, risky, blocked, reasons) => this.emitRef(ctx, { type: 'policy', risky, blocked, reasons }),
+    });
     this.budget = { ...DEFAULT_BUDGET, ...test.spec.budget };
     this.interruptCounts = (test.spec.when ?? []).map(() => 0);
     this.interruptFp = (test.spec.when ?? []).map(() => null);
     this.testDir = `${test.id}/${platform}`;
   }
 
-  /** Static step list for `run.started`: implicit start + setup + steps + teardown. */
-  static stepLabels(test: LoadedTest): string[] {
+  /** The test's `run.started` entry, sanitized like every event: implicit start + setup + steps + teardown labels. */
+  static announce(test: LoadedTest, platforms: Platform[]): { id: string; name: string; platforms: Platform[]; steps: string[] } {
     const s = test.spec;
-    return [startLabel(test), ...(s.setup ?? []).map(stepLabel), ...s.steps.map(stepLabel), ...(s.teardown ?? []).map(stepLabel)];
+    const steps = [startLabel(test), ...[...(s.setup ?? []), ...s.steps, ...(s.teardown ?? [])].map(stepLabel)];
+    return new EvidenceSanitizer(test.profile.redact).deep({ id: test.id, name: s.name, platforms, steps });
   }
 
   async run(): Promise<TestResult> {
@@ -284,12 +324,15 @@ export class TestSession {
         break;
       }
     }
-    return this.finish();
+    const result = this.finish();
+    this.out.emit({ type: 'test.finished', runId: this.env.runId, testId: result.id, platform: this.platform, verdict: result.verdict, reason: result.reason, durationMs: result.durationMs });
+    return result;
   }
 
   /**
    * Smoke: launch (relaunch) → settle → health (incl. blank) → screenshot + inventory; with `crawl`, visits only
-   * role-identified tab bar items (risk-filtered) and returns to the first tab. Jev answers are reference-only.
+   * role-identified tab bar items (risk-filtered) and returns to the first tab. Jev answers are reference-only. Emits no
+   * `test.finished`: the caller does once the session has ended (an unconfirmed desktop session end changes the verdict).
    */
   async runSmoke(opts: { crawl: boolean; inventoryDir: string }): Promise<TestResult> {
     this.begin();
@@ -304,7 +347,7 @@ export class TestSession {
         seen.home = home;
         ctx.after = ctx.before;
         await this.reference(ctx, home);
-        writeInventory(opts.inventoryDir, app, platform, 'launch', home.model, 'smoke');
+        writeInventory(opts.inventoryDir, app, platform, 'launch', home.model, 'smoke', this.out.clean);
         return PASS(`인벤토리 저장: 후보 ${home.model.candidates.length}개, 텍스트 ${home.model.texts.length}줄`);
       });
     }
@@ -324,16 +367,16 @@ export class TestSession {
           if (refind(tab, obs.model)?.state.includes('selected')) {
             ctx.after = ctx.before;
             await this.reference(ctx, obs);
-            writeInventory(opts.inventoryDir, app, platform, `tab-${tab.name}`, obs.model, 'smoke');
+            writeInventory(opts.inventoryDir, app, platform, `tab-${tab.name}`, obs.model, 'smoke', this.out.clean);
             return PASS('이미 선택된 탭 (행동 없음)');
           }
-          const fresh = await this.freshen(tab);
-          if (!fresh.ok) return { verdict: 'FAIL', code: 'stale_target', reason: fresh.reason };
-          await this.act(ctx, 'tap', { point: fresh.candidate.tapPoint }, () => this.env.driver.tap(fresh.candidate.tapPoint));
+          // Role-identified tree element (deterministic), prepared like any tap on the fresh observation.
+          const t = approved(await this.preparer.target(ctx, { candidate: tab, source: 'selector' }, 'activate', false, null));
+          await this.act(ctx, 'tap', { point: t.candidate.tapPoint }, () => this.env.driver.tap(t.candidate.tapPoint));
           moved = true;
-          const after = await this.settle(ctx, fresh.obs, true, DEFAULT_TIMEOUT_MS);
+          const after = await this.settle(ctx, t.obs, true, DEFAULT_TIMEOUT_MS);
           await this.reference(ctx, after);
-          writeInventory(opts.inventoryDir, app, platform, `tab-${tab.name}`, after.model, 'smoke');
+          writeInventory(opts.inventoryDir, app, platform, `tab-${tab.name}`, after.model, 'smoke', this.out.clean);
           return PASS(`"${tab.name}" 탭 화면 저장`);
         });
         if (r.verdict !== 'PASS') break;
@@ -342,11 +385,10 @@ export class TestSession {
         const back = tabs[0]!;
         const i = index++;
         await this.execLeaf(i, `${i + 1} 첫 탭으로 복귀: ${back.name}`, 'main', async (ctx) => {
-          const obs = await this.observeBefore(ctx);
-          const fresh = await this.freshen(back);
-          if (!fresh.ok) return { verdict: 'FAIL', code: 'stale_target', reason: fresh.reason };
-          await this.act(ctx, 'tap', { point: fresh.candidate.tapPoint }, () => this.env.driver.tap(fresh.candidate.tapPoint));
-          await this.settle(ctx, obs, true, DEFAULT_TIMEOUT_MS);
+          await this.observeBefore(ctx);
+          const t = approved(await this.preparer.target(ctx, { candidate: back, source: 'selector' }, 'activate', false, null));
+          await this.act(ctx, 'tap', { point: t.candidate.tapPoint }, () => this.env.driver.tap(t.candidate.tapPoint));
+          await this.settle(ctx, t.obs, true, DEFAULT_TIMEOUT_MS);
           return PASS(`"${back.name}" 탭으로 복귀`);
         });
       }
@@ -358,14 +400,14 @@ export class TestSession {
     this.startedAt = this.env.clock.now();
     this.lastActionAt = this.startedAt;
     this.startedIso = new Date().toISOString();
-    this.env.store.emit({ type: 'test.started', runId: this.env.runId, testId: this.test.id, platform: this.platform, name: this.test.spec.name });
+    this.out.emit({ type: 'test.started', runId: this.env.runId, testId: this.test.id, platform: this.platform, name: this.test.spec.name });
   }
 
   /** Smoke reference column: Jev "error or blank?" claim — recorded, never part of the verdict. */
   private async reference(ctx: StepCtx, obs: Obs): Promise<void> {
     const claim = '이 화면은 오류 화면이거나 내용 없이 비어 있다';
     const none = { kind: 'claim' as const, intent: claim, top: null, target: null, model: null, requestId: null, latencyMs: null, reference: true };
-    const problem = this.jevProblem('claim');
+    const problem = this.jevProblem('claim', this.app.kind);
     if (problem) {
       this.decide(ctx, { ...none, source: 'none', verdict: 'error', reason: `참고용 Jev 판단 불가: ${problem}` });
       return;
@@ -388,25 +430,26 @@ export class TestSession {
     }
   }
 
+  /** The result is sanitized with every secret known by now (summary.json, reports and the server read it). */
   private finish(): TestResult {
-    const { store } = this.env;
     const spec = this.test.spec;
     const counted = this.results.filter((r) => r.phase !== 'teardown');
     const verdict = worstVerdict(counted.map((r) => r.verdict));
     const decisive = [...counted].sort((a, b) => a.seq - b.seq).find((r) => r.verdict === verdict && verdict !== 'PASS');
     const durationMs = Math.round(this.env.clock.now() - this.startedAt);
     const reason = decisive ? `${decisive.label}: ${decisive.reason}` : verdict === 'PASS' ? '모든 스텝 통과' : '실행된 스텝 없음';
-    store.emit({ type: 'test.finished', runId: this.env.runId, testId: this.test.id, platform: this.platform, verdict, reason, durationMs });
-    return {
+    const result: TestResult = {
       id: this.test.id,
       name: spec.name,
       file: this.env.relFile,
       app: spec.app,
       platform: this.platform,
+      surface: this.app.kind,
       deviceId: this.env.device.id,
       deviceName: this.env.device.name,
       verdict,
       code: decisive?.code ?? null,
+      qaStatus: qaStatus({ verdict, code: decisive?.code ?? null }),
       reason,
       durationMs,
       covers: spec.covers ?? [],
@@ -420,6 +463,7 @@ export class TestSession {
       crash: this.crashPaths,
       evidenceDir: this.testDir,
     };
+    return this.out.clean.deep(result);
   }
 
   // ───────────────────────── step orchestration ─────────────────────────
@@ -469,7 +513,7 @@ export class TestSession {
   ): Promise<StepResult> {
     const ctx = this.newCtx({ index, phase, ...meta, optional: meta.optional || ownOptional }, label);
     const ref = { runId: this.env.runId, testId: this.test.id, platform: this.platform, index };
-    this.env.store.emit({ type: 'step.started', ...ref, label });
+    this.out.emit({ type: 'step.started', ...ref, label });
     const t0 = this.env.clock.now();
     let outcome: Outcome;
     try {
@@ -507,10 +551,9 @@ export class TestSession {
       settle: ctx.settle,
       durationMs: Math.round(ms),
     };
-    const { store } = this.env;
-    if (ctx.receipts.length) store.writeJson(`${ctx.dir}/jev.json`, ctx.receipts, 'jev');
-    store.writeJson(`${ctx.dir}/verdict.json`, result, 'verdict');
-    store.emit({
+    if (ctx.receipts.length) this.out.json(`${ctx.dir}/jev.json`, ctx.receipts, 'jev');
+    this.out.json(`${ctx.dir}/verdict.json`, result, 'verdict');
+    this.out.emit({
       type: 'step.finished',
       runId: this.env.runId,
       testId: this.test.id,
@@ -543,12 +586,17 @@ export class TestSession {
     return { verdict: verdicts.every((v) => v === 'SKIPPED') && verdicts.length ? 'SKIPPED' : 'PASS', code: null, reason: `하위 스텝 ${steps.length}개 통과` };
   }
 
+  /** `${NAME}`: `use … with` scopes, then remembered values, then the environment — whose values are secrets from now on. */
   private lookup = (name: string): string | undefined => {
     for (let i = this.scopes.length - 1; i >= 0; i--) {
       const v = this.scopes[i]![name];
       if (v !== undefined) return v;
     }
-    return this.vars.get(name) ?? process.env[name];
+    const remembered = this.vars.get(name);
+    if (remembered !== undefined) return remembered;
+    const env = process.env[name];
+    if (env !== undefined) this.out.clean.addSecret(env);
+    return env;
   };
 
   private async dispatch(ctx: StepCtx, raw: StepSpec): Promise<Outcome> {
@@ -556,6 +604,9 @@ export class TestSession {
     // Containers: children observe and act themselves.
     if ('repeat' in step) return this.doRepeat(ctx, step);
     if ('use' in step) return this.doUse(ctx, step);
+    // A line break in typed text reaches the app as Enter (keyboard or the keys fallback): a submit without the submit
+    // policy. Blocked before anything touches the device.
+    if ('type' in step && LINE_BREAK.test(step.type)) approved(this.preparer.label(ctx, TYPED_LINE_BREAK, step.allowRisky ?? false));
     let obs = await this.observeBefore(ctx);
     if (ctx.interrupts && (await this.runInterrupts(ctx, obs))) obs = await this.observeBefore(ctx);
     if ('which' in step) return this.doWhich(ctx, step, obs);
@@ -570,46 +621,63 @@ export class TestSession {
     const q = (target: TargetSpec): TargetQuery => ({ target, within: step.within, nth: step.nth, near: step.near });
     if ('launch' in step) return this.doLaunch(ctx, step.launch === true ? {} : step.launch, timeout);
     if ('open' in step) {
-      this.policy(ctx, labelRisk(step.open, this.test.profile.risk), step.allowRisky, null);
-      await this.act(ctx, 'open', { text: step.open }, () => this.env.driver.openUrl(this.app, step.open));
-      await this.settle(ctx, obs, !step.expectNoChange, timeout);
-      return PASS(`링크 열림: ${step.open}`);
+      const app = this.app;
+      // A website opens only inside its origins; a `/path` goes to the first origin.
+      if (app.kind === 'web') approved(this.preparer.navigation(ctx, navigationProblem(step.open, app.origins)));
+      const url = app.kind === 'web' ? new URL(step.open, app.origins[0]).href : step.open;
+      approved(this.preparer.label(ctx, labelRisk(step.open, this.test.profile.risk), step.allowRisky ?? false));
+      await this.act(ctx, 'open', { text: url }, () => this.env.driver.openUrl(app, url));
+      await this.settle(ctx, obs, !step.expectNoChange, timeout, app.kind === 'web');
+      return PASS(`링크 열림: ${url}`);
     }
     if ('tap' in step || 'longPress' in step) {
       const target = 'tap' in step ? step.tap : step.longPress;
-      const t = await this.targetForAction(ctx, obs, q(target), step.allowRisky, timeout);
-      if ('tap' in step) await this.act(ctx, 'tap', { point: t.point }, () => this.env.driver.tap(t.point));
-      else await this.act(ctx, 'longPress', { point: t.point }, () => this.env.driver.longPress(t.point, step.holdMs));
+      const t = await this.approvedTarget(ctx, obs, q(target), 'activate', step.allowRisky, timeout);
+      const point = t.candidate.tapPoint;
+      if ('tap' in step) await this.act(ctx, 'tap', { point }, () => this.env.driver.tap(point));
+      else await this.act(ctx, 'longPress', { point }, () => this.env.driver.longPress(point, step.holdMs));
       await this.settle(ctx, t.obs, !step.expectNoChange, timeout);
       return PASS(`"${t.candidate.name}" ${'tap' in step ? '탭' : '길게 누름'}`);
     }
     if ('tapAt' in step) {
       const s = obs.model.snapshot.screen;
       const point = { x: Math.round(s.x + step.tapAt.x * s.width), y: Math.round(s.y + step.tapAt.y * s.height) };
-      this.policy(ctx, labelRisk(null), step.allowRisky, null);
-      await this.act(ctx, 'tap', { point }, () => this.env.driver.tap(point));
+      approved(this.preparer.label(ctx, labelRisk(null), step.allowRisky ?? false));
+      await this.act(ctx, 'tapAt', { point }, () => this.env.driver.tap(point));
       await this.settle(ctx, obs, !step.expectNoChange, timeout);
       return PASS(`좌표 ${point.x},${point.y} 탭`);
     }
     if ('type' in step) {
-      const t = await this.targetForAction(ctx, obs, q(step.into), step.allowRisky, timeout);
-      const out = await this.act(ctx, 'type', { point: t.point, text: step.secure ? '•'.repeat([...step.type].length) : step.type }, () =>
-        this.env.driver.typeText(t.point, step.type, { secure: step.secure, append: step.append, submit: step.submit }),
+      const t = await this.approvedTarget(ctx, obs, q(step.into), 'edit', step.allowRisky, timeout);
+      const point = t.candidate.tapPoint;
+      // An observed secure field is secure whatever the DSL says; its value is masked in every later write.
+      const secure = step.secure === true || t.candidate.role === 'secure-input';
+      if (secure) this.out.clean.addSecret(step.type);
+      const typed = await this.act(ctx, 'type', { point, text: secure ? maskValue(step.type) : step.type }, async () =>
+        this.secureReadBack(await this.env.driver.typeText(point, step.type, { secure, append: step.append, submit: false }), secure),
       );
-      if (out.error?.startsWith('INPUT_UNVERIFIED')) throw new StepAbort('FAIL', 'input_unverified', `입력 확인 실패: ${out.error}`);
-      await this.settle(ctx, t.obs, false, timeout);
-      return PASS(`"${t.candidate.name}"에 입력 확인 (${out.path})`);
+      if (typed.error?.startsWith('INPUT_UNVERIFIED')) throw new StepAbort('FAIL', 'input_unverified', `입력 확인 실패: ${typed.error}`);
+      let settleFrom = t.obs;
+      // Typing may change the screen: Enter is approved on the observation after typing.
+      if (step.submit) settleFrom = await this.pressEnter(ctx, step.allowRisky ?? false);
+      await this.settle(ctx, settleFrom, step.submit === true && !step.expectNoChange, timeout);
+      return PASS(`"${t.candidate.name}"에 입력 확인 (${typed.path})${step.submit ? ' 후 Enter' : ''}`);
     }
     if ('clear' in step) {
-      const t = await this.targetForAction(ctx, obs, q(step.clear), step.allowRisky, timeout);
-      const out = await this.act(ctx, 'clear', { point: t.point, text: '' }, () => this.env.driver.clearText(t.point));
-      if (out.error?.startsWith('INPUT_UNVERIFIED')) throw new StepAbort('FAIL', 'input_unverified', `지우기 확인 실패: ${out.error}`);
+      const t = await this.approvedTarget(ctx, obs, q(step.clear), 'edit', step.allowRisky, timeout);
+      const point = t.candidate.tapPoint;
+      const secure = t.candidate.role === 'secure-input';
+      const cleared = await this.act(ctx, 'clear', { point }, async () => this.secureReadBack(await this.env.driver.clearText(point), secure));
+      if (cleared.error?.startsWith('INPUT_UNVERIFIED')) throw new StepAbort('FAIL', 'input_unverified', `지우기 확인 실패: ${cleared.error}`);
       await this.settle(ctx, t.obs, false, timeout);
       return PASS(`"${t.candidate.name}" 지움`);
     }
     if ('press' in step) {
-      await this.act(ctx, 'press', { text: step.press }, () => this.env.driver.press(step.press));
-      await this.settle(ctx, obs, !step.expectNoChange, timeout);
+      // Enter submits the focused form or dialog; back/tab/escape/delete only navigate or edit.
+      let settleFrom = obs;
+      if (step.press === 'enter') settleFrom = await this.pressEnter(ctx, step.allowRisky ?? false);
+      else await this.act(ctx, 'press', { text: step.press }, () => this.env.driver.press(step.press));
+      await this.settle(ctx, settleFrom, !step.expectNoChange, timeout);
       return PASS(`${step.press} 키 누름`);
     }
     if ('hideKeyboard' in step) {
@@ -663,13 +731,13 @@ export class TestSession {
       const until = step.wait.until;
       const text = textOnly(until);
       if (text !== null) return this.waitText(ctx, obs, text, true, timeout);
-      const r = await this.resolveLoop(ctx, obs, q(until as TargetSpec), { strict: false, deadline: this.deadline(timeout), ocr: true });
+      const r = await this.resolveLoop(ctx, obs, q(until), { strict: false, deadline: this.deadline(timeout), ocr: true });
       if (!r.ok) return r.outcome;
       return PASS(`나타남: "${r.candidate.name}"`);
     }
     if ('capture' in step) {
       const png = obs.png ?? (await this.env.driver.screenshot());
-      const rel = this.env.store.write(`${ctx.dir}/${screenSlug(step.capture)}.png`, png, 'screenshot');
+      const rel = this.out.png(`${ctx.dir}/${screenSlug(this.out.clean.text(step.capture))}.png`, png);
       return PASS(`캡처 저장: ${rel}`);
     }
     throw new StepAbort('ERROR', 'unsupported_step', `지원하지 않는 스텝: ${stepLabel(step)}`);
@@ -680,6 +748,7 @@ export class TestSession {
   private async observe(opts: { screenshot?: boolean; ocr?: 'auto' | 'force' | 'never' } = {}): Promise<Obs> {
     this.env.signal?.throwIfAborted();
     const snap = await this.env.driver.snapshot({ screenshot: opts.screenshot ?? false });
+    this.out.clean.observe(snap);
     const volatile = this.test.profile.volatile;
     let model = buildScreenModel(snap, { volatile });
     let png = snap.screenshotPng;
@@ -701,11 +770,10 @@ export class TestSession {
   /** Step-start observation with screenshot; saved as before.png / source.xml / elements.json. */
   private async observeBefore(ctx: StepCtx): Promise<Obs> {
     const obs = await this.observe({ screenshot: true });
-    const { store } = this.env;
     ctx.beforePng = obs.png;
-    if (obs.png) ctx.before = store.write(`${ctx.dir}/before.png`, obs.png, 'screenshot');
-    store.write(`${ctx.dir}/source.xml`, this.redact(obs.model.snapshot.rawSource), 'source');
-    store.writeJson(`${ctx.dir}/elements.json`, this.elements(obs.model), 'elements');
+    if (obs.png) ctx.before = this.out.png(`${ctx.dir}/before.png`, obs.png);
+    this.out.source(`${ctx.dir}/source.xml`, obs.model.snapshot.rawSource);
+    this.out.elements(`${ctx.dir}/elements.json`, obs.model);
     this.emitRef(ctx, {
       type: 'observe',
       screenshot: ctx.before,
@@ -717,41 +785,20 @@ export class TestSession {
     return obs;
   }
 
-  private elements(model: ScreenModel): unknown {
-    return {
-      platform: model.snapshot.platform,
-      takenAt: model.snapshot.takenAt,
-      screen: model.snapshot.screen,
-      foregroundApp: model.snapshot.foregroundApp,
-      keyboardShown: model.snapshot.keyboardShown,
-      depthCapped: model.snapshot.depthCapped,
-      sparse: model.sparse,
-      overflow: model.overflow,
-      occluded: model.occludedNodeIds.length,
-      fingerprints: model.fingerprints,
-      candidates: model.candidates.map((c) => ({
-        ...c,
-        name: this.redact(c.name),
-        value: c.value === null ? null : c.role === 'input' || c.role === 'secure-input' ? '•'.repeat([...c.value].length) : this.redact(c.value),
-      })),
-      texts: model.texts.map(this.redact),
-    };
-  }
-
   private async captureAfter(ctx: StepCtx, obs: Obs): Promise<void> {
     const png = obs.png ?? (await this.env.driver.screenshot());
-    ctx.after = this.env.store.write(`${ctx.dir}/after.png`, png, 'screenshot');
+    ctx.after = this.out.png(`${ctx.dir}/after.png`, png);
   }
 
   private emitRef(ctx: StepCtx, body: DistributiveOmit<Extract<QaEventBody, { index: number }>, 'runId' | 'testId' | 'platform' | 'index'>): void {
-    this.env.store.emit({ ...body, runId: this.env.runId, testId: this.test.id, platform: this.platform, index: ctx.index } as QaEventBody);
+    this.out.emit({ ...body, runId: this.env.runId, testId: this.test.id, platform: this.platform, index: ctx.index } as QaEventBody);
   }
 
   private warnOnce(key: string, message: string): void {
     if (this.warned.has(key)) return;
     this.warned.add(key);
     this.warnings.push(message);
-    this.env.store.emit({ type: 'log', level: 'warn', source: 'runner', message });
+    this.out.emit({ type: 'log', level: 'warn', source: 'runner', message });
   }
 
   /** Deadline counted from the last mutating action (Maestro `adjustedToLatestInteraction`). */
@@ -761,11 +808,14 @@ export class TestSession {
 
   // ───────────────────────── Jev plumbing ─────────────────────────
 
-  /** Null when Jev may decide `primitive`; otherwise why not (reasons for missing calibration start with `uncalibrated`). */
-  private jevProblem(primitive: CalibratedPrimitive): string | null {
+  /**
+   * Null when Jev may decide `primitive` on screens of `surface` (the target's); otherwise why not (reasons for
+   * missing calibration start with `uncalibrated`).
+   */
+  private jevProblem(primitive: CalibratedPrimitive, surface: Surface): string | null {
     const { client, calibration, problem } = this.env.jev;
     if (!calibration) return problem ? `uncalibrated: ${problem}` : 'uncalibrated';
-    const usable = usableGate(calibration, client?.model ?? JEV_MODEL, primitive);
+    const usable = usableGate(calibration, client?.model ?? JEV_MODEL, primitive, surface);
     if (usable.reason) return usable.reason;
     return client ? null : (problem ?? 'Jev 클라이언트를 만들 수 없습니다');
   }
@@ -785,7 +835,7 @@ export class TestSession {
   }
 
   private judgeOpts(model: ScreenModel) {
-    return { texts: model.texts, redact: this.redact, calibration: this.env.jev.calibration, signal: this.env.signal };
+    return { texts: model.texts, redact: this.out.clean.text, calibration: this.env.jev.calibration, surface: this.app.kind, signal: this.env.signal };
   }
 
   private decide(ctx: StepCtx, d: DecisionSummary): void {
@@ -865,7 +915,7 @@ export class TestSession {
       }
       let notFoundReason = det.reason;
       if (det.kind === 'jev') {
-        jevBlocked = this.jevProblem('grounding');
+        jevBlocked = this.jevProblem('grounding', this.app.kind);
         const fp = fingerprint(obs.model);
         if (!jevBlocked && fp !== lastFp) {
           lastFp = fp;
@@ -902,85 +952,24 @@ export class TestSession {
     }
   }
 
-  /** Mutating target: resolve → policy → freshness (refind + hit-test, post-scroll stabilisation) → fresh tap point. */
-  private async targetForAction(ctx: StepCtx, obs: Obs, q: TargetQuery, allowRisky: boolean | undefined, timeout: number): Promise<{ candidate: Candidate; point: Point; obs: Obs }> {
+  /**
+   * Mutating target: resolve (re-observing while not found) → preparation on the final fresh observation. A target
+   * resolved (unique, or chosen by Jev) or missed on a truncated observation is INCONCLUSIVE: the cut part may hold
+   * another of the same name, or the target itself.
+   */
+  private async approvedTarget(ctx: StepCtx, obs: Obs, query: TargetQuery, mutation: Mutation, allowRisky: boolean | undefined, timeout: number) {
+    const q: TargetQuery = { ...query, purpose: mutation === 'edit' ? 'edit' : 'act' };
     const r = await this.resolveLoop(ctx, obs, q, { strict: false, deadline: this.deadline(timeout), ocr: true });
-    if (!r.ok) throw new StepAbort(r.outcome.verdict, r.outcome.code, r.outcome.reason);
-    await this.targetPolicy(ctx, r.candidate, r.source, r.obs.model, allowRisky);
-    let fresh = await this.freshen(r.candidate);
-    if (!fresh.ok) {
-      const again = await this.resolveLoop(ctx, fresh.obs, q, { strict: false, deadline: this.env.clock.now(), ocr: false });
-      if (!again.ok) throw new StepAbort('FAIL', 'stale_target', `대상이 바뀜: ${fresh.reason}; 재해석 실패: ${again.outcome.reason}`);
-      if (again.candidate.name !== r.candidate.name) await this.targetPolicy(ctx, again.candidate, again.source, again.obs.model, allowRisky);
-      const second = await this.freshen(again.candidate);
-      if (!second.ok) throw new StepAbort('FAIL', 'stale_target', `대상이 바뀜: ${fresh.reason}; 재해석 후에도 ${second.reason}`);
-      fresh = second;
-    }
-    return { candidate: fresh.candidate, point: fresh.candidate.tapPoint, obs: fresh.obs };
-  }
-
-  private async targetPolicy(ctx: StepCtx, c: Candidate, source: 'selector' | 'fast_path' | 'jev', model: ScreenModel, allowRisky: boolean | undefined): Promise<void> {
-    const risk = assessRisk(c, model, this.test.profile);
-    if (!risk.risky && !allowRisky && !this.jevProblem('commit')) {
-      const commit = await this.jevCall(ctx, () => judgeCommit(this.env.jev.client!, model.candidates, c, this.judgeOpts(model)));
-      this.decide(ctx, {
-        kind: 'commit',
-        source: 'jev',
-        verdict: commit.verdict,
-        intent: c.name,
-        top: commit.pYes === null ? null : [{ key: 'yes', label: '되돌릴 수 없는 변경', p: commit.pYes }],
-        target: { key: c.key, name: c.name, role: c.role, tapPoint: c.tapPoint },
-        model: commit.receipt?.model ?? null,
-        requestId: commit.receipt?.requestId ?? null,
-        latencyMs: commit.receipt?.latencyMs ?? null,
-        reason: commit.reason,
-      });
-      // Refusal-add only: a 'fail' or an error never unblocks anything; an advisory gate never blocks alone.
-      if (commit.verdict === 'pass' && !commit.advisory) risk.reasons.push(commit.reason);
-      risk.risky = risk.reasons.length > 0;
-    }
-    this.policy(ctx, risk, allowRisky, source === 'jev' && risk.risky ? '위험 요소는 Jev로 선택할 수 없습니다 — selector 또는 정확한 라벨을 쓰세요' : null);
-  }
-
-  /** Emits the policy event and blocks risky actions without `allowRisky` (or any risky Jev-grounded target). */
-  private policy(ctx: StepCtx, risk: RiskAssessment, allowRisky: boolean | undefined, hardBlock: string | null): void {
-    const blocked = risk.risky && (!allowRisky || hardBlock !== null);
-    this.emitRef(ctx, { type: 'policy', risky: risk.risky, blocked, reasons: hardBlock ? [...risk.reasons, hardBlock] : risk.reasons });
-    if (blocked) {
-      throw new StepAbort('ERROR', 'blocked_by_policy', `위험 동작 차단: ${[...risk.reasons, ...(hardBlock ? [hardBlock] : [])].join(', ')}${allowRisky ? '' : ' (allowRisky 필요)'}`);
-    }
-  }
-
-  private async freshen(c: Candidate): Promise<{ ok: true; candidate: Candidate; obs: Obs } | { ok: false; reason: string; obs: Obs }> {
-    const ocr = c.source === 'ocr' ? 'force' : 'never';
-    let obs: Obs;
-    let cur: Candidate | null;
-    if (this.recentScroll) {
-      // After scroll/swipe/back: wait until the target rect is identical in two consecutive fresh observations.
-      const until = this.env.clock.now() + STABILIZE_CAP_MS;
-      let prev: Rect | null = null;
-      for (;;) {
-        obs = await this.observe({ ocr });
-        cur = refind(c, obs.model);
-        if (cur && prev && cur.rect.x === prev.x && cur.rect.y === prev.y && cur.rect.width === prev.width && cur.rect.height === prev.height) break;
-        prev = cur?.rect ?? null;
-        if (this.env.clock.now() >= until) {
-          this.warnOnce(`stabilize:${c.name}`, `스크롤 후 "${c.name}" 위치가 ${STABILIZE_CAP_MS}ms 안에 안정되지 않아 마지막 위치 사용`);
-          break;
-        }
-        await this.env.clock.sleep(STABILIZE_POLL_MS);
+    if (r.obs.model.snapshot.depthCapped) {
+      if (r.ok) throw new StepAbort('INCONCLUSIVE', 'observation_truncated', `"${r.candidate.name}": ${TRUNCATED_TARGET}`);
+      if (r.outcome.code === 'not_found') {
+        const out = truncatedAbsence(r.outcome.reason);
+        throw new StepAbort(out.verdict, out.code, out.reason);
       }
-    } else {
-      obs = await this.observe({ ocr });
-      cur = refind(c, obs.model);
     }
-    if (!cur) return { ok: false, reason: `재관찰에서 "${c.name}"을(를) 다시 찾지 못함`, obs };
-    const node = cur.source === 'tree' ? nodeOf(obs.model, cur.nodeId) : undefined;
-    if (node && !isUnoccludedAt(obs.model.snapshot.nodes, node, cur.tapPoint)) return { ok: false, reason: `"${c.name}" 탭 지점을 다른 요소가 덮고 있음`, obs };
-    if (this.platform === 'ios' && this.env.driver.isHittable && (await this.env.driver.isHittable(cur.tapPoint)) === false) {
-      return { ok: false, reason: `"${c.name}" isHittable=false`, obs };
-    }
-    return { ok: true, candidate: cur, obs };
+    if (!r.ok) throw new StepAbort(r.outcome.verdict, r.outcome.code, r.outcome.reason);
+    const reresolve = (fresh: Obs) => this.resolveLoop(ctx, fresh, q, { strict: false, deadline: this.env.clock.now(), ocr: false });
+    return approved(await this.preparer.target(ctx, r, mutation, allowRisky ?? false, reresolve));
   }
 
   // ───────────────────────── actions ─────────────────────────
@@ -988,7 +977,7 @@ export class TestSession {
   /** Journals the intent (fsync) before dispatch, then the outcome. `uncertain` ends the test (ERROR, no retry). */
   private async act<T extends ActionOutcome>(
     ctx: StepCtx,
-    kind: ActKind,
+    kind: ActionKind,
     detail: { point?: Point; to?: Point; text?: string },
     run: () => Promise<T>,
     onRejected?: Outcome,
@@ -996,25 +985,18 @@ export class TestSession {
     this.env.signal?.throwIfAborted();
     const id = `${this.test.id}:${this.platform}:${++this.actionSeq}`;
     const base = { id, runId: this.env.runId, testId: this.test.id, platform: this.platform, step: ctx.seq, label: ctx.label, kind };
-    this.env.store.journal({ phase: 'intent', ...base, point: detail.point ?? null, to: detail.to ?? null, text: detail.text ?? null });
+    const text = detail.text ?? null;
+    this.out.journal({ phase: 'intent', ...base, point: detail.point ?? null, to: detail.to ?? null, text });
     let out: T;
     try {
       out = await run();
     } catch (err) {
       out = { status: 'uncertain', ms: 0, error: err instanceof Error ? err.message : String(err) } as T;
     }
-    this.env.store.journal({ phase: 'outcome', ...base, status: out.status, ms: out.ms, error: out.error ?? null });
-    this.emitRef(ctx, {
-      type: 'action',
-      kind: EVENT_KIND[kind],
-      point: detail.point ?? null,
-      to: detail.to ?? null,
-      text: kind === 'type' || kind === 'press' || kind === 'open' ? (detail.text ?? null) : kind === 'tap' || kind === 'swipe' || kind === 'scroll' || kind === 'back' ? null : `[${kind}]`,
-      status: out.status,
-      ms: out.ms,
-    });
+    this.out.journal({ phase: 'outcome', ...base, status: out.status, ms: out.ms, error: out.error ?? null });
+    this.emitRef(ctx, { type: 'action', kind, point: detail.point ?? null, to: detail.to ?? null, text, status: out.status, ms: out.ms });
     this.lastActionAt = this.env.clock.now();
-    this.recentScroll = kind === 'swipe' || kind === 'scroll' || kind === 'back' || kind === 'hideKeyboard';
+    this.recentScroll = kind === 'swipe' || kind === 'scroll' || kind === 'back' || kind === 'hideKeyboard' || (kind === 'press' && text === 'back');
     if (out.status === 'uncertain') {
       throw new StepAbort('ERROR', 'uncertain_action', `행동 결과 불확실(${kind}): ${out.error ?? '알 수 없음'} — 자동 재시도하지 않음`);
     }
@@ -1023,10 +1005,37 @@ export class TestSession {
   }
 
   /**
-   * Waits for change (identity/layout fingerprint, dHash fallback) then stability (2 equal observations ≥250 ms apart),
-   * saves after.png, runs health. No change when one was required → INCONCLUSIVE no_effect.
+   * Presses Enter (`press: enter`, `type.submit`) approved on a fresh observation of the focused field. Returns the settle
+   * baseline: the observation after the commit check with its screenshot (one taken now without a commit check), so a
+   * change while Jev answered is not the Enter's effect (an Enter that changes nothing after it is no_effect unless
+   * expectNoChange).
    */
-  private async settle(ctx: StepCtx, before: Obs, requireChange: boolean, timeout: number): Promise<Obs> {
+  private async pressEnter(ctx: StepCtx, allowRisky: boolean): Promise<Obs> {
+    const enter = approved(await this.preparer.focused(ctx, allowRisky));
+    const baseline = { ...enter.obs, png: enter.obs.png ?? (await this.env.driver.screenshot()) };
+    await this.act(ctx, 'press', { text: 'enter' }, () => this.env.driver.press('enter'));
+    return baseline;
+  }
+
+  /**
+   * A secure field's read-back (what a partial type or clear left, which no earlier secret covers) becomes a secret
+   * before `act` records the outcome, and INPUT_UNVERIFIED keeps only its masked form: the driver's detail quotes it raw.
+   */
+  private secureReadBack(out: TypeOutcome, secure: boolean): TypeOutcome {
+    if (!secure || !out.readBack) return out;
+    this.out.clean.addSecret(out.readBack);
+    const readBack = maskValue(out.readBack);
+    if (!out.error?.startsWith('INPUT_UNVERIFIED')) return { ...out, readBack };
+    return { ...out, readBack, error: `INPUT_UNVERIFIED: 보안 입력 필드 값이 기대와 다름 (읽은 값 "${readBack}")` };
+  }
+
+  /**
+   * Waits for change (identity/layout fingerprint, dHash fallback) then stability (2 equal observations ≥250 ms apart),
+   * saves after.png, runs health. No change when one was required → INCONCLUSIVE no_effect. `page` (website launch/open):
+   * a browser shows an empty tree for its first dumps, so an empty screen never counts as settled, and a page still
+   * empty at the deadline is ERROR page_not_ready (an environment/readiness problem, checked before health).
+   */
+  private async settle(ctx: StepCtx, before: Obs, requireChange: boolean, timeout: number, page = false): Promise<Obs> {
     const { clock, driver } = this.env;
     const t0 = clock.now();
     const beforeFp = fingerprint(before.model);
@@ -1063,7 +1072,7 @@ export class TestSession {
       for (;;) {
         await clock.sleep(STABLE_GAP_MS);
         const next = await this.observe({ ocr: 'never' });
-        let same = fingerprint(next.model) === fingerprint(prev.model);
+        let same = fingerprint(next.model) === fingerprint(prev.model) && (!page || next.model.candidates.length > 0 || next.model.texts.length > 0);
         let nextHash: string | null = null;
         if (same && viaPixels) {
           nextHash = pngHash(await driver.screenshot());
@@ -1081,8 +1090,11 @@ export class TestSession {
     const final = await this.observe({ screenshot: true });
     const ms = Math.round(clock.now() - t0);
     ctx.settle = { changed, settled, ms };
-    if (final.png) ctx.after = this.env.store.write(`${ctx.dir}/after.png`, final.png, 'screenshot');
+    if (final.png) ctx.after = this.out.png(`${ctx.dir}/after.png`, final.png);
     this.emitRef(ctx, { type: 'settle', changed, settled, ms, screenshot: ctx.after });
+    if (page && final.model.candidates.length === 0 && final.model.texts.length === 0) {
+      throw new StepAbort('ERROR', 'page_not_ready', `페이지가 ${timeout}ms 안에 내용을 표시하지 않음 (요소·텍스트 없음)`);
+    }
     await this.health(ctx, final);
     if (requireChange && !changed) throw new StepAbort('INCONCLUSIVE', 'no_effect', `행동 후 ${timeout}ms 동안 화면 변화 없음 (expectNoChange가 아니면 효과 없음)`);
     return final;
@@ -1090,7 +1102,7 @@ export class TestSession {
 
   private async health(ctx: StepCtx, obs: Obs): Promise<void> {
     const raster: Raster | null = obs.png ? decodePng(obs.png) : null;
-    const findings = checkHealth(obs.model, raster, this.app.appId);
+    const findings = checkHealth(obs.model, raster, this.app);
     ctx.health.push(...findings);
     this.findings.push(...findings);
     this.emitRef(ctx, { type: 'health', findings });
@@ -1103,11 +1115,11 @@ export class TestSession {
 
   /** Test-window device log slice (+ crash artifacts when the app died); failures here only warn. */
   private async attachLogs(kind: HealthFinding['kind']): Promise<void> {
-    const { driver, store } = this.env;
+    const { driver } = this.env;
     const now = new Date().toISOString();
     if (!this.logsPath) {
       try {
-        this.logsPath = store.write(`${this.testDir}/logs/device.log`, this.redact(await driver.logSlice(this.startedIso, now)), 'log');
+        this.logsPath = this.out.text(`${this.testDir}/logs/device.log`, await driver.logSlice(this.startedIso, now), 'log');
       } catch (err) {
         this.warnOnce('logs', `기기 로그를 가져오지 못함: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -1115,7 +1127,7 @@ export class TestSession {
     if (CRASH_KINDS[kind] && this.crashPaths.length === 0) {
       try {
         for (const a of await driver.crashArtifacts(this.app, this.startedIso)) {
-          this.crashPaths.push(store.write(`${this.testDir}/crash/${a.name.replace(/[^\w.-]/g, '_')}`, a.content, 'crash'));
+          this.crashPaths.push(this.out.text(`${this.testDir}/crash/${a.name.replace(/[^\w.-]/g, '_')}`, a.content, 'crash'));
         }
       } catch (err) {
         this.warnOnce('crash', `크래시 기록을 가져오지 못함: ${err instanceof Error ? err.message : String(err)}`);
@@ -1148,12 +1160,12 @@ export class TestSession {
     } else if (reset === 'relaunch') await this.act(ctx, 'terminate', {}, () => driver.terminate(this.app));
     if (reset === 'none' || reset === 'relaunch' || custom) await this.act(ctx, 'launch', {}, () => driver.launch(this.app, opts));
     try {
-      await driver.startLogs(this.app);
+      await driver.startLogs(this.app, this.out.clean.text);
     } catch (err) {
       this.warnOnce('startLogs', `기기 로그 수집 시작 실패: ${err instanceof Error ? err.message : String(err)}`);
     }
     const before = await this.observe({ ocr: 'never' });
-    await this.settle(ctx, before, false, timeout);
+    await this.settle(ctx, before, false, timeout, this.app.kind === 'web');
     return PASS(`앱 실행 (${reset})`);
   }
 
@@ -1171,7 +1183,7 @@ export class TestSession {
       else if (det.kind === 'ambiguous') return { verdict: 'INCONCLUSIVE', code: 'ambiguous', reason: det.reason };
       else if (det.kind === 'not_found') absent = true;
       else {
-        const problem = this.jevProblem('grounding');
+        const problem = this.jevProblem('grounding', this.app.kind);
         if (problem) return this.jevFailure(`${problem} (안 보임은 Jev로만 확인 가능)`);
         const fp = fingerprint(obs.model);
         if (fp !== lastFp) {
@@ -1185,6 +1197,10 @@ export class TestSession {
         absent = lastAbsent;
       }
       const now = this.env.clock.now();
+      if (absent && obs.model.snapshot.depthCapped) {
+        await this.captureAfter(ctx, obs);
+        return truncatedAbsence(`"${intent}" 안 보임`);
+      }
       if (absent) {
         if (absentSince === null) absentSince = now;
         else if (now - absentSince >= HOLD_MS) {
@@ -1214,6 +1230,10 @@ export class TestSession {
         return PASS(`텍스트 있음: "${hit}"`);
       }
       if (!present) {
+        if (hit === undefined && obs.model.snapshot.depthCapped) {
+          await this.captureAfter(ctx, obs);
+          return truncatedAbsence(`텍스트 없음 ${describeMatch(m)}`);
+        }
         if (hit === undefined) {
           absentSince ??= now;
           if (now - absentSince >= HOLD_MS) {
@@ -1240,9 +1260,11 @@ export class TestSession {
     } catch (err) {
       return { verdict: 'ERROR', code: 'invalid_regex', reason: `checkEach 정규식 오류: ${(err as Error).message}` };
     }
+    const invalid = ruleProblem(check.rule, patternGroups(check.pattern));
+    if (invalid) return { verdict: 'ERROR', code: 'invalid_rule', reason: `checkEach 규칙 오류: ${invalid}` };
     const deadline = this.deadline(timeout);
     let obs = first;
-    let matches: { line: string; data: Record<string, string | number | null> }[] = [];
+    let matches: LineMatch[] = [];
     for (;;) {
       matches = [];
       for (const line of textLines(obs.model)) {
@@ -1254,19 +1276,16 @@ export class TestSession {
       obs = await this.observe();
     }
     await this.captureAfter(ctx, obs);
-    const violations = matches.filter((m) => !jsonLogic.truthy(jsonLogic.apply(check.rule, m.data)));
-    const outcome: Outcome =
-      matches.length < check.min
-        ? { verdict: 'FAIL', code: 'check_min', reason: `패턴 일치 ${matches.length}줄 < 최소 ${check.min}줄` }
-        : violations.length
-          ? { verdict: 'FAIL', code: 'check_failed', reason: `규칙 위반 ${violations.length}줄: ${violations.map((v) => `"${v.line}" ${JSON.stringify(v.data)}`).join('; ')}` }
-          : PASS(`${matches.length}줄 모두 규칙 만족`);
-    this.decide(ctx, { kind: 'check', source: 'deterministic', verdict: outcome.verdict === 'PASS' ? 'pass' : 'fail', intent: `/${check.pattern}/`, top: null, target: null, model: null, requestId: null, latencyMs: null, reason: outcome.reason });
+    const judged = judgeLines(check.rule, matches, check.min);
+    // On a truncated observation only an observed violation (or a broken rule) stands: the cut part may hold a
+    // violating line, or the lines `min` asks for.
+    const outcome = obs.model.snapshot.depthCapped && judged.verdict !== 'ERROR' && judged.code !== 'check_failed' ? truncatedAbsence(`규칙 위반 줄 /${check.pattern}/ (관찰된 부분: ${judged.reason})`) : judged;
+    this.decide(ctx, { kind: 'check', source: 'deterministic', verdict: DECISION_VERDICT[outcome.verdict], intent: `/${check.pattern}/`, top: null, target: null, model: null, requestId: null, latencyMs: null, reason: outcome.reason });
     return outcome;
   }
 
   private async doClaim(ctx: StepCtx, obs: Obs, claim: string): Promise<Outcome> {
-    const problem = this.jevProblem('claim');
+    const problem = this.jevProblem('claim', this.app.kind);
     if (problem) return this.jevFailure(problem);
     const d = await this.jevCall(ctx, () => judgeClaim(this.env.jev.client!, obs.model.candidates, claim, this.judgeOpts(obs.model)));
     this.decide(ctx, {
@@ -1323,10 +1342,10 @@ export class TestSession {
     return PASS(`${r.name} = "${value}"`);
   }
 
-  private async doWhich(ctx: StepCtx, step: Extract<StepSpec, { which: unknown }>, first: Obs): Promise<Outcome> {
-    const branches = step.which as Record<string, StepSpec[]>;
+  private async doWhich(ctx: StepCtx, step: WhichStepSpec, first: Obs): Promise<Outcome> {
+    const branches = step.which;
     const options = Object.keys(branches);
-    const problem = this.jevProblem('which');
+    const problem = this.jevProblem('which', this.app.kind);
     if (problem) return this.jevFailure(problem);
     const deadline = this.deadline(step.timeout);
     let obs = first;
@@ -1361,8 +1380,8 @@ export class TestSession {
     }
   }
 
-  private async doRepeat(ctx: StepCtx, step: Extract<StepSpec, { repeat: unknown }>): Promise<Outcome> {
-    const r = step.repeat as { times?: number; while?: Condition; steps: StepSpec[] };
+  private async doRepeat(ctx: StepCtx, step: RepeatStepSpec): Promise<Outcome> {
+    const r = step.repeat;
     const cap = Math.min(r.times ?? MAX_REPEAT, MAX_REPEAT);
     for (let i = 0; i < cap; i++) {
       if (r.while && !(await this.condition(ctx, r.while))) return PASS(`${i}회 반복 후 조건 해제`);
@@ -1421,7 +1440,7 @@ export class TestSession {
         const hit = textFound(text, textLines(obs.model));
         if (hit !== undefined) return PASS(`스크롤 ${i}회 후 텍스트 "${hit}" 보임`);
       } else {
-        const r = await this.resolveLoop(ctx, obs, q(until as TargetSpec), { strict: true, deadline: this.env.clock.now(), ocr: false });
+        const r = await this.resolveLoop(ctx, obs, q(until), { strict: true, deadline: this.env.clock.now(), ocr: false });
         if (r.ok) return PASS(`스크롤 ${i}회 후 "${r.candidate.name}" 보임`);
         if (r.outcome.code !== 'not_found') return r.outcome;
       }
@@ -1430,16 +1449,21 @@ export class TestSession {
       const fpBefore = fingerprint(obs.model);
       await this.act(ctx, 'scroll', { point: from, to }, () => this.env.driver.swipe(from, to, 450));
       obs = await this.settle(ctx, obs, false, timeout);
-      if (fingerprint(obs.model) === fpBefore) return { verdict: 'FAIL', code: 'not_found', reason: `스크롤 끝에 도달 (${i + 1}회): ${targetText(until as TargetSpec)} 없음` };
+      if (fingerprint(obs.model) === fpBefore) return { verdict: 'FAIL', code: 'not_found', reason: `스크롤 끝에 도달 (${i + 1}회): ${targetText(until)} 없음` };
     }
-    return { verdict: 'FAIL', code: 'not_found', reason: `스크롤 ${s.max}회 후에도 없음: ${text !== null ? describeMatch(text) : targetText(until as TargetSpec)}` };
+    return { verdict: 'FAIL', code: 'not_found', reason: `스크롤 ${s.max}회 후에도 없음: ${text !== null ? describeMatch(text) : targetText(until)}` };
   }
 
   /** Loop condition on a fresh observation: deterministic text checks, or a target (Jev strict when needed). */
   private async condition(ctx: StepCtx, cond: Condition): Promise<boolean> {
     const obs = await this.observe();
     if ('text' in cond) return textFound(cond.text, textLines(obs.model)) !== undefined;
-    if ('noText' in cond) return textFound(cond.noText, textLines(obs.model)) === undefined;
+    if ('noText' in cond) {
+      if (textFound(cond.noText, textLines(obs.model)) !== undefined) return false;
+      if (!obs.model.snapshot.depthCapped) return true;
+      const out = truncatedAbsence(`조건 noText ${describeMatch(cond.noText)}`);
+      throw new StepAbort(out.verdict, out.code, out.reason);
+    }
     const r = await this.resolveLoop(ctx, obs, { target: cond.see }, { strict: true, deadline: this.env.clock.now(), ocr: false });
     if (r.ok) return true;
     if (r.outcome.code === 'not_found') return false;
@@ -1495,7 +1519,7 @@ export class TestSession {
     const det = resolveDeterministic(obs.model, { target: see });
     if (det.kind === 'found') return true;
     if (det.kind !== 'jev') return false;
-    const problem = this.jevProblem('grounding');
+    const problem = this.jevProblem('grounding', this.app.kind);
     if (problem) {
       this.warnOnce(`when:${i}`, `when 인터럽트 "${targetText(see)}": Jev 사용 불가(${problem}) — 결정적 일치만 확인`);
       return false;
@@ -1517,11 +1541,26 @@ function startLabel(test: LoadedTest): string {
   return test.spec.start === 'attach' ? '앱 시작: 실행 중인 앱에 연결' : `앱 시작: ${test.spec.reset}`;
 }
 
+/**
+ * What `profile` runs as on `platform`, or null when it does not run there (`profilePlatforms`): the website in the
+ * platform's browser, or the native app on a device.
+ */
 export function appTarget(profile: LoadedTest['profile'], platform: Platform): AppTarget | null {
-  if (platform === 'android') {
-    const a = profile.android;
-    return a ? { platform, appId: a.package, ...(a.activity ? { activity: a.activity } : {}), ...(a.apk ? { binaryPath: a.apk } : {}) } : null;
+  if (!profilePlatforms(profile).includes(platform)) return null;
+  const web = profile.web;
+  if (web) {
+    return { kind: 'web', platform, appId: PLATFORM_INFO[platform].browser, url: web.url, origins: web.origins ?? [new URL(web.url).origin], viewport: web.viewport };
   }
-  const i = profile.ios;
-  return i ? { platform, appId: i.bundleId, ...(i.app ? { binaryPath: i.app } : {}) } : null;
+  switch (PLATFORM_INFO[platform].host) {
+    case 'android': {
+      const a = profile.android;
+      return a ? { kind: 'app', platform, appId: a.package, ...(a.activity ? { activity: a.activity } : {}), ...(a.apk ? { binaryPath: a.apk } : {}) } : null;
+    }
+    case 'ios': {
+      const i = profile.ios;
+      return i ? { kind: 'app', platform, appId: i.bundleId, ...(i.app ? { binaryPath: i.app } : {}) } : null;
+    }
+    case 'desktop':
+      return null;
+  }
 }

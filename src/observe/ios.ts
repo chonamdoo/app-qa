@@ -59,6 +59,13 @@ const TRAIT_TYPE_NAMES: Record<(typeof OTHER_TRAIT_TYPES)[number], string> = {
 };
 
 /**
+ * WebKit exposes a web `role="dialog"` element as `Other` whose label ends with the localized role description
+ * ("도움말, 웹 대화상자" / "Help, web dialog"). Its box swallows touches (a modal's full-screen container sits over the
+ * page), so it is marked focusable = touch-intercepting without becoming a target itself.
+ */
+const WEB_DIALOG_LABEL = /,\s*(웹 대화상자|web dialog)$/i;
+
+/**
  * Modal backdrop: UIKit sheet/popover presentations insert a dimming/dismiss region (RN: Other "dismiss popup",
  * name PopoverDismissRegion; sometimes unlabelled) whose frame is 3× the screen (e.g. -402,-874 1206×2622).
  * It swallows every touch outside the sheet, so everything drawn before it is unreachable. Plain full-screen
@@ -131,7 +138,7 @@ export function parseIosSource(xml: string, screen: Rect): RawNode[] {
       const flags: NodeFlags = {
         clickable: TOUCHABLE_TYPES[type] === true || traits.has('Button') || traits.has('Link') || traits.has('KeyboardKey'),
         longClickable: false,
-        focusable: false,
+        focusable: type === 'Other' && label !== null && WEB_DIALOG_LABEL.test(label),
         checkable,
         checked: checkable && (rawValue === '1' || rawValue === 'true' || rawValue === 'on'),
         enabled: a.enabled !== 'false' && !traits.has('NotEnabled'),

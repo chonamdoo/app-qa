@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { createServer, type Server } from 'node:http';
+import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { after, before, describe, it } from 'node:test';
 import { actionStatusOf, AppiumClient, AppiumProtocolError, AppiumTransportError, parseW3CError } from '../../src/appium/client.ts';
+import { CommandError, shq } from '../../src/appium/exec.ts';
 import { crashBlocks, imeVisible } from '../../src/drivers/android.ts';
-import { failureStatus, RefusedError, shq, StepError, typeVerdict, xmlMaxDepth } from '../../src/drivers/base.ts';
-import { CommandError } from '../../src/drivers/common.ts';
+import { failureStatus, RefusedError, StepError, typeVerdict, xmlMaxDepth } from '../../src/drivers/base.ts';
 import { ipsNamesApp } from '../../src/drivers/ios.ts';
 import { sliceLog } from '../../src/drivers/logs.ts';
 
@@ -26,10 +26,51 @@ describe('W3C error classification', () => {
     assert.match(e.message, /Bad Gateway/);
   });
 
-  it('host commands: non-zero exit / missing binary → rejected, killed (timeout) → uncertain; sub-step outcomes propagate', () => {
-    assert.equal(failureStatus(new CommandError('adb', [], 1, '', null, 'exit 1')), 'rejected');
-    assert.equal(failureStatus(new CommandError('adb', [], null, '', 'ENOENT', 'ENOENT')), 'rejected');
-    assert.equal(failureStatus(new CommandError('adb', [], null, '', null, 'killed')), 'uncertain');
+  it('host commands: rejected only when the binary never started or the command itself refused; transport loss, signals, timeouts, text-less and unknown failures → uncertain', () => {
+    const ADB = '/sdk/platform-tools/adb';
+    const SHELL = ['-s', 'emulator-5554', 'shell', "'am' 'start' '-W' '-n' 'kr.tteonam.app/.MainActivity'"];
+    const SIMCTL = ['simctl', 'openurl', 'SIM-UDID', 'tteonam://home'];
+    const rejected = [
+      new CommandError(ADB, ['-s', 'emulator-5554', 'install', '-r', '-d', 'app.apk'], 1, 'adb: failed to install app.apk: Failure [INSTALL_FAILED_VERSION_DOWNGRADE]', null, 'exit 1'),
+      new CommandError(ADB, ['-s', 'emulator-5554', 'install', '-r', '-d', '/builds/app.apk'], 1, 'adb: failed to stat /builds/app.apk: No such file or directory', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'Error: Activity class {kr.tteonam.app/.MainActivity} does not exist.', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'Starting: Intent { cmp=kr.tteonam.app/.MainActivity }\nError type 3', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'Error: Activity not started, unable to resolve Intent { act=android.intent.action.VIEW }', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'Exception occurred while executing: java.lang.SecurityException: Permission Denial: not allowed to send broadcast', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'Error: Unknown package: kr.tteonam.app', null, 'exit 1'),
+      new CommandError(ADB, SHELL, null, '', 'ENOENT', 'ENOENT'),
+      new CommandError('xcrun', SIMCTL, 149, 'An error was encountered processing the command (domain=com.apple.CoreSimulator.SimError, code=405):\nUnable to lookup in current state: Shutdown', null, 'exit 149'),
+      new CommandError('xcrun', SIMCTL, 148, 'Invalid device: SIM-UDID', null, 'exit 148'),
+      new CommandError('xcrun', ['simctl', 'openurl', 'booted', 'tteonam://home'], 149, 'No devices are booted.', null, 'exit 149'),
+    ];
+    const uncertain = [
+      new CommandError(ADB, SHELL, 1, 'error: closed', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'adb: device offline', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, "adb: device 'emulator-5554' not found", null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'adb: no devices/emulators found', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, "error: protocol fault (couldn't read status): Connection reset by peer", null, 'exit 1'),
+      new CommandError(ADB, SHELL, 255, '', null, 'exit 255'),
+      new CommandError(ADB, SHELL, 255, 'Starting: Intent { cmp=kr.tteonam.app/.MainActivity }', null, 'exit 255'),
+      new CommandError(ADB, SHELL, 137, 'Killed', null, 'exit 137'),
+      new CommandError(ADB, SHELL, 1, '', null, 'exit 1'),
+      new CommandError(ADB, SHELL, null, '', null, 'killed (SIGTERM)'),
+      new CommandError(ADB, SHELL, null, '', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'),
+      new CommandError('xcrun', SIMCTL, 1, 'CoreSimulatorService connection became invalid. Simulator services will no longer be available.', null, 'exit 1'),
+      new CommandError('xcrun', SIMCTL, 1, 'Connection interrupted', null, 'exit 1'),
+      // Error text that is not a known refusal proves nothing about whether the command ran.
+      new CommandError(ADB, SHELL, 1, 'error: failed to read response from device', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'Aborted', null, 'exit 1'),
+      new CommandError('xcrun', SIMCTL, 1, 'An error was encountered processing the command (domain=com.apple.CoreSimulator.SimError, code=164):\nUnknown error', null, 'exit 1'),
+      // A missing file that is not one of the command's path arguments.
+      new CommandError('xcrun', SIMCTL, 1, 'Failed to write /var/folders/tmp/simctl.log: No such file or directory', null, 'exit 1'),
+      // A refusal next to transport-loss text: the loss wins.
+      new CommandError(ADB, ['-s', 'emulator-5554', 'install', '-r', '-d', 'app.apk'], 1, 'Failure [INSTALL_FAILED_INTERNAL_ERROR]\nadb: device offline', null, 'exit 1'),
+    ];
+    for (const err of rejected) assert.equal(failureStatus(err), 'rejected', `${err.exitCode ?? err.spawnCode}: ${err.stderr}`);
+    for (const err of uncertain) assert.equal(failureStatus(err), 'uncertain', `${err.exitCode ?? err.spawnCode}: ${err.stderr}`);
+  });
+
+  it('refusals and sub-step outcomes propagate', () => {
     assert.equal(failureStatus(new RefusedError('no focus')), 'rejected');
     assert.equal(failureStatus(new StepError({ status: 'uncertain', ms: 1 })), 'uncertain');
     assert.equal(failureStatus(new StepError({ status: 'rejected', ms: 1 })), 'rejected');
@@ -39,14 +80,32 @@ describe('W3C error classification', () => {
 describe('AppiumClient over HTTP', () => {
   let server: Server;
   let url: string;
+  let lastHeaders: IncomingHttpHeaders = {};
+  // 2xx bodies that are not a usable W3C answer for the command.
+  const OK_BODIES: Record<string, string> = {
+    '/ok-but-error': '{"value":{"error":"unknown error","message":"boom"}}',
+    '/error-no-message': '{"value":{"error":"no such element"}}',
+    '/bad-error': '{"value":{"error":42,"message":"x"}}',
+    '/empty': '{}',
+    '/array': '[1,2]',
+    '/garbage': '<html>oops',
+    '/null-value': '{"value":null}',
+    '/session': '{"value":{"capabilities":{}}}',
+    '/session/s2/source': '{"value":{"not":"xml"}}',
+    '/session/s2/screenshot': '{"value":"aGVsbG8="}',
+    '/session/s2/window/rect': '{"value":{"x":0,"y":0,"width":"390","height":844}}',
+    '/session/s2/elements': '{"value":[{"element-6066-11e4-a52e-4f735466cecf":"E1"},{"id":"E2"}]}',
+  };
   before(async () => {
     server = createServer((req, res) => {
+      lastHeaders = req.headers;
       if (req.url === '/slow') return; // never answers: the client's own AbortSignal timeout must fire
       if (req.url === '/session/s1/element') {
         res.writeHead(404, { 'content-type': 'application/json' });
         return void res.end('{"value":{"error":"no such element","message":"An element could not be located","stacktrace":""}}');
       }
-      if (req.url === '/ok-but-error') return void res.end('{"value":{"error":"unknown error","message":"boom"}}');
+      const canned = OK_BODIES[req.url ?? ''];
+      if (canned) return void res.end(canned);
       if (req.url === '/session/s1/element/active') return void res.end('{"value":{"element-6066-11e4-a52e-4f735466cecf":"E1"}}');
       res.end('{"value":{"ready":true}}');
     });
@@ -76,6 +135,41 @@ describe('AppiumClient over HTTP', () => {
     const err = await new AppiumClient(url).request('GET', '/ok-but-error').catch((e: unknown) => e);
     assert.ok(err instanceof AppiumProtocolError);
     assert.equal(err.code, 'unknown error');
+  });
+
+  it('a 200 W3C error without a message is still that error (a refusal code stays rejected)', async () => {
+    const err = await new AppiumClient(url).request('GET', '/error-no-message').catch((e: unknown) => e);
+    assert.ok(err instanceof AppiumProtocolError);
+    assert.equal(err.code, 'no such element');
+    assert.equal(actionStatusOf(err), 'rejected');
+  });
+
+  it('a 200 body without a W3C value envelope, or with a non-string error, is malformed → uncertain', async () => {
+    for (const path of ['/empty', '/array', '/garbage', '/bad-error']) {
+      const err = await new AppiumClient(url).request('GET', path).catch((e: unknown) => e);
+      assert.ok(err instanceof AppiumTransportError, path);
+      assert.equal(err.kind, 'malformed', path);
+      assert.equal(actionStatusOf(err), 'uncertain', path);
+    }
+    assert.equal(await new AppiumClient(url).request('GET', '/null-value'), null);
+  });
+
+  it('command results the drivers use are shape-checked (session id, XML source, PNG screenshot, rect, element refs)', async () => {
+    const c = new AppiumClient(url);
+    const noSession = await c.createSession({}).catch((e: unknown) => e);
+    assert.ok(noSession instanceof AppiumTransportError && noSession.kind === 'malformed');
+    assert.equal(c.sessionId, null);
+    c.sessionId = 's2';
+    for (const call of [() => c.source(), () => c.screenshot(), () => c.windowRect(), () => c.findElements({ using: 'xpath', value: '//*' })]) {
+      const err = await call().catch((e: unknown) => e);
+      assert.ok(err instanceof AppiumTransportError && err.kind === 'malformed', String(err));
+      assert.equal(failureStatus(err), 'uncertain');
+    }
+  });
+
+  it('marks every request sensitive so Appium masks bodies in its log', async () => {
+    await new AppiumClient(url).status(500);
+    assert.equal(lastHeaders['x-appium-is-sensitive'], 'true');
   });
 
   it('findElement maps "no such element" to null and reads W3C element ids', async () => {

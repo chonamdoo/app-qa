@@ -4,18 +4,22 @@ import Foundation
 import Observation
 import UserNotifications
 
+/// Mirror of the engine's `--platform` choice: one platform, or `all` = every platform of the selected profile.
 enum PlatformChoice: String, CaseIterable, Identifiable, Sendable {
-    case android, ios, all
+    case android, ios
+    case desktopChrome = "desktop-chrome"
+    case desktopSafari = "desktop-safari"
+    case all
+
+    /// Every platform id, in display order.
+    static let platformIds = allCases.filter { $0 != .all }.map(\.rawValue)
 
     var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .android: "Android"
-        case .ios: "iOS"
-        case .all: "둘 다"
-        }
+    /// Website profiles name the browser that runs (Android Chrome, iOS Safari).
+    func label(web: Bool) -> String {
+        if self == .all { return web ? "전체" : "둘 다" }
+        return (web ? Palette.webPlatformLabel : Palette.platformLabel)[rawValue] ?? rawValue
     }
-    var platforms: [String] { self == .all ? ["android", "ios"] : [rawValue] }
 }
 
 enum LLMChoice: String, CaseIterable, Identifiable, Sendable {
@@ -134,11 +138,15 @@ final class Workspace {
         didSet {
             guard selectedApp != oldValue else { return }
             UserDefaults.standard.set(selectedApp, forKey: "selectedApp")
+            normalizePlatform()
             Task { await loadPlan() }
         }
     }
     var platform: PlatformChoice = .android {
-        didSet { UserDefaults.standard.set(platform.rawValue, forKey: "platform") }
+        didSet {
+            UserDefaults.standard.set(platform.rawValue, forKey: "platform")
+            if !activePlatforms.contains(devicePane) { devicePane = activePlatforms.first ?? "android" }
+        }
     }
     var llm: LLMChoice = .claude {
         didSet { UserDefaults.standard.set(llm.rawValue, forKey: "llm") }
@@ -199,7 +207,7 @@ final class Workspace {
         platform = defaults.string(forKey: "platform").flatMap(PlatformChoice.init(rawValue:)) ?? .android
         llm = defaults.string(forKey: "llm").flatMap(LLMChoice.init(rawValue:)) ?? .claude
         selectedDevice = (defaults.dictionary(forKey: "selectedDevice") as? [String: String]) ?? [:]
-        devicePane = platform == .ios ? "ios" : "android"
+        devicePane = platform == .all ? "android" : platform.rawValue
     }
 
     // MARK: - lifecycle
@@ -384,10 +392,35 @@ final class Workspace {
 
     func devices(for platform: String) -> [DeviceInfo] { devices.filter { $0.platform == platform } }
 
+    var selectedProfile: AppProfile? { profiles.first { $0.id == selectedApp } }
+
+    /// Website profile: device platforms run the browser app (labels say Android Chrome / iOS Safari).
+    var isWebApp: Bool { selectedProfile?.web != nil }
+
+    /// Toolbar choices: the profile's server-derived `platforms` (app → configured android/ios, web → its browsers),
+    /// plus `all` (둘 다 / 전체) only when there is more than one. No profile loaded → nothing to choose.
+    var platformChoices: [PlatformChoice] {
+        let choices = (selectedProfile?.platforms ?? []).compactMap(PlatformChoice.init(rawValue:))
+        return choices.count > 1 ? choices + [.all] : choices
+    }
+
+    /// Platforms the current choice runs on (`all` = the profile's platforms, as the engine expands it).
+    var activePlatforms: [String] {
+        guard platform == .all else { return [platform.rawValue] }
+        return selectedProfile?.platforms ?? []
+    }
+
+    func label(platform: String) -> String { (isWebApp ? Palette.webPlatformLabel : Palette.platformLabel)[platform] ?? platform }
+
+    /// A choice the selected profile cannot run (desktop Chrome after switching to an app, iOS on an Android-only app)
+    /// falls back to `all`, or to the profile's only platform.
+    private func normalizePlatform() {
+        if !platformChoices.contains(platform), let fallback = platformChoices.last { platform = fallback }
+        if !activePlatforms.contains(devicePane) { devicePane = activePlatforms.first ?? "android" }
+    }
+
     var deviceIds: DeviceIds {
-        DeviceIds(
-            android: platform.platforms.contains("android") ? selectedDevice["android"] : nil,
-            ios: platform.platforms.contains("ios") ? selectedDevice["ios"] : nil)
+        DeviceIds(uniqueKeysWithValues: activePlatforms.compactMap { p in selectedDevice[p].map { (p, $0) } })
     }
 
     func isRecording(platform: String) -> Bool {
@@ -395,7 +428,30 @@ final class Workspace {
         return recordings.contains { $0.platform == platform && $0.deviceId == id }
     }
 
-    var anyRecording: Bool { platform.platforms.contains { isRecording(platform: $0) } }
+    /// Active platforms with a screen to record (desktop browsers have none).
+    var recordablePlatforms: [String] { activePlatforms.filter { !Palette.desktopPlatforms.contains($0) } }
+
+    var anyRecording: Bool { recordablePlatforms.contains { isRecording(platform: $0) } }
+
+    struct StepScreenshot: Equatable, Sendable {
+        let key: StepKey
+        let path: String
+        /// Pre-action (observe) screenshot: the step's marks were resolved on it.
+        let isBefore: Bool
+    }
+
+    /// Desktop browsers have no live screen: the newest step screenshot of `platform` in the live stream stands in.
+    func latestScreenshot(platform: String) -> StepScreenshot? {
+        for item in live.reversed() {
+            guard let event = item.event, let key = event.stepKey, key.platform == platform else { continue }
+            switch event.body {
+            case .observe(let shot?, _, _, _, _): return StepScreenshot(key: key, path: shot, isBefore: true)
+            case .settle(_, _, _, let shot?): return StepScreenshot(key: key, path: shot, isBefore: false)
+            default: continue
+            }
+        }
+        return nil
+    }
 
     var uploadsPending: Bool { attachments.contains { if case .uploading = $0.state { true } else { false } } }
 
@@ -410,6 +466,7 @@ final class Workspace {
             profiles = response.profiles
             profileErrors = response.errors
             if selectedApp == nil || !profiles.contains(where: { $0.id == selectedApp }) { selectedApp = profiles.first?.id }
+            normalizePlatform()
         } catch {
             banner = "앱 프로필을 불러오지 못했습니다: \(error.localizedDescription)"
         }
@@ -421,7 +478,7 @@ final class Workspace {
             let response: DevicesResponse = try await api.get("/api/devices")
             devices = response.devices
             devicesError = nil
-            for platform in ["android", "ios"] {
+            for platform in PlatformChoice.platformIds {
                 let candidates = devices(for: platform)
                 if let current = selectedDevice[platform], candidates.contains(where: { $0.id == current }) { continue }
                 selectedDevice[platform] = (candidates.first { $0.state == "booted" } ?? candidates.first)?.id
@@ -540,7 +597,7 @@ final class Workspace {
     func toggleRecording() async {
         guard let api else { return }
         let turnOn = !anyRecording
-        for platform in platform.platforms {
+        for platform in recordablePlatforms {
             guard let deviceId = selectedDevice[platform], isRecording(platform: platform) != turnOn else { continue }
             do {
                 let _: RecordingInfo = try await api.post(

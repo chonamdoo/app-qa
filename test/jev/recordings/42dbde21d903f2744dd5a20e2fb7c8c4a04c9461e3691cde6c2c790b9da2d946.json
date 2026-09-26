@@ -1,0 +1,70 @@
+{
+  "key": "42dbde21d903f2744dd5a20e2fb7c8c4a04c9461e3691cde6c2c790b9da2d946",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfdbe470da9aae930d73d5b060",
+  "latencyMs": 203,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | Trailhead Outfitters | - | top",
+          "e2 | heading | Review: Ridgeline 45L Backpack | - | top",
+          "e3 | text | Your rating | - | top",
+          "e4 | text | 5 stars | - | top",
+          "e5 | text | 4 stars | - | top",
+          "e6 | text | 3 stars | - | top",
+          "e7 | checkbox | 5 stars | unchecked | top",
+          "e8 | checkbox | 4 stars | checked | top",
+          "e9 | checkbox | 3 stars | unchecked | top",
+          "e10 | text | Headline | - | top",
+          "e11 | input | Headline | value=\"Comfortable on a 3-day hike\" | top",
+          "e12 | text | Review | - | middle",
+          "e13 | input | Review | value=\"Hip belt is great, side pockets are a bit tight for 1L bottles.\" | middle",
+          "e14 | text | Reviews are public and show your first name. | - | middle",
+          "e15 | link | Review guidelines | - | middle",
+          "e16 | button | Submit review | - | middle"
+        ],
+        "texts": [
+          "Trailhead Outfitters",
+          "Review: Ridgeline 45L Backpack",
+          "Your rating",
+          "5 stars",
+          "4 stars",
+          "3 stars",
+          "Headline",
+          "Comfortable on a 3-day hike",
+          "Review",
+          "Hip belt is great, side pockets are a bit tight for 1L bottles.",
+          "Reviews are public and show your first name.",
+          "Review guidelines",
+          "Submit review"
+        ]
+      },
+      "target": "e15 | link | Review guidelines | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.03
+      }
+    },
+    "usage": {
+      "input_tokens": 779,
+      "output_tokens": 21
+    }
+  }
+}

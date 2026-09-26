@@ -1,0 +1,67 @@
+{
+  "key": "94859a7e4798fe49f848bb9d1a59b173833bda0a4ed1e1e22befbcd63923f8f1",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfd83075a6b3c6e4165e29bedc",
+  "latencyMs": 186,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | Brightside Insurance | - | top",
+          "e2 | link | My policies | - | top",
+          "e3 | heading | Report damaged items — Renters policy RN-40219 | - | top",
+          "e4 | text | What happened? | - | top",
+          "e5 | input | What happened? | value=\"A pipe burst in the upstairs unit on Sept 20 and water came through the ceiling.\" | top",
+          "e6 | text | Damaged item | - | top",
+          "e7 | input | Damaged item | value=\"Laptop, 2023 model\" | middle",
+          "e8 | input | Estimated value | value=\"$1,450\" | middle",
+          "e9 | button | Add another item | - | middle",
+          "e10 | button | Upload photos | - | middle",
+          "e11 | text | Deductible $250. | - | middle",
+          "e12 | link | View coverage details | - | middle",
+          "e13 | button | File claim | - | middle"
+        ],
+        "texts": [
+          "Brightside Insurance",
+          "My policies",
+          "Report damaged items — Renters policy RN-40219",
+          "What happened?",
+          "A pipe burst in the upstairs unit on Sept 20 and water came through the ceiling.",
+          "Damaged item",
+          "Laptop, 2023 model",
+          "$1,450",
+          "Add another item",
+          "Upload photos",
+          "Deductible $250.",
+          "View coverage details",
+          "File claim"
+        ]
+      },
+      "target": "e10 | button | Upload photos | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.13
+      }
+    },
+    "usage": {
+      "input_tokens": 755,
+      "output_tokens": 21
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "key": "bd3dc0a41a3365ae6a4fbf48c6b75c66df7b42d7d68827ec9d8cffa6f7d68b8e",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb5347e72d4989f5ce0bd74eeb5",
+  "latencyMs": 200,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 모아마켓 | - | top",
+          "e2 | heading | 회원가입 | - | top",
+          "e3 | text | 이메일 | - | top",
+          "e4 | input | 이메일 | value=\"[REDACTED]\" | top",
+          "e5 | text | 비밀번호 | - | top",
+          "e6 | secure-input | 비밀번호 | value=\"•••••••••••\" | top",
+          "e7 | button | 비밀번호 표시 | - | top",
+          "e8 | button | 약관 보기 | - | middle",
+          "e9 | text | [필수] 이용약관과 개인정보 처리방침에 동의합니다 | - | middle",
+          "e10 | checkbox | [필수] 이용약관과 개인정보 처리방침에 동의합니다 | checked | middle",
+          "e11 | button | 가입하기 | - | middle",
+          "e12 | text | 이미 계정이 있나요? | - | middle",
+          "e13 | link | 로그인 | - | middle"
+        ],
+        "texts": [
+          "모아마켓",
+          "회원가입",
+          "이메일",
+          "[REDACTED]",
+          "비밀번호",
+          "비밀번호 표시",
+          "약관 보기",
+          "[필수] 이용약관과 개인정보 처리방침에 동의합니다",
+          "가입하기",
+          "이미 계정이 있나요?",
+          "로그인"
+        ]
+      },
+      "target": "e8 | button | 약관 보기 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.03
+      }
+    },
+    "usage": {
+      "input_tokens": 742,
+      "output_tokens": 21
+    }
+  }
+}

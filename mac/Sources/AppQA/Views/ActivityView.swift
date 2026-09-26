@@ -123,7 +123,7 @@ private struct EventRow: View {
 
     private var stepPrefix: String {
         guard let index = event.index, let platform = event.platform else { return "" }
-        return "\(Palette.platformLabel[platform] ?? platform) · 스텝 \(index + 1) · "
+        return "\(workspace.label(platform: platform)) · 스텝 \(index + 1) · "
     }
 
     var body: some View {
@@ -156,14 +156,14 @@ private struct EventRow: View {
                     Spacer()
                     Text(runId).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
-                Text("테스트 \(tests.count)개 · " + devices.map { "\(Palette.platformLabel[$0.platform] ?? $0.platform) \($0.name)" }.joined(separator: ", "))
+                Text("테스트 \(tests.count)개 · " + devices.map { "\(workspace.label(platform: $0.platform)) \($0.name)" }.joined(separator: ", "))
                     .font(.callout).foregroundStyle(.secondary)
             }
         case .testStarted(let name):
             HStack(spacing: 8) {
                 Image(systemName: "chevron.right.circle.fill").foregroundStyle(Color.accentColor)
                 Text(name).font(.subheadline.weight(.semibold))
-                if let platform = event.platform { Tag(text: Palette.platformLabel[platform] ?? platform) }
+                if let platform = event.platform { Tag(text: workspace.label(platform: platform)) }
             }
             .padding(.top, 6)
             .accessibilityElement(children: .combine)
@@ -290,15 +290,18 @@ private struct EventRow: View {
 
     private func actionTitle(_ kind: String) -> String {
         let titles: [String: String] = [
-            "tap": "화면 탭", "type": "텍스트 입력", "swipe": "화면 스와이프", "scroll": "스크롤", "back": "뒤로 가기",
-            "launch": "앱 실행", "terminate": "앱 종료", "reset": "앱 초기화",
+            "tap": "화면 탭", "tapAt": "좌표 탭", "longPress": "길게 누르기", "type": "텍스트 입력", "clear": "지우기", "press": "키 누르기",
+            "hideKeyboard": "키보드 숨기기", "swipe": "화면 스와이프", "scroll": "스크롤", "back": "뒤로 가기",
+            "open": "링크 열기", "location": "위치 설정", "launch": "앱 실행", "terminate": "앱 종료", "reset": "앱 초기화",
         ]
         return titles[kind] ?? kind
     }
 
     private func actionIcon(_ kind: String) -> String {
         let icons: [String: String] = [
-            "tap": "hand.tap", "type": "keyboard", "swipe": "hand.draw", "scroll": "scroll", "back": "arrow.uturn.backward",
+            "tap": "hand.tap", "tapAt": "scope", "longPress": "hand.point.up.left", "type": "keyboard", "clear": "delete.left",
+            "press": "keyboard.badge.ellipsis", "hideKeyboard": "keyboard.chevron.compact.down", "swipe": "hand.draw",
+            "scroll": "scroll", "back": "arrow.uturn.backward", "open": "link", "location": "location",
             "launch": "power", "terminate": "stop.circle", "reset": "arrow.counterclockwise",
         ]
         return icons[kind] ?? "bolt"

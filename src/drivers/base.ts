@@ -1,11 +1,15 @@
 // Shared Appium session driver: W3C gestures, snapshot, typed-text verification, outcome mapping.
 import { existsSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
-import { ensureAppium } from '../appium/server.ts';
 import { actionStatusOf, AppiumClient, swipeGesture, tapGesture } from '../appium/client.ts';
+import { CommandError } from '../appium/exec.ts';
+import { ensureAppium } from '../appium/server.ts';
+import type { Check } from '../appium/setup.ts';
+import { PLATFORM_INFO } from '../core/platform.ts';
 import type { ActionOutcome, ActionStatus, AppTarget, Driver, Platform, Point, RawNode, Rect, ResetMode, Snapshot, TypeOutcome } from '../core/types.ts';
+import { targetProblem } from './appid.ts';
+import { readinessProblem } from './browser-prep.ts';
 import { findBackup } from './backup.ts';
-import { CommandError, normText } from './common.ts';
 import { LogCapture } from './logs.ts';
 
 export type Key = 'enter' | 'back' | 'tab' | 'escape' | 'delete';
@@ -13,6 +17,13 @@ export type PermissionState = 'allow' | 'deny' | 'unset';
 export interface LaunchOptions {
   permissions?: Record<string, PermissionState>;
   arguments?: string[];
+}
+
+/** Web targets test the site, not the browser app: app permissions or launch arguments would change the browser, so they are refused. */
+export function assertNoWebLaunchOptions(opts: LaunchOptions): void {
+  if (Object.keys(opts.permissions ?? {}).length > 0 || (opts.arguments?.length ?? 0) > 0) {
+    throw new RefusedError('웹 대상 실행에는 앱 권한·실행 인자를 쓸 수 없습니다 (브라우저 앱이 아니라 사이트를 시험합니다)');
+  }
 }
 
 /**
@@ -79,6 +90,9 @@ export interface FieldValue {
   raw: string;
 }
 
+/** NFC + collapsed whitespace, used for read-back comparisons. */
+const normText = (s: string) => s.normalize('NFC').replace(/\s+/g, ' ').trim();
+
 /** Read-back rule: NFC + whitespace-normalized equality; secure fields compare length only (values are masked). */
 export function valueMatches(expected: string, actual: string, secure: boolean): boolean {
   return secure ? [...actual].length === [...expected].length : normText(actual) === normText(expected);
@@ -95,12 +109,18 @@ export function typeVerdict(expected: string, before: string, after: string, sec
   return after === before ? 'unchanged' : 'partial';
 }
 
-/** Single-quotes an argument for the device shell (`adb shell` joins argv into one shell string). */
-export function shq(s: string): string {
-  return `'${s.replace(/'/g, `'\\''`)}'`;
-}
-
 const elapsed = (t0: number) => Math.round(performance.now() - t0);
+
+/** A tap that was sent but gave no element input focus: what the tap did is unknown, so it is `uncertain`, never `rejected`. */
+const NO_FOCUS: ActionOutcome = { status: 'uncertain', ms: 0, error: '탭은 보냈지만 입력 포커스가 생기지 않았습니다 (탭의 효과를 알 수 없음)' };
+
+/**
+ * The outcome of a later part (field lookup, clear, keys, Enter, window raise) of an action whose tap or click was
+ * already sent: never `rejected`, which says the device did nothing — a refusal there leaves the action `uncertain`.
+ */
+export function afterInput(o: ActionOutcome): ActionOutcome {
+  return o.status === 'rejected' ? { ...o, status: 'uncertain', error: `탭(클릭)은 이미 전달된 뒤 거부됨 — 행동의 효과를 알 수 없음: ${o.error ?? '이유 없음'}` } : o;
+}
 
 export abstract class AppiumDriver implements Driver {
   abstract readonly platform: Platform;
@@ -109,7 +129,10 @@ export abstract class AppiumDriver implements Driver {
   protected client: AppiumClient | null = null;
   protected screen: Rect | null = null;
   protected logs: LogCapture | null = null;
-  protected logApp: AppTarget | null = null;
+  /** App and sanitizer of the last `startLogs`, so a relaunch can re-arm the capture for the new process. */
+  protected logTarget: { app: AppTarget; sanitize: (line: string) => string } | null = null;
+  /** Target of the open session: web targets make snapshots `surface: 'web'` with the address bar's page URL. */
+  protected opened: AppTarget | null = null;
 
   constructor(deviceId: string, opts: DriverOptions = {}) {
     this.deviceId = deviceId;
@@ -132,15 +155,19 @@ export abstract class AppiumDriver implements Driver {
   abstract hideKeyboard(): Promise<ActionOutcome>;
   abstract launch(app: AppTarget, opts?: LaunchOptions): Promise<ActionOutcome>;
   abstract terminate(app: AppTarget): Promise<ActionOutcome>;
-  /** iOS clear = reinstall from `binary` + keychain reset; Android = `pm clear` (binary unused). */
+  /** iOS clear = reinstall from `binary` + keychain reset, web: Safari website data wipe; Android = `pm clear` (binary unused), web: + Chrome prep. */
   protected abstract clearData(app: AppTarget, binary: string | null): Promise<void>;
+  /** Read-only readiness of the device browser; `open` refuses a web target unless every check passes. */
+  protected abstract readonly browserChecks: (deviceId: string) => Promise<Check[]>;
+  /** resource-id (Android) / name (iOS) of the browser's address field, read into `Snapshot.pageUrl`. */
+  protected abstract readonly addressBarId: string;
   /** True when the page source itself shows the keyboard (iOS); otherwise it is queried separately. */
   protected abstract readonly keyboardInSource: boolean;
   protected abstract reinstall(app: AppTarget, binary: string): Promise<void>;
   abstract openUrl(app: AppTarget, url: string): Promise<ActionOutcome>;
   abstract setLocation(lat: number, lon: number): Promise<ActionOutcome>;
   abstract foregroundApp(): Promise<string | null>;
-  abstract startLogs(app: AppTarget): Promise<void>;
+  abstract startLogs(app: AppTarget, sanitize: (line: string) => string): Promise<void>;
   abstract crashArtifacts(app: AppTarget, sinceIso: string): Promise<{ name: string; content: string }[]>;
 
   protected get api(): AppiumClient {
@@ -148,11 +175,24 @@ export abstract class AppiumDriver implements Driver {
     return this.client;
   }
 
+  /** The target's app id (browser id for web) once the whole target is validated — ids reach device shells, simctl and backup paths, URLs reach the browser; refused otherwise. */
+  protected appId(app: AppTarget): string {
+    const problem = targetProblem(this.platform, app);
+    if (problem) throw new RefusedError(problem);
+    return app.appId;
+  }
+
   async open(app: AppTarget): Promise<void> {
+    this.appId(app);
+    if (app.kind === 'web') {
+      const problem = readinessProblem(PLATFORM_INFO[this.platform].webLabel, await this.browserChecks(this.deviceId));
+      if (problem) throw new RefusedError(problem);
+    }
     const url = this.opts.serverUrl ?? (await ensureAppium()).url;
     const client = new AppiumClient(url);
     await client.createSession(this.capabilities(app));
     this.client = client;
+    this.opened = app;
     try {
       await client.updateSettings(this.settings());
       this.screen = await client.windowRect();
@@ -163,7 +203,7 @@ export abstract class AppiumDriver implements Driver {
   }
 
   async close(): Promise<void> {
-    this.logs?.stop();
+    await this.logs?.stop();
     this.logs = null;
     const client = this.client;
     this.client = null;
@@ -181,14 +221,21 @@ export abstract class AppiumDriver implements Driver {
     const facts = this.sourceFacts(xml);
     const screen = this.screen ?? (this.screen = await api.windowRect());
     const maxDepth = xmlMaxDepth(xml);
+    const nodes = this.parse(xml, screen);
+    const web = this.opened?.kind === 'web';
+    const bar = web ? nodes.find((n) => n.resourceId === this.addressBarId) : undefined;
+    // Safari prefixes the host with a left-to-right mark (U+200E); bidi marks are never part of a URL.
+    const pageUrl = (bar?.value ?? bar?.text ?? '').replace(/[\u200E\u200F]/g, '').trim();
     return {
       platform: this.platform,
+      surface: web ? 'web' : 'app',
       takenAt,
       screen,
-      nodes: this.parse(xml, screen),
+      nodes,
       rawSource: xml,
       screenshotPng: png,
       foregroundApp: facts.foregroundApp,
+      pageUrl: pageUrl || null,
       keyboardShown: facts.keyboardShown ?? kb ?? false,
       maxDepth,
       depthCapped: maxDepth >= this.depthLimit,
@@ -254,7 +301,7 @@ export abstract class AppiumDriver implements Driver {
     let before: FieldValue | null = null;
     const prep = await this.act(async () => {
       id = await this.waitFocused();
-      if (!id) throw new RefusedError('탭한 위치에 입력 포커스가 생기지 않았습니다');
+      if (!id) throw new StepError(NO_FOCUS);
       if (opts.append) {
         before = await this.readField(id);
         expected = before.value + text;
@@ -263,7 +310,7 @@ export abstract class AppiumDriver implements Driver {
         before = await this.readField(id);
       }
     });
-    if (prep.status !== 'completed' || !id || !before) return fail(prep);
+    if (prep.status !== 'completed' || !id || !before) return fail(afterInput(prep));
     const field: string = id;
     const base: FieldValue = before;
 
@@ -283,11 +330,11 @@ export abstract class AppiumDriver implements Driver {
         return fail({ status: 'completed', ms: 0, error: `INPUT_UNVERIFIED: 기대 "${mask(expected)}", 실제 "${mask(after.value)}"` }, mask(after.value), path);
       }
     } catch (err) {
-      return fail({ status: failureStatus(err), ms: 0, error: (err as Error).message }, null, path);
+      return fail(afterInput({ status: failureStatus(err), ms: 0, error: (err as Error).message }), null, path);
     }
     if (opts.submit) {
       const pressed = await this.press('enter');
-      if (pressed.status !== 'completed') return fail(pressed, mask(after.value), path);
+      if (pressed.status !== 'completed') return fail(afterInput(pressed), mask(after.value), path);
     }
     return { status: 'completed', ms: elapsed(t0), readBack: mask(after.value), path };
   }
@@ -299,7 +346,7 @@ export abstract class AppiumDriver implements Driver {
     let after: FieldValue | null = null;
     const o = await this.act(async () => {
       const id = await this.waitFocused();
-      if (!id) throw new RefusedError('탭한 위치에 입력 포커스가 생기지 않았습니다');
+      if (!id) throw new StepError(NO_FOCUS);
       await this.api.clear(id);
       after = await this.readBack(id, '', false);
     });
@@ -307,7 +354,7 @@ export abstract class AppiumDriver implements Driver {
     if (o.status === 'completed' && value !== '') {
       return { status: 'completed', ms: elapsed(t0), readBack: value, path: 'setValue', error: `INPUT_UNVERIFIED: 지운 뒤 값 "${value}"` };
     }
-    return { ...o, ms: elapsed(t0), readBack: value, path: 'setValue' };
+    return { ...afterInput(o), ms: elapsed(t0), readBack: value, path: 'setValue' };
   }
 
   /** Polls until the keyboard state equals `shown` or time runs out; returns the final state. */
@@ -324,12 +371,18 @@ export abstract class AppiumDriver implements Driver {
     const t0 = performance.now();
     if (mode === 'none') return { status: 'completed', ms: 0 };
     let binary: string | null = null;
-    if (mode === 'reinstall' || (mode === 'clear' && this.platform === 'ios')) {
-      binary = app.binaryPath ?? findBackup(this.platform, app.appId);
-      if (!binary || !existsSync(binary)) {
-        return { status: 'rejected', ms: elapsed(t0), error: `${app.appId} 백업이 없어 ${mode} 초기화를 거부합니다. \`qa apps --backup ${app.appId}\`로 먼저 백업하세요.` };
+    const pre = await this.act(async () => {
+      const appId = this.appId(app);
+      if (app.kind === 'web') {
+        if (mode === 'reinstall') throw new RefusedError(`웹 대상은 브라우저(${appId})를 재설치하지 않습니다. 사이트 데이터를 지우려면 reset: clear를 쓰세요.`);
+        return;
       }
-    }
+      if (mode === 'reinstall' || (mode === 'clear' && this.platform === 'ios')) {
+        binary = app.binaryPath ?? findBackup(this.platform, appId);
+        if (!binary || !existsSync(binary)) throw new RefusedError(`${appId} 백업이 없어 ${mode} 초기화를 거부합니다. \`qa apps --backup ${appId}\`로 먼저 백업하세요.`);
+      }
+    });
+    if (pre.status !== 'completed') return { ...pre, ms: elapsed(t0) };
     const steps = await this.act(async () => {
       const stopped = await this.terminate(app);
       if (stopped.status !== 'completed') throw new StepError(stopped);
@@ -370,12 +423,73 @@ export class StepError extends Error {
 }
 
 /**
- * Failure → action status. `rejected` only when nothing reached the device (refused precondition, W3C refusal code,
- * host command that exited non-zero or could not start); transport loss, timeouts and unknown driver errors → `uncertain`.
+ * adb / simctl stderr meaning the host lost the device or its service; the command may already have run.
+ * adb: `error: closed`, `device offline`, `device '<serial>' not found`, `no devices/emulators found`, `protocol fault`,
+ * a refused/reset connection to the adb server or emulator console. simctl: the CoreSimulatorService connection became
+ * invalid, was interrupted, or its server died.
+ */
+const TRANSPORT_LOSS =
+  /error: closed|device offline|device (?:'[^']*' )?not found|no devices\/emulators found|protocol fault|connection (?:reset|refused|interrupted|invalid)|(?:cannot|could not|failed to) connect|broken pipe|CoreSimulatorService connection|server died/i;
+
+/** errno names from a binary that could not be started; node's own `ERR_*` codes (e.g. maxBuffer) come after it ran. */
+const SPAWN_FAILURE = /^E[A-Z0-9]+$/;
+
+/**
+ * A command's own answer that it refused before changing anything. Each entry is printed only on a path where the
+ * command checked its target or caller and stopped before acting; any other error text proves nothing.
+ */
+const REFUSALS: readonly RegExp[] = [
+  // pm / `adb install`: the package manager aborted the install session before committing it; the installed app is unchanged.
+  /Failure \[INSTALL_/,
+  // pm / cmd package / am: the named package is not installed, so there was nothing the command could change.
+  /Unknown package/,
+  // am start: the component did not resolve (START_CLASS_NOT_FOUND, printed as `Error type 3`); no activity was started.
+  /Error: Activity class \{[^}]*\} does not exist/,
+  /Error type 3/,
+  // am start: the activity manager returned a failure code for the start request (unresolvable intent, permission denied, …).
+  /Error: Activity not started/,
+  // A system service's permission check threw before the call ran: this caller may not do it, so nothing was done.
+  /java\.lang\.SecurityException/,
+  // simctl: CoreSimulator refused because the simulator is not in a state that accepts the command (e.g. Shutdown).
+  /Unable to lookup in current state/,
+  // simctl: the UDID names no simulator, so no device received the command.
+  /Invalid device/,
+  // simctl `booted`: no simulator is booted, so the command had no target.
+  /No devices are booted/,
+];
+
+/**
+ * `No such file or directory` naming one of the command's own path arguments: the command could not open its input and
+ * stopped before acting (`adb install`/`pull`: `failed to stat <path>`, simctl install of a missing bundle).
+ */
+function missingPathArgument(err: CommandError): boolean {
+  const paths = err.args.filter((arg) => arg.includes('/'));
+  return err.stderr.split('\n').some((line) => line.includes('No such file or directory') && paths.some((path) => line.includes(path)));
+}
+
+/**
+ * Host command failure → action status. `rejected` only when the binary never started, or the command itself answered
+ * with a refusal from `REFUSALS` / `missingPathArgument` while the transport stayed up. Everything else may have run on
+ * the device and is `uncertain`: killed (signal, timeout), transport-loss text, a failure without error text, unknown
+ * error text (e.g. `error: failed to read response from device`), and adb exit ≥ 128 (shell v2: 255 = stream lost,
+ * 128+n = device command killed by signal n).
+ */
+function commandStatus(err: CommandError): Exclude<ActionStatus, 'completed'> {
+  if (err.spawnCode !== null) return SPAWN_FAILURE.test(err.spawnCode) ? 'rejected' : 'uncertain';
+  if (err.exitCode === null) return 'uncertain';
+  if (err.exitCode >= 128 && err.file.split('/').pop() === 'adb') return 'uncertain';
+  if (TRANSPORT_LOSS.test(err.stderr)) return 'uncertain';
+  return REFUSALS.some((refusal) => refusal.test(err.stderr)) || missingPathArgument(err) ? 'rejected' : 'uncertain';
+}
+
+/**
+ * Failure → action status. `rejected` only when the device provably did not act (refused precondition, W3C refusal code,
+ * a host command refused by the command itself, see `commandStatus`); transport loss, timeouts and unknown driver errors
+ * → `uncertain`.
  */
 export function failureStatus(err: unknown): Exclude<ActionStatus, 'completed'> {
   if (err instanceof StepError) return err.outcome.status === 'completed' ? 'uncertain' : err.outcome.status;
   if (err instanceof RefusedError) return 'rejected';
-  if (err instanceof CommandError) return err.exitCode !== null || err.spawnCode ? 'rejected' : 'uncertain';
+  if (err instanceof CommandError) return commandStatus(err);
   return actionStatusOf(err);
 }

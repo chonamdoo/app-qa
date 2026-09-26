@@ -1,9 +1,10 @@
 // Deterministic checks on LLM output before anything is written: TestSpec schema, allowed step kinds, no risky or
-// unlabeled actions, no `allowRisky`, compilable regexes, declared `${VAR}`s, known `covers`, and full coverage
-// (every requirement is covered by a valid test or listed as untestable with a reason).
+// unlabeled actions, no `allowRisky`, no keyboard submit (`type.submit`, `press` other than `back`), compilable regexes,
+// declared `${VAR}`s, known `covers`, and full coverage (every requirement is covered by a valid test or listed as
+// untestable with a reason).
 import type { z } from 'zod';
-import { labelRisk } from '../runner/risk.ts';
-import { Step, TestSpec, type AppProfile } from '../spec/schema.ts';
+import { labelRisk } from '../policy/risk.ts';
+import { findStepKind, patternGroups, ruleProblem, STEP_BRANCHES, TestSpec, type AppProfile } from '../spec/schema.ts';
 import type { ScreenInfo } from './context.ts';
 import { isPlainObject, visitJson } from './json.ts';
 
@@ -32,8 +33,6 @@ export const ALLOWED_STEP_KINDS: Record<string, true> = {
   capture: true,
 };
 
-/** Step union branch per kind; every branch in schema.ts declares its kind key first. */
-const STEP_BRANCHES = new Map<string, z.ZodType>(Step.options.map((option) => [Object.keys((option as unknown as z.ZodObject).shape)[0]!, option as unknown as z.ZodType]));
 
 export interface CheckContext {
   app: string;
@@ -141,7 +140,7 @@ export function checkTest(raw: unknown, index: number, ctx: CheckContext): Check
       errors.push(`${path}: 스텝은 객체여야 합니다`);
       return;
     }
-    const kind = Object.keys(step).find((k) => STEP_BRANCHES.has(k));
+    const kind = findStepKind(step);
     if (!kind) {
       errors.push(`${path}: 알 수 없는 스텝 종류 (${Object.keys(step).join(', ') || '빈 객체'}) — 허용: ${Object.keys(ALLOWED_STEP_KINDS).join(', ')}`);
       return;
@@ -150,33 +149,37 @@ export function checkTest(raw: unknown, index: number, ctx: CheckContext): Check
       errors.push(`${path}: 자동 생성 테스트에 허용되지 않는 스텝 "${kind}" — 허용: ${Object.keys(ALLOWED_STEP_KINDS).join(', ')}`);
       return;
     }
-    const parsed = STEP_BRANCHES.get(kind)!.safeParse(step);
+    const parsed = STEP_BRANCHES[kind].safeParse(step);
     if (!parsed.success) for (const issue of parsed.error.issues.slice(0, 4)) errors.push(`${path}${issuePath(issue.path)}: ${issue.message}`);
     const value = step[kind];
     if (kind === 'launch' && isPlainObject(value)) {
       if (value.permissions !== undefined) errors.push(`${path}: launch.permissions는 자동 생성 테스트에서 바꿀 수 없습니다`);
       if (value.reset === 'clear' || value.reset === 'reinstall') errors.push(`${path}: launch.reset ${value.reset}는 앱 데이터를 지웁니다 — none|relaunch만`);
     }
-    if (kind === 'tap' || kind === 'longPress' || (kind === 'type' && step.submit === true)) {
-      for (const label of targetLabels(kind === 'type' ? step.into : value)) {
+    // Invariant 8: Enter can send or confirm whatever the focused form does, and no label names that effect.
+    if (kind === 'type' && step.submit === true) {
+      errors.push(`${path}: type.submit은 자동 생성 테스트에 쓸 수 없습니다 (Enter가 전송·확정할 수 있음) — 입력 후 화면의 라벨 있는 버튼을 탭하거나, 필요하면 해당 요구사항은 untestable(needs_approval)`);
+    }
+    if (kind === 'press' && value !== 'back') {
+      errors.push(`${path}: press ${JSON.stringify(value)}는 자동 생성 테스트에 쓸 수 없습니다 — press는 "back"만 허용 (Enter 등은 전송·확정할 수 있음), 필요하면 해당 요구사항은 untestable(needs_approval)`);
+    }
+    if (kind === 'tap' || kind === 'longPress') {
+      for (const label of targetLabels(value)) {
         const risk = labelRisk(label, ctx.profile.risk, strings);
         if (risk.unknown) errors.push(`${path}: 라벨 없는 대상에는 행동할 수 없습니다`);
         else if (risk.risky) errors.push(`${path}: 위험 동작 대상 "${label}" (${risk.reasons.join(', ')}) — 해당 요구사항은 untestable(needs_approval)`);
       }
     }
     if (kind === 'checkEach' && isPlainObject(value) && typeof value.pattern === 'string') {
+      let groups: Set<string> | null = null;
       try {
-        new RegExp(value.pattern);
-        const groups = new Set([...value.pattern.matchAll(/\(\?<([A-Za-z_$][\w$]*)>/g)].map((m) => m[1]!));
-        const vars = new Set<string>();
-        visitJson(value.rule, (key, v) => {
-          const name = Array.isArray(v) ? v[0] : v;
-          if (key === 'var' && typeof name === 'string' && name) vars.add(name.split('.')[0]!);
-        });
-        for (const name of vars) if (!groups.has(name)) errors.push(`${path}: checkEach.rule의 var "${name}"가 pattern의 이름 그룹에 없습니다`);
+        groups = patternGroups(value.pattern);
       } catch {
         errors.push(`${path}: checkEach.pattern 정규식이 올바르지 않습니다`);
       }
+      // The runner's own check: a rule it would refuse (ERROR invalid_rule) is refused here.
+      const problem = groups && ruleProblem(value.rule, groups);
+      if (problem) errors.push(`${path}: checkEach.${problem}`);
     }
     if (kind === 'which' && isPlainObject(value)) for (const [branch, sub] of Object.entries(value)) walkSteps(sub, `${path}.which[${JSON.stringify(branch)}]`);
     if (kind === 'repeat' && isPlainObject(value)) walkSteps(value.steps, `${path}.repeat.steps`);

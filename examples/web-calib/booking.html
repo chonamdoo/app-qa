@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your stay — final step · Harbor Inn</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="booking.html">Harbor Inn</a>
+    <nav><a href="booking.html#rooms">Rooms</a></nav>
+  </header>
+
+  <main class="narrow">
+    <ol class="steps">
+      <li>Dates</li>
+      <li>Room</li>
+      <li aria-current="step">Guest details</li>
+    </ol>
+    <section class="card">
+      <div class="spread">
+        <h2>Oct 17 – Oct 19 · 2 nights</h2>
+        <button type="button" class="ghost">Change dates</button>
+      </div>
+      <p>Queen room with harbor view · 2 guests</p>
+      <p class="muted">Free cancellation until Oct 15. <a href="booking.html#policy">Cancellation policy</a></p>
+    </section>
+    <form class="card" data-done="Booking complete — confirmation #HB-20431 emailed">
+      <div class="spread">
+        <h2>Guest</h2>
+        <button type="button" class="link">Edit guest details</button>
+      </div>
+      <p>Jordan Lee · jordan.lee@example.com · +1 415 555 0142</p>
+      <p>Card on file: Visa ending 4242 — $412.80 charged at check-in</p>
+      <div class="row end"><button type="submit">Complete booking</button></div>
+    </form>
+    <p role="status"></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

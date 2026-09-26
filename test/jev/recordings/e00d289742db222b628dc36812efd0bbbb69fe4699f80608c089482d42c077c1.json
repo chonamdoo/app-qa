@@ -1,0 +1,65 @@
+{
+  "key": "e00d289742db222b628dc36812efd0bbbb69fe4699f80608c089482d42c077c1",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb532777f35908d5ec70d5f2c60",
+  "latencyMs": 227,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | The Crumb Journal | - | top",
+          "e2 | link | Archive | - | top",
+          "e3 | link | Sign in | - | top",
+          "e4 | heading | Why sourdough needs time | - | top",
+          "e5 | text | By Ana Ruiz · 6 min read | - | top",
+          "e6 | text | Long fermentation lets wild yeast and bacteria break down starches, which is where the tang and the open crumb come from. | - | top",
+          "e7 | button | Show baker's notes | - | top",
+          "e8 | heading | Get the weekly bake | - | middle",
+          "e9 | text | One recipe every Friday, straight to your inbox. | - | middle",
+          "e10 | input | Email | value=\"[REDACTED]\" | middle",
+          "e11 | button | Subscribe | - | middle",
+          "e12 | link | RSS feed | - | middle"
+        ],
+        "texts": [
+          "The Crumb Journal",
+          "Archive",
+          "Sign in",
+          "Why sourdough needs time",
+          "By Ana Ruiz · 6 min read",
+          "Long fermentation lets wild yeast and bacteria break down starches, which is where the tang and the open crumb come from.",
+          "Show baker's notes",
+          "Get the weekly bake",
+          "One recipe every Friday, straight to your inbox.",
+          "[REDACTED]",
+          "Subscribe",
+          "RSS feed"
+        ]
+      },
+      "target": "e7 | button | Show baker's notes | - | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.03
+      }
+    },
+    "usage": {
+      "input_tokens": 719,
+      "output_tokens": 21
+    }
+  }
+}

@@ -7,6 +7,7 @@ import { loadModel } from './_fixtures.ts';
 const base: Candidate = {
   key: 'e3',
   nodeId: '0.1',
+  resourceId: null,
   role: 'button',
   name: '항공편 찾기',
   value: null,

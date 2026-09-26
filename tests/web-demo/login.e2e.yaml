@@ -1,0 +1,22 @@
+id: web-demo-login
+name: 이메일과 비밀번호로 로그인하면 환영 문구가 보인다
+app: web-demo
+steps:
+  # 로그인은 웹 commit 게이트(0.20)에서 오경보(p≈0.27–0.31)라 사람이 승인한 탭으로 둔다.
+  - tap: 로그인
+    allowRisky: true
+    expect:
+      text: 로그인하지 않음
+  - type: qa@example.com
+    into: 이메일
+  - type: demo-pass-1234
+    into: 비밀번호
+    secure: true
+  - hideKeyboard: true
+  - tap:
+      text: 로그인
+      state:
+        enabled: true
+    allowRisky: true
+    expect:
+      text: 환영합니다, qa@example.com

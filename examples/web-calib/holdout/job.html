@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>지원하기 · 프론트엔드 개발자 · 잡브릿지</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="job.html">잡브릿지</a>
+    <nav><a href="job.html#posting">공고 원문 보기</a></nav>
+  </header>
+
+  <main class="narrow">
+    <h1>(주)하루랩 · 프론트엔드 개발자 지원</h1>
+    <form class="card" data-done="지원서가 (주)하루랩 채용 담당자에게 전달되었습니다">
+      <div class="row"><button type="button" class="ghost">이력서 불러오기</button><span class="muted">최근 저장: 2026-09-12 이력서</span></div>
+      <label for="name">이름</label>
+      <input id="name" value="김하늘">
+      <label for="why">지원 동기</label>
+      <textarea id="why">디자인 시스템을 처음부터 만든 경험을 하루랩 서비스에 쓰고 싶습니다.</textarea>
+      <p class="muted">제출한 지원서는 수정하거나 취소할 수 없습니다.</p>
+      <div class="row end"><button type="submit">지원서 제출</button></div>
+    </form>
+    <p role="status"></p>
+  </main>
+  <script src="../app.js"></script>
+</body>
+</html>

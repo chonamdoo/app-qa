@@ -1,0 +1,733 @@
+{
+  "url": "http://localhost:4174/checkout.html",
+  "title": "주문서 · 모아마켓",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "주문서 · 모아마켓",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "모아마켓",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 62.28125,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1192.15625,
+      "y": 12.25,
+      "w": 63.84375,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "장바구니 2",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1192.15625,
+      "y": 12.25,
+      "w": 63.84375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 545,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "장바구니",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 48.453125,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "주문서 작성",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 408.453125,
+      "y": 68,
+      "w": 64.234375,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "완료",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 488.6875,
+      "y": 68,
+      "w": 24.234375,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 103,
+      "w": 592,
+      "h": 130.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 10,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 120,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "heading",
+      "name": null,
+      "text": "배송지",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 122.5,
+      "w": 44.125,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "button",
+      "name": null,
+      "text": "배송지 변경",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 822.171875,
+      "y": 120,
+      "w": 96.828125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 10,
+      "kind": "text",
+      "name": null,
+      "text": "김하늘 · 010-****-5678",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 158.5,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 10,
+      "kind": "text",
+      "name": null,
+      "text": "서울시 마포구 월드컵북로 12, 3층",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 189,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 247.5,
+      "w": 592,
+      "h": 129,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "heading",
+      "name": null,
+      "text": "쿠폰",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 264.5,
+      "w": 558,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 298,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 18,
+      "kind": "text",
+      "name": null,
+      "text": "쿠폰 코드",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 319.75,
+      "w": 1,
+      "h": 1,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 18,
+      "kind": "input",
+      "name": "쿠폰 코드",
+      "text": null,
+      "id": "coupon",
+      "value": "WELCOME10",
+      "hint": "쿠폰 코드",
+      "x": 361,
+      "y": 298,
+      "w": 172,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 18,
+      "kind": "button",
+      "name": null,
+      "text": "쿠폰 적용",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 543,
+      "y": 299,
+      "w": 83.859375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 338.5,
+      "w": 558,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 390.5,
+      "w": 592,
+      "h": 130,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 23,
+      "kind": "heading",
+      "name": null,
+      "text": "결제 수단",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 407.5,
+      "w": 558,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 23,
+      "kind": "text",
+      "name": null,
+      "text": "신한카드 (1234)",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 445,
+      "w": 115.734375,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 25,
+      "kind": "radio",
+      "name": "신한카드 (1234)",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 366,
+      "y": 450.5,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 23,
+      "kind": "text",
+      "name": null,
+      "text": "무통장 입금",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 492.6875,
+      "y": 445,
+      "w": 91.234375,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 27,
+      "kind": "radio",
+      "name": "무통장 입금",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 497.6875,
+      "y": 450.5,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 23,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 481,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 29,
+      "kind": "text",
+      "name": null,
+      "text": "상품 2개 · 배송비 무료",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 481,
+      "w": 132.125,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 29,
+      "kind": "text",
+      "name": null,
+      "text": "총 12,300원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 844.265625,
+      "y": 481,
+      "w": 74.734375,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 534.5,
+      "w": 592,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 32,
+      "kind": "link",
+      "name": null,
+      "text": "이전 단계",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 790.234375,
+      "y": 542.5,
+      "w": 55.859375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 32,
+      "kind": "button",
+      "name": null,
+      "text": "결제하기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 856.09375,
+      "y": 534.5,
+      "w": 79.90625,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "focused"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "dialog",
+      "name": "주문을 확정할까요?",
+      "text": null,
+      "id": "confirm",
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled",
+        "clickable",
+        "occluder"
+      ]
+    },
+    {
+      "parent": 35,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 35,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 430,
+      "y": 224,
+      "w": 420,
+      "h": 169,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 37,
+      "kind": "heading",
+      "name": null,
+      "text": "주문을 확정할까요?",
+      "id": "confirm-title",
+      "value": null,
+      "hint": null,
+      "x": 452,
+      "y": 246,
+      "w": 376,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 37,
+      "kind": "text",
+      "name": null,
+      "text": "신한카드(1234)로 12,300원이 청구되고 판매자에게 주문이 전달됩니다.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 452,
+      "y": 279.5,
+      "w": 376,
+      "h": 45,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 37,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 452,
+      "y": 332.5,
+      "w": 376,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 40,
+      "kind": "button",
+      "name": null,
+      "text": "취소",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 710.09375,
+      "y": 332.5,
+      "w": 53.953125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 40,
+      "kind": "button",
+      "name": null,
+      "text": "확인",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 774.046875,
+      "y": 332.5,
+      "w": 53.953125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    }
+  ]
+}

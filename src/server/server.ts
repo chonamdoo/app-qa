@@ -1,17 +1,21 @@
 // Engine HTTP server (`qa serve`): 127.0.0.1 only, bearer-token auth on every route, SSE events, job queue, file views.
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { closeSync, createReadStream, existsSync, fstatSync, openSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { basename, extname, join } from 'node:path';
+import { pipeline } from 'node:stream';
 import { PATHS } from '../core/config.ts';
 import { EventBus } from '../core/events.ts';
 import { writeSecure } from '../core/fsx.ts';
+import { PLATFORM_INFO, PLATFORMS } from '../core/platform.ts';
 import type { DeviceInfo, Platform } from '../core/types.ts';
+import { loadAppProfile } from '../spec/load.ts';
+import { profilePlatforms, type AppProfile } from '../spec/schema.ts';
 import { JobQueue, JobRequest, type JobHandlers } from './jobs.ts';
 import { SseHub } from './sse.ts';
-import { listAppProfiles, listPlans, listRuns, PathRejected, readPlanView, resolveInside, runDirFor } from './store.ts';
+import { DOC_EXTENSIONS, listAppProfiles, listPlans, listRuns, PathRejected, readPlanView, resolveInside, resolvePlanDocs, runDirFor } from './store.ts';
 
 export interface ServerHandlers extends JobHandlers {
   devices(): Promise<DeviceInfo[]>;
@@ -78,20 +82,6 @@ const CONTENT_TYPES: Record<string, string> = {
   '.mp4': 'video/mp4',
 };
 
-const UPLOAD_EXTENSIONS: Record<string, true> = {
-  '.md': true,
-  '.markdown': true,
-  '.txt': true,
-  '.csv': true,
-  '.tsv': true,
-  '.json': true,
-  '.yaml': true,
-  '.yml': true,
-  '.xlsx': true,
-  '.docx': true,
-  '.pdf': true,
-};
-
 const MAX_JSON_BYTES = 1024 * 1024;
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -111,19 +101,25 @@ async function readBody(req: IncomingMessage, limit: number): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-async function readJson(req: IncomingMessage): Promise<unknown> {
+async function readJson(req: IncomingMessage): Promise<object> {
   const body = await readBody(req, MAX_JSON_BYTES);
   if (body.length === 0) return {};
+  let value: unknown;
   try {
-    return JSON.parse(body.toString('utf8'));
+    value = JSON.parse(body.toString('utf8'));
   } catch {
     throw new HttpError(400, 'JSON 본문을 해석할 수 없습니다');
   }
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new HttpError(400, 'JSON 본문은 객체여야 합니다');
+  return value;
 }
 
-function platformParam(value: string | undefined): Platform {
-  if (value === 'android' || value === 'ios') return value;
-  throw new HttpError(400, `알 수 없는 플랫폼: ${value}`);
+/** A platform path/query value; `desktopRefusal` = why a device-only route refuses desktop browsers (409). */
+function platformParam(value: string | undefined, desktopRefusal?: string): Platform {
+  const platform = PLATFORMS.find((p) => p === value);
+  if (!platform) throw new HttpError(400, `알 수 없는 플랫폼: ${value}`);
+  if (desktopRefusal && PLATFORM_INFO[platform].host === 'desktop') throw new HttpError(409, `${PLATFORM_INFO[platform].label}: ${desktopRefusal}`);
+  return platform;
 }
 
 /** Upload names keep letters (incl. Hangul), digits, `._ -`; everything else becomes `_`. */
@@ -158,7 +154,14 @@ export function createServer(opts: ServerOptions): QaServer {
   const expected = Buffer.from(`Bearer ${token}`);
   const bus = opts.bus ?? new EventBus();
   const handlers = opts.handlers;
-  const jobs = new JobQueue(handlers, bus);
+  const profileOf = (app: string): AppProfile | null => {
+    try {
+      return loadAppProfile(app, paths.apps);
+    } catch {
+      return null;
+    }
+  };
+  const jobs = new JobQueue(handlers, bus, profileOf);
   const hub = new SseHub(bus, { capacity: opts.ringSize ?? 5000, heartbeatMs: opts.heartbeatMs ?? 15_000 });
   const maxUpload = opts.maxUploadBytes ?? 50 * 1024 * 1024;
   const startedAt = new Date().toISOString();
@@ -175,7 +178,16 @@ export function createServer(opts: ServerOptions): QaServer {
       handle: async (req, res) => {
         const parsed = JobRequest.safeParse(await readJson(req));
         if (!parsed.success) throw new HttpError(400, '작업 요청이 올바르지 않습니다', parsed.error.issues);
-        sendJson(res, 201, jobs.enqueue(parsed.data));
+        const request = parsed.data;
+        if (request.kind === 'plan') {
+          // `docRoots` belongs to the server: a client value is dropped, and set only for the files resolved here.
+          request.params.docRoots = undefined;
+          if (request.params.docs.length) {
+            const profile = (await listAppProfiles(paths.apps)).profiles.find((p) => p.id === request.params.app);
+            Object.assign(request.params, resolvePlanDocs(request.params.docs, { root: paths.root, roots: [paths.root, paths.uploads], allowed: profile?.docs ?? [] }));
+          }
+        }
+        sendJson(res, 201, jobs.enqueue(request));
       },
     },
     {
@@ -202,7 +214,7 @@ export function createServer(opts: ServerOptions): QaServer {
       method: 'GET',
       pattern: /^\/api\/devices\/([^/]+)\/([^/]+)\/screen$/,
       handle: async (_req, res, [platform, id]) => {
-        const png = await handlers.screen(platformParam(platform), id!);
+        const png = await handlers.screen(platformParam(platform, '데스크톱 브라우저는 실시간 화면이 없습니다 — 실행 중에는 스텝 스크린샷을 보세요'), id!);
         res.writeHead(200, { 'content-type': 'image/png', 'content-length': png.byteLength, 'cache-control': 'no-store' });
         res.end(png);
       },
@@ -212,9 +224,9 @@ export function createServer(opts: ServerOptions): QaServer {
       method: 'POST',
       pattern: /^\/api\/devices\/([^/]+)\/([^/]+)\/recording$/,
       handle: async (req, res, [rawPlatform, deviceId]) => {
-        const platform = platformParam(rawPlatform);
-        const body = (await readJson(req)) as { on?: unknown };
-        if (typeof body.on !== 'boolean') throw new HttpError(400, '{"on": true|false} 가 필요합니다');
+        const platform = platformParam(rawPlatform, '데스크톱 브라우저는 화면 녹화를 지원하지 않습니다');
+        const body = await readJson(req);
+        if (!('on' in body) || typeof body.on !== 'boolean') throw new HttpError(400, '{"on": true|false} 가 필요합니다');
         const key = `${platform}:${deviceId}`;
         const active = recordings.get(key);
         if (body.on) {
@@ -240,16 +252,24 @@ export function createServer(opts: ServerOptions): QaServer {
       handle: async (_req, res, _params, url) => {
         const deviceId = url.searchParams.get('device');
         if (!deviceId) throw new HttpError(400, 'device 쿼리가 필요합니다');
-        sendJson(res, 200, { apps: await handlers.apps(platformParam(url.searchParams.get('platform') ?? undefined), deviceId) });
+        sendJson(res, 200, { apps: await handlers.apps(platformParam(url.searchParams.get('platform') ?? undefined, '데스크톱 브라우저에는 설치 앱 목록이 없습니다'), deviceId) });
       },
     },
-    { method: 'GET', pattern: /^\/api\/app-profiles$/, handle: async (_req, res) => sendJson(res, 200, await listAppProfiles(paths.apps)) },
+    {
+      method: 'GET',
+      pattern: /^\/api\/app-profiles$/,
+      handle: async (_req, res) => {
+        const { profiles, errors } = await listAppProfiles(paths.apps);
+        // `platforms` = where the profile runs (app: configured android/ios; web: its browsers), so clients never re-derive it.
+        sendJson(res, 200, { profiles: profiles.map((p) => ({ ...p, platforms: profilePlatforms(p) })), errors });
+      },
+    },
     { method: 'GET', pattern: /^\/api\/plans$/, handle: async (_req, res) => sendJson(res, 200, { plans: await listPlans(paths.generated) }) },
     {
       method: 'GET',
       pattern: /^\/api\/plans\/([^/]+)$/,
       handle: async (_req, res, [app]) => {
-        const view = await readPlanView({ root: paths.root, generatedDir: paths.generated, runsDir: paths.runs, app: app! });
+        const view = await readPlanView({ root: paths.root, generatedDir: paths.generated, runsDir: paths.runs, appsDir: paths.apps, app: app! });
         if (view === null) throw new HttpError(404, `${app} 계획(plan.json)이 없습니다`);
         if ('error' in view) throw new HttpError(422, `plan.json 검증 실패: ${view.error}`);
         sendJson(res, 200, view);
@@ -298,7 +318,7 @@ export function createServer(opts: ServerOptions): QaServer {
         }
         const name = sanitizeFileName(decoded);
         const ext = extname(name).toLowerCase();
-        if (!UPLOAD_EXTENSIONS[ext]) throw new HttpError(415, `지원하지 않는 문서 형식입니다: ${ext || '(확장자 없음)'} — md, txt, csv, tsv, json, yaml, xlsx, docx, pdf`);
+        if (!DOC_EXTENSIONS[ext]) throw new HttpError(415, `지원하지 않는 문서 형식입니다: ${ext || '(확장자 없음)'} — md, txt, csv, tsv, json, yaml, xlsx, docx, pdf`);
         const body = await readBody(req, maxUpload);
         const file = join(paths.uploads, `${randomUUID()}-${name}`);
         writeSecure(file, body);
@@ -313,14 +333,42 @@ export function createServer(opts: ServerOptions): QaServer {
     return dir;
   }
 
+  /**
+   * Opens first and sizes the response from the open descriptor, so a delete/rename after the existence check cannot
+   * crash the stream, and a file still being appended to (events.jsonl during a run) is sent exactly up to that size.
+   */
   function streamFile(res: ServerResponse, file: string): void {
+    let fd: number;
+    try {
+      fd = openSync(file, 'r');
+    } catch (err) {
+      if (err instanceof Error && 'code' in err && err.code === 'ENOENT') throw new HttpError(404, '파일이 없습니다');
+      throw err;
+    }
+    let size: number;
+    try {
+      const stat = fstatSync(fd);
+      if (!stat.isFile()) throw new HttpError(404, '파일이 없습니다');
+      size = stat.size;
+    } catch (err) {
+      closeSync(fd);
+      throw err;
+    }
     res.writeHead(200, {
       'content-type': CONTENT_TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
-      'content-length': statSync(file).size,
+      'content-length': size,
       'cache-control': 'no-store',
       'x-content-type-options': 'nosniff',
     });
-    createReadStream(file).pipe(res);
+    if (size === 0) {
+      closeSync(fd);
+      res.end();
+      return;
+    }
+    // pipeline destroys both sides on failure: a read error closes the connection instead of an unhandled 'error'.
+    pipeline(createReadStream(file, { fd, start: 0, end: size - 1 }), res, (err) => {
+      if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE') bus.emit({ type: 'log', level: 'error', source: 'server', message: `${basename(file)} 전송 실패: ${err.message}` });
+    });
   }
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {

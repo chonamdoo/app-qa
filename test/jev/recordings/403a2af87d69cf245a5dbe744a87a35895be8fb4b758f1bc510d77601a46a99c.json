@@ -1,0 +1,61 @@
+{
+  "key": "403a2af87d69cf245a5dbe744a87a35895be8fb4b758f1bc510d77601a46a99c",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfd4dc70a9af6e81822c864e61",
+  "latencyMs": 199,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | CareWay Pharmacy | - | top",
+          "e2 | link | Prescriptions | - | top",
+          "e3 | heading | Your prescriptions | - | top",
+          "e4 | heading | Lisinopril 10 mg · 30 tablets | - | top",
+          "e5 | button | View prescription | - | top",
+          "e6 | text | Rx #7730412 · 2 refills left · last filled Aug 29 | - | top",
+          "e7 | text | Pickup at: CareWay, 5th & Pine | - | top",
+          "e8 | button | Change pharmacy | - | top",
+          "e9 | text | The pharmacy starts filling as soon as it receives the request; your insurance copay is $4.00. | - | top",
+          "e10 | button | Request refill | - | middle"
+        ],
+        "texts": [
+          "CareWay Pharmacy",
+          "Prescriptions",
+          "Your prescriptions",
+          "Lisinopril 10 mg · 30 tablets",
+          "View prescription",
+          "Rx #7730412 · 2 refills left · last filled Aug 29",
+          "Pickup at: CareWay, 5th & Pine",
+          "Change pharmacy",
+          "The pharmacy starts filling as soon as it receives the request; your insurance copay is $4.00.",
+          "Request refill"
+        ]
+      },
+      "target": "e10 | button | Request refill | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.79
+      }
+    },
+    "usage": {
+      "input_tokens": 706,
+      "output_tokens": 21
+    }
+  }
+}

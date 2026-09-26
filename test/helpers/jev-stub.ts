@@ -11,6 +11,12 @@ export function testCalibration(): Calibration {
   return Calibration.parse(JSON.parse(readFileSync(new URL('../fixtures/calibration.json', import.meta.url), 'utf8')));
 }
 
+/** The test record as if website screens had their own calibrated commit gate (`commit.surfaceGates.web`). */
+export function webCalibration(): Calibration {
+  const c = testCalibration();
+  return { ...c, commit: { ...c.commit, surfaceGates: { web: c.commit.gate } } };
+}
+
 export interface JevRequestLog {
   state: Record<string, unknown>;
   questions: Record<string, Question>;
@@ -41,7 +47,7 @@ export function noul(p: number): unknown {
 }
 
 /** Calibrated Jev whose responses come from `answer`; `requests` records every call. */
-export function jevStub(answer: Answerer): { setup: JevSetup; requests: JevRequestLog[] } {
+export function jevStub(answer: Answerer, calibration: Calibration = testCalibration()): { setup: JevSetup; requests: JevRequestLog[] } {
   const requests: JevRequestLog[] = [];
   const fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { model: string; state: Record<string, unknown>; questions: Record<string, Question> };
@@ -53,7 +59,15 @@ export function jevStub(answer: Answerer): { setup: JevSetup; requests: JevReque
     });
   }) as typeof fetch;
   const client = new JevClient(loadJevConfig({ TYPESAFE_API_KEY: 'test-key-not-real' }), { fetchImpl, sleep: async () => undefined });
-  return { setup: { client, calibration: testCalibration(), problem: null }, requests };
+  return { setup: { client, calibration, problem: null }, requests };
+}
+
+/**
+ * Calibrated Jev with nothing to object to: commit (and claim) Nouls 0.02, Choices `none`. Target-based mutations of
+ * safe targets need a commit check, so tests that tap without `allowRisky` run with this.
+ */
+export function commitSafe(calibration?: Calibration): { setup: JevSetup; requests: JevRequestLog[] } {
+  return jevStub((_id, q) => (q.type === 'noul' ? noul(0.02) : choice(q, 'none', 0.9)), calibration);
 }
 
 /** No calibration record and no client: every Jev decision must come out as ERROR `uncalibrated`. */

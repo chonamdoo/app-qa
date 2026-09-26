@@ -1,0 +1,17 @@
+{
+  "platform": "desktop-chrome",
+  "app": "web-demo",
+  "name": "index-help",
+  "surface": "web",
+  "pageUrl": "http://localhost:4173/",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  },
+  "capturedAt": "2026-09-26T02:46:12+00:00",
+  "device": "macOS Chrome 153.0.8010.53 --headless=new, viewport 1280x800 @1x",
+  "source": "WEB_EXTRACT_SCRIPT via CDP Runtime.evaluate → webSourceFromExtract (canonical web XML)",
+  "notes": "도움말 버튼을 실제 탭/클릭으로 연 상태: 전체 화면 고정 모달(role=dialog, aria-modal)이 페이지 위를 덮음."
+}

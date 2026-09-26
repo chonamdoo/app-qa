@@ -1,0 +1,17 @@
+{
+  "platform": "android",
+  "app": "web-demo",
+  "name": "index",
+  "surface": "web",
+  "pageUrl": "localhost:4173",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1080,
+    "height": 2400
+  },
+  "capturedAt": "2026-09-26T02:46:12+00:00",
+  "device": "emulator-5554 (Android 17, 1080x2400 @420dpi), Chrome 153.0.8010.37",
+  "source": "adb shell uiautomator dump (Chrome, am start -a VIEW -d <url> com.android.chrome)",
+  "notes": "QA 데모 상점 첫 화면 (http://localhost:4173/, examples/web-demo). 도움말 모달 닫힘. 하단에 Chrome 명령줄 플래그 스낵바가 떠 있음."
+}

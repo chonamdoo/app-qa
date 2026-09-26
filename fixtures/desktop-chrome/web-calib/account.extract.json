@@ -1,0 +1,704 @@
+{
+  "url": "http://localhost:4174/account.html",
+  "title": "계정 설정 · 모아마켓",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "계정 설정 · 모아마켓",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 59.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "모아마켓",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 15.75,
+      "w": 62.28125,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1042.34375,
+      "y": 10,
+      "w": 213.65625,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "text",
+      "name": null,
+      "text": "haneul@example.com",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1042.34375,
+      "y": 19.5,
+      "w": 119.75,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "button",
+      "name": null,
+      "text": "로그아웃",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1176.09375,
+      "y": 10,
+      "w": 79.90625,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 100,
+      "y": 59.5,
+      "w": 1080,
+      "h": 585.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 79.5,
+      "w": 220,
+      "h": 545.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 79.5,
+      "w": 220,
+      "h": 252,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "heading",
+      "name": null,
+      "text": "프로필",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 96.5,
+      "w": 186,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "text",
+      "name": null,
+      "text": "닉네임",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 130,
+      "w": 186,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "input",
+      "name": "닉네임",
+      "text": null,
+      "id": "nick",
+      "value": "하늘바다",
+      "hint": null,
+      "x": 141,
+      "y": 153.5,
+      "w": 172,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "text",
+      "name": null,
+      "text": "휴대폰",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 202,
+      "w": 186,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "input",
+      "name": "휴대폰",
+      "text": null,
+      "id": "phone",
+      "value": "010-2345-5678",
+      "hint": null,
+      "x": 141,
+      "y": 225.5,
+      "w": 172,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 276,
+      "w": 186,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "button",
+      "name": null,
+      "text": "변경사항 저장",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 217.203125,
+      "y": 276,
+      "w": 109.796875,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 345.5,
+      "w": 220,
+      "h": 106,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "heading",
+      "name": null,
+      "text": "화면",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 362.5,
+      "w": 186,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "switch",
+      "name": null,
+      "text": "다크 모드",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 396,
+      "w": 83.859375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 79.5,
+      "w": 788,
+      "h": 545.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 79.5,
+      "w": 788,
+      "h": 252,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 20,
+      "kind": "heading",
+      "name": null,
+      "text": "비밀번호",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 96.5,
+      "w": 754,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 20,
+      "kind": "text",
+      "name": null,
+      "text": "현재 비밀번호",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 130,
+      "w": 754,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 20,
+      "kind": "password",
+      "name": "현재 비밀번호",
+      "text": null,
+      "id": "cur",
+      "value": "•••••••••",
+      "hint": null,
+      "x": 385,
+      "y": 153.5,
+      "w": 172,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable",
+        "password"
+      ]
+    },
+    {
+      "parent": 20,
+      "kind": "text",
+      "name": null,
+      "text": "새 비밀번호",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 202,
+      "w": 754,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 20,
+      "kind": "password",
+      "name": "새 비밀번호",
+      "text": null,
+      "id": "new",
+      "value": "••••••••••",
+      "hint": null,
+      "x": 385,
+      "y": 225.5,
+      "w": 172,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable",
+        "password"
+      ]
+    },
+    {
+      "parent": 20,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 276,
+      "w": 754,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 26,
+      "kind": "button",
+      "name": null,
+      "text": "비밀번호 변경",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1029.203125,
+      "y": 276,
+      "w": 109.796875,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 345.5,
+      "w": 788,
+      "h": 95,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 28,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 362.5,
+      "w": 754,
+      "h": 61,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 29,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 362.5,
+      "w": 133.484375,
+      "h": 61,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 30,
+      "kind": "heading",
+      "name": null,
+      "text": "주문·배송 알림",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 362.5,
+      "w": 133.484375,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 30,
+      "kind": "text",
+      "name": null,
+      "text": "현재 켜짐 · 앱 푸시와 문자",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 396,
+      "w": 133.484375,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 29,
+      "kind": "button",
+      "name": null,
+      "text": "알림 끄기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1055.140625,
+      "y": 373.75,
+      "w": 83.859375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 454.5,
+      "w": 788,
+      "h": 135.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 34,
+      "kind": "heading",
+      "name": null,
+      "text": "계정",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 471.5,
+      "w": 754,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 34,
+      "kind": "text",
+      "name": null,
+      "text": "비활성화하면 다른 사람에게 프로필과 리뷰가 보이지 않고, 다시 로그인해야 복구됩니다.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 505,
+      "w": 754,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 34,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 532.5,
+      "w": 754,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 37,
+      "kind": "button",
+      "name": null,
+      "text": "계정 비활성화",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 532.5,
+      "w": 111.796875,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 37,
+      "kind": "button",
+      "name": null,
+      "text": "탈퇴하기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 506.796875,
+      "y": 537.5,
+      "w": 63.90625,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 604,
+      "w": 788,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

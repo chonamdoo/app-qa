@@ -3,6 +3,8 @@
 //   claude-cli: `claude -p --model <m> --output-format json --tools "" --no-session-persistence` → `.result`
 //   codex-cli:  `codex exec -m <m> -s read-only --skip-git-repo-check --ephemeral --output-schema <file> -o <out> -`
 //               (falls back to prompt-only when the API rejects the JSON Schema; zod validation runs either way)
+// The child gets a scoped environment (system basics + the CLIs' own auth/config variables, never TYPESAFE_API_KEY or
+// app secrets from .env) and its stdout/stderr are capped.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,6 +18,30 @@ export const DEFAULT_LLM_MODELS: Record<LlmProvider, string> = { 'claude-cli': '
 
 /** Hard cap per LLM call. */
 export const LLM_TIMEOUT_MS = 15 * 60_000;
+
+/** Cap per output stream; a CLI that prints more is killed (a real reply is far below this). */
+export const LLM_MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
+
+/** Exact variable names passed to the CLI: process basics, locale, proxy/TLS settings the CLIs' HTTP clients read. */
+const CLI_ENV_NAMES: Record<string, true> = Object.fromEntries(
+  [
+    'PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'TZ', 'TERM',
+    'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'no_proxy', 'all_proxy',
+    'NODE_EXTRA_CA_CERTS', 'SSL_CERT_FILE', 'SSL_CERT_DIR', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME', 'XDG_STATE_HOME',
+  ].map((name) => [name, true]),
+);
+/** Prefixes of the CLIs' own auth/config variables (claude: CLAUDE_*, ANTHROPIC_*; codex: CODEX_*, OPENAI_*). */
+const CLI_ENV_PREFIXES = ['LC_', 'CLAUDE_', 'ANTHROPIC_', 'CODEX_', 'OPENAI_'];
+
+/** The CLI's environment: allow-listed names only, so project secrets (TYPESAFE_API_KEY, app passwords) never leak. */
+function cliEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const out: NodeJS.ProcessEnv = {};
+  for (const [name, value] of Object.entries(env)) {
+    if (value === undefined) continue;
+    if (CLI_ENV_NAMES[name] === true || CLI_ENV_PREFIXES.some((p) => name.startsWith(p)) || /^QA_[A-Z]+_BIN$/.test(name)) out[name] = value;
+  }
+  return out;
+}
 
 export interface Llm {
   readonly provider: LlmProvider;
@@ -143,17 +169,29 @@ async function runCli(
   const signal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
   if (signal.aborted) throw new Error('LLM 호출이 취소되었습니다');
   return await new Promise<CliResult>((resolve, reject) => {
-    const child = spawn(bin, args, { cwd: opts.cwd, env: opts.env, stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawn(bin, args, { cwd: opts.cwd, env: cliEnv(opts.env), stdio: ['pipe', 'pipe', 'pipe'] });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
+    const bytes = { stdout: 0, stderr: 0 };
+    let overflow: 'stdout' | 'stderr' | null = null;
     let killTimer: NodeJS.Timeout | undefined;
     const onAbort = () => {
       child.kill('SIGTERM');
       killTimer = setTimeout(() => child.kill('SIGKILL'), 5000);
     };
     signal.addEventListener('abort', onAbort, { once: true });
-    child.stdout.on('data', (d: Buffer) => out.push(d));
-    child.stderr.on('data', (d: Buffer) => err.push(d));
+    const collect = (stream: 'stdout' | 'stderr', chunks: Buffer[]) => (d: Buffer) => {
+      if (overflow) return;
+      bytes[stream] += d.length;
+      if (bytes[stream] > LLM_MAX_OUTPUT_BYTES) {
+        overflow = stream;
+        child.kill('SIGKILL');
+        return;
+      }
+      chunks.push(d);
+    };
+    child.stdout.on('data', collect('stdout', out));
+    child.stderr.on('data', collect('stderr', err));
     child.stdin.on('error', () => {
       // The CLI may exit before reading stdin; its exit code reports the failure.
     });
@@ -164,6 +202,10 @@ async function runCli(
     child.on('close', (code) => {
       signal.removeEventListener('abort', onAbort);
       clearTimeout(killTimer);
+      if (overflow) {
+        reject(new Error(`LLM CLI ${overflow} 출력이 ${LLM_MAX_OUTPUT_BYTES / 1024 / 1024} MiB 제한을 넘어 중단했습니다: ${bin}`));
+        return;
+      }
       if (signal.aborted) {
         const limit = opts.timeoutMs >= 60_000 ? `${Math.round(opts.timeoutMs / 60_000)}분` : `${opts.timeoutMs / 1000}초`;
         reject(timeout.aborted ? new Error(`LLM 호출이 ${limit} 제한을 넘었습니다`) : new Error('LLM 호출이 취소되었습니다'));

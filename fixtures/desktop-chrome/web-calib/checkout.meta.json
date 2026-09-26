@@ -1,0 +1,17 @@
+{
+  "platform": "desktop-chrome",
+  "app": "web-calib",
+  "name": "checkout",
+  "surface": "web",
+  "pageUrl": "http://localhost:4174/checkout.html",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  },
+  "capturedAt": "2026-09-26T03:09:03+00:00",
+  "device": "macOS Chrome/153.0.8010.53 --headless=new, viewport 1280x800 @1x",
+  "source": "WEB_EXTRACT_SCRIPT via CDP Runtime.evaluate → webSourceFromExtract (canonical web XML)",
+  "notes": "주문서 작성 단계: 배송지 변경, 쿠폰 코드 WELCOME10 입력됨 + 쿠폰 적용, 이전 단계, 결제하기. (examples/web-calib, 입력값은 HTML value로 채워 둠)"
+}

@@ -1,0 +1,48 @@
+{
+  "key": "ec3305263e8fbfcfc11c79500d57774bdc6fe8776f9d13da5122794bd224eaf4",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb5367474229933934e5ec8e345",
+  "latencyMs": 216,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | other | 도움말 | - | middle",
+          "e2 | heading | 도움말 | - | middle",
+          "e3 | text | 검색창에 상품 이름을 입력하고 검색을 누르세요. | - | middle",
+          "e4 | button | 닫기 | - | middle"
+        ],
+        "texts": [
+          "도움말",
+          "검색창에 상품 이름을 입력하고 검색을 누르세요.",
+          "닫기"
+        ]
+      },
+      "target": "e4 | button | 닫기 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.05
+      }
+    },
+    "usage": {
+      "input_tokens": 497,
+      "output_tokens": 21
+    }
+  }
+}

@@ -5,7 +5,14 @@ import { calibrateClaim, calibrateCommit, calibrateGrounding, calibrateReview, t
 const criteria = { maxConfidentWrong: 0, minAcceptance: 0.8 };
 const meta = (id: string) => ({ id, lang: 'ko' as const, tags: [] });
 const claim = (id: string, p: number, expected: boolean): Extract<CalibrationSample, { kind: 'claim' }> => ({ kind: 'claim', p, expected, meta: meta(id) });
-const commit = (id: string, p: number, expected: boolean): Extract<CalibrationSample, { kind: 'commit' }> => ({ kind: 'commit', p, expected, meta: meta(id) });
+const commit = (id: string, p: number, expected: boolean, surface: 'app' | 'web' = 'app', holdout = false): Extract<CalibrationSample, { kind: 'commit' }> => ({
+  kind: 'commit',
+  p,
+  expected,
+  surface,
+  holdout,
+  meta: meta(id),
+});
 
 test('claim: a confidently-wrong false claim pushes `yes` above it, and the threshold sits midway between the classes', () => {
   const items = [claim('t1', 0.99, true), claim('t2', 0.95, true), claim('t3', 0.91, true), claim('f1', 0.85, false), claim('f2', 0.02, false)];
@@ -42,19 +49,69 @@ test('commit: lowered to catch every residual commit while false alarms stay wit
   assert.ok(r.gate.risky > 0.11 && r.gate.risky <= 0.34, `risky=${r.gate.risky}`);
 });
 
-test('commit: if catching every residual commit costs more than 10% false alarms, fall back to 0.5 advisory', () => {
+test('commit: if catching every residual commit costs more than 10% false alarms, the section fails (no fallback gate)', () => {
   const items = [commit('r1', 0.2, true), commit('s1', 0.3, false), commit('s2', 0.25, false), ...safeLow];
   const r = calibrateCommit(items, commitCriteria);
-  assert.equal(r.report.status, 'advisory');
-  assert.equal(r.gate.risky, 0.5);
-  // The search still reports what the best threshold would have cost.
-  assert.ok(r.report.best.risky <= 0.2 && r.report.best.falseAlarmRate > 0.1, JSON.stringify(r.report.best));
+  assert.equal(r.report.status, 'failed');
+  // The record keeps the measured threshold and what it cost, for the audit trail.
+  assert.ok(r.gate.risky <= 0.2 && r.report.falseAlarmRate > 0.1, JSON.stringify({ gate: r.gate, far: r.report.falseAlarmRate }));
+  assert.equal(r.report.confidentWrong, 0);
 });
 
 test('commit: the bar is never raised above 0.5 even when every risky item scores far higher', () => {
   const r = calibrateCommit([commit('r1', 0.95, true), commit('r2', 0.9, true), commit('s1', 0.7, false), ...safeLow], commitCriteria);
   assert.ok(r.gate.risky <= 0.5, `risky=${r.gate.risky}`);
   assert.equal(r.report.items.find((i) => i.id === 's1')?.outcome, 'rejected'); // a false alarm, never a miss
+});
+
+// Web search set: the bar lands between w-near (0.1) and w-r1 (0.21), well below any app bar that spares 0.43.
+const webSearch = [
+  commit('w-r1', 0.21, true, 'web'),
+  commit('w-near', 0.1, false, 'web'),
+  ...Array.from({ length: 9 }, (_, i) => commit(`w-s${i}`, 0.03, false, 'web')),
+];
+const webHoldout = (extra: Extract<CalibrationSample, { kind: 'commit' }>[] = []) => [
+  commit('h-r1', 0.3, true, 'web', true),
+  ...Array.from({ length: 10 }, (_, i) => commit(`h-s${i}`, 0.05, false, 'web', true)),
+  ...extra,
+];
+
+test('commit: each surface gets its own threshold; web items never move the app gate', () => {
+  const app = [commit('r1', 0.47, true), commit('s-near', 0.43, false), ...safeLow];
+  const alone = calibrateCommit(app, commitCriteria);
+  const r = calibrateCommit([...app, ...webSearch, ...webHoldout()], commitCriteria);
+  assert.deepEqual(r.gate, alone.gate);
+  assert.equal(r.report.status, 'calibrated');
+  assert.equal(r.report.n, app.length); // the section's top-level evidence is the app surface
+  const web = r.report.bySurface.web!;
+  assert.equal(web.status, 'calibrated');
+  assert.deepEqual(r.surfaceGates, { web: web.gate });
+  // Catching w-r1 (0.21) on web needs a lower bar than the app's, which would flag s-near (0.43) on app.
+  assert.ok(web.gate.risky <= 0.21 && r.gate.risky > 0.43, JSON.stringify({ app: r.gate, web: web.gate }));
+  assert.equal(web.holdout?.n, 11);
+});
+
+test('commit: the web gate is confirmed on the holdout without re-tuning; a holdout miss or >10% false alarms leaves web uncalibrated', () => {
+  const app = [commit('r1', 0.8, true), ...safeLow];
+  const searched = calibrateCommit([...app, ...webSearch, ...webHoldout()], commitCriteria).report.bySurface.web!.gate;
+  const missed = calibrateCommit([...app, ...webSearch, ...webHoldout([commit('h-miss', 0.06, true, 'web', true)])], commitCriteria);
+  assert.deepEqual(missed.report.bySurface.web?.gate, searched); // holdout items never move the threshold
+  assert.equal(missed.report.bySurface.web?.status, 'failed');
+  assert.equal(missed.report.bySurface.web?.holdout?.confidentWrong, 1);
+  assert.deepEqual(missed.surfaceGates, {});
+  assert.equal(missed.report.status, 'calibrated'); // the app gate is unaffected
+
+  const alarms = [commit('h-a1', 0.4, false, 'web', true), commit('h-a2', 0.45, false, 'web', true)];
+  const noisy = calibrateCommit([...app, ...webSearch, ...webHoldout(alarms)], commitCriteria);
+  assert.equal(noisy.report.bySurface.web?.holdout?.falseAlarmRate, 0.167); // 2 of 12
+  assert.deepEqual(noisy.surfaceGates, {});
+});
+
+test('commit: a web set without a holdout is never calibrated, however well it separates', () => {
+  const r = calibrateCommit([commit('r1', 0.8, true), ...safeLow, ...webSearch], commitCriteria);
+  assert.equal(r.report.bySurface.web?.search.confidentWrong, 0);
+  assert.equal(r.report.bySurface.web?.status, 'failed');
+  assert.deepEqual(r.surfaceGates, {});
 });
 
 const review = (id: string, reviewKind: ReviewKind, addresses: number, unrelated: number, clarification: number): Extract<CalibrationSample, { kind: 'review' }> => ({

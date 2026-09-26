@@ -1,0 +1,318 @@
+{
+  "url": "http://localhost:4174/editor.html",
+  "title": "글쓰기 · 하루기록 블로그",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "글쓰기 · 하루기록 블로그",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "하루기록 블로그",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 113.734375,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1200.140625,
+      "y": 12.25,
+      "w": 55.859375,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "내 블로그",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1200.140625,
+      "y": 12.25,
+      "w": 55.859375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 521,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 446,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "text",
+      "name": null,
+      "text": "제목",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 93,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "input",
+      "name": "제목",
+      "text": null,
+      "id": "title",
+      "value": "3월의 제주, 비 오는 날 가볼 만한 곳",
+      "hint": null,
+      "x": 361,
+      "y": 116.5,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "text",
+      "name": null,
+      "text": "본문",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 165,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "input",
+      "name": "본문",
+      "text": null,
+      "id": "body",
+      "value": "비가 오면 오름 대신 실내 전시와 카페 투어가 좋아요. 동선을 정리해 봤습니다.",
+      "hint": null,
+      "x": 361,
+      "y": 188.5,
+      "w": 558,
+      "h": 180,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "text",
+      "name": null,
+      "text": "공개 범위",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 384,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "select",
+      "name": "공개 범위",
+      "text": null,
+      "id": "vis",
+      "value": "전체 공개",
+      "hint": null,
+      "x": 361,
+      "y": 407.5,
+      "w": 98,
+      "h": 39,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 458.5,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 13,
+      "kind": "button",
+      "name": null,
+      "text": "맞춤법 검사",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 664.359375,
+      "y": 458.5,
+      "w": 96.828125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 13,
+      "kind": "button",
+      "name": null,
+      "text": "미리 보기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 771.1875,
+      "y": 458.5,
+      "w": 83.859375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 13,
+      "kind": "button",
+      "name": null,
+      "text": "발행",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 865.046875,
+      "y": 458.5,
+      "w": 53.953125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 528,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

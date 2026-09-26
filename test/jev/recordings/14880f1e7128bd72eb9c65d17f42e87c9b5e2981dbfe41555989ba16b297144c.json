@@ -1,0 +1,68 @@
+{
+  "key": "14880f1e7128bd72eb9c65d17f42e87c9b5e2981dbfe41555989ba16b297144c",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb5320377ac8070367d55b58435",
+  "latencyMs": 233,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 산들 커뮤니티 | - | top",
+          "e2 | link | 게시판 | - | top",
+          "e3 | link | 쪽지 | - | top",
+          "e4 | heading | 박서준 님과의 대화 | - | top",
+          "e5 | button | 대화 검색 | - | top",
+          "e6 | other | 대화 내용 | - | top",
+          "e7 | text | 혹시 다음 주 토요일 캠핑 같이 가실래요? | - | top",
+          "e8 | text | 좋아요! 몇 시에 출발해요? | - | top",
+          "e9 | text | 오전 9시에 합정역에서 만나요. | - | middle",
+          "e10 | text | 쪽지 쓰기 | - | middle",
+          "e11 | input | 쪽지 쓰기 | value=\"네, 내일 3시에 장비 목록 정리해서 보내 드릴게요.\" | middle",
+          "e12 | button | 이모티콘 | - | middle",
+          "e13 | button | 사진 첨부 | - | middle",
+          "e14 | button | 보내기 | - | middle"
+        ],
+        "texts": [
+          "산들 커뮤니티",
+          "게시판",
+          "쪽지",
+          "박서준 님과의 대화",
+          "대화 검색",
+          "혹시 다음 주 토요일 캠핑 같이 가실래요?",
+          "좋아요! 몇 시에 출발해요?",
+          "오전 9시에 합정역에서 만나요.",
+          "쪽지 쓰기",
+          "네, 내일 3시에 장비 목록 정리해서 보내 드릴게요.",
+          "이모티콘",
+          "사진 첨부",
+          "보내기"
+        ]
+      },
+      "target": "e13 | button | 사진 첨부 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.08
+      }
+    },
+    "usage": {
+      "input_tokens": 818,
+      "output_tokens": 21
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "key": "fc41ec41859e7a58a8ff607dcc8b7bdec1ca54c4b15a861d14604b9bd3802d97",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb52dc676b88e17d47957727cbf",
+  "latencyMs": 207,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 모아마켓 | - | top",
+          "e2 | link | 회원가입 | - | top",
+          "e3 | link | 장바구니 2 | - | top",
+          "e4 | text | › 무선 이어폰 | - | top",
+          "e5 | link | 이어폰 | - | top",
+          "e6 | heading | 무선 이어폰 프로 | - | top",
+          "e7 | text | 39,000원 | - | top",
+          "e8 | text | 무료배송 · 내일(금) 도착 예정 | - | top",
+          "e9 | button | 수량 줄이기 | - | top",
+          "e10 | button | 수량 늘리기 | - | top",
+          "e11 | text | 수량 | - | top",
+          "e12 | text | 1 | - | top",
+          "e13 | button | 장바구니 담기 | - | top",
+          "e14 | button | 바로 구매 | - | top",
+          "e15 | button | 링크 복사 | - | top",
+          "e16 | button | 공유하기 | - | top",
+          "e17 | tab | 상품 정보 | selected | middle",
+          "e18 | tab | 리뷰 (1,204) | - | middle",
+          "e19 | tab | 문의 (38) | - | middle",
+          "e20 | text | 블루투스 5.3 · 최대 30시간 재생 · IPX4 생활 방수. 케이스 포함 무게 48g. | - | middle",
+          "e21 | button | 배송·반품 안내 | - | middle",
+          "e22 | text | 구매한 상품이라면 사용 후기를 남겨 주세요. | - | middle",
+          "e23 | link | 리뷰 쓰기 | - | middle"
+        ],
+        "texts": [
+          "모아마켓",
+          "회원가입",
+          "장바구니 2",
+          "› 무선 이어폰",
+          "이어폰",
+          "무선 이어폰 프로",
+          "39,000원",
+          "무료배송 · 내일(금) 도착 예정",
+          "−",
+          "+",
+          "수량",
+          "1",
+          "장바구니 담기",
+          "바로 구매",
+          "링크 복사",
+          "공유하기",
+          "상품 정보",
+          "리뷰 (1,204)",
+          "문의 (38)",
+          "블루투스 5.3 · 최대 30시간 재생 · IPX4 생활 방수. 케이스 포함 무게 48g.",
+          "배송·반품 안내",
+          "구매한 상품이라면 사용 후기를 남겨 주세요.",
+          "리뷰 쓰기"
+        ]
+      },
+      "target": "e15 | button | 링크 복사 | - | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.11
+      }
+    },
+    "usage": {
+      "input_tokens": 1048,
+      "output_tokens": 21
+    }
+  }
+}

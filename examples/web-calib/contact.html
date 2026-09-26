@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1:1 문의 · 모아마켓 고객센터</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="shop.html">모아마켓</a>
+    <nav><a href="contact.html#faq">자주 묻는 질문</a></nav>
+  </header>
+
+  <main class="narrow">
+    <h1>1:1 문의</h1>
+    <form class="card" data-done="문의가 접수되었습니다. 답변은 이메일로 보내 드려요.">
+      <label for="kind">문의 유형</label>
+      <select id="kind"><option>배송</option><option selected>교환·반품</option><option>결제</option></select>
+      <label for="order-no">주문 번호</label>
+      <input id="order-no" value="20260921-000183">
+      <label for="body">내용</label>
+      <textarea id="body">받은 이어폰 왼쪽이 충전되지 않습니다. 교환 가능할까요?</textarea>
+      <p class="muted">답변은 영업일 기준 1일 안에 가입한 이메일로 보내 드립니다.</p>
+      <div class="row end">
+        <button type="button" class="ghost">파일 첨부</button>
+        <button type="submit">문의 접수</button>
+      </div>
+    </form>
+    <p role="status"></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+{
+  "key": "eebcb5b2469bfacd363490647d8c713dfd4d6e8c27ac82f988eae59c241275e9",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfd90d79e18e1baab5911eef0b",
+  "latencyMs": 197,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | Gatherly | - | top",
+          "e2 | link | Explore | - | top",
+          "e3 | link | Log in | - | top",
+          "e4 | heading | Autumn Makers Meetup | - | top",
+          "e5 | text | Sat, Oct 18 · 2:00 PM · Riverside Library, Room B | - | top",
+          "e6 | text | Hosted by Priya N. · 23 of 40 spots taken · attendees are shown on the event page | - | top",
+          "e7 | button | See who's going | - | top",
+          "e8 | button | Get directions | - | top",
+          "e9 | button | Ask the host | - | top",
+          "e10 | text | Bring a small project to show. Snacks provided. | - | middle",
+          "e11 | button | RSVP | - | middle"
+        ],
+        "texts": [
+          "Gatherly",
+          "Explore",
+          "Log in",
+          "Autumn Makers Meetup",
+          "Sat, Oct 18 · 2:00 PM · Riverside Library, Room B",
+          "Hosted by Priya N. · 23 of 40 spots taken · attendees are shown on the event page",
+          "See who's going",
+          "Get directions",
+          "Ask the host",
+          "Bring a small project to show. Snacks provided.",
+          "RSVP"
+        ]
+      },
+      "target": "e3 | link | Log in | - | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.15
+      }
+    },
+    "usage": {
+      "input_tokens": 710,
+      "output_tokens": 21
+    }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "key": "97cb5e1f78565c7258296c938b9bd456785d3033a27db0899d0fc773e71d4ba9",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb52f3973efb2df052e7d9f6cc3",
+  "latencyMs": 223,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | Northwind Goods | - | top",
+          "e2 | link | Cart (3) | - | top",
+          "e3 | list-item | Cart | - | top",
+          "e4 | list-item | Shipping | - | top",
+          "e5 | list-item | Payment | - | top",
+          "e6 | list-item | Review | - | top",
+          "e7 | heading | Shipping address | - | top",
+          "e8 | text | Full name | - | top",
+          "e9 | input | Full name | value=\"Jordan Lee\" | top",
+          "e10 | text | Address | - | top",
+          "e11 | input | Address | value=\"221 Market St, Apt 4\" | middle",
+          "e12 | text | City | - | middle",
+          "e13 | input | City | value=\"San Francisco\" | middle",
+          "e14 | text | Standard (3–5 days) — free | - | middle",
+          "e15 | checkbox | Standard (3–5 days) — free | checked | middle",
+          "e16 | text | Express (1–2 days) — $9.00 | - | middle",
+          "e17 | checkbox | Express (1–2 days) — $9.00 | unchecked | middle",
+          "e18 | input | Promo code | value=\"SPRING15\" | middle",
+          "e19 | button | Apply | - | middle",
+          "e20 | button | Continue to payment | - | middle",
+          "e21 | link | Back to cart | - | middle"
+        ],
+        "texts": [
+          "Northwind Goods",
+          "Cart (3)",
+          "Cart",
+          "Shipping",
+          "Payment",
+          "Review",
+          "Shipping address",
+          "Full name",
+          "Jordan Lee",
+          "Address",
+          "221 Market St, Apt 4",
+          "City",
+          "San Francisco",
+          "Standard (3–5 days) — free",
+          "Express (1–2 days) — $9.00",
+          "SPRING15",
+          "Apply",
+          "Continue to payment",
+          "Back to cart"
+        ]
+      },
+      "target": "e19 | button | Apply | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.16
+      }
+    },
+    "usage": {
+      "input_tokens": 874,
+      "output_tokens": 21
+    }
+  }
+}

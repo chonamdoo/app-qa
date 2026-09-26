@@ -1,0 +1,132 @@
+{
+  "key": "6e7e7f8a84c081253a53be1364465cf0a03dfa8c6ac5f1f5b6892eec0627f665",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb52d0c7760b9d9ad0d321af338",
+  "latencyMs": 179,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | input | 상품 검색 | value=\"이어폰\" | top",
+          "e2 | button | 검색 | - | top",
+          "e3 | link | 모아마켓 | - | top",
+          "e4 | link | 회원가입 | - | top",
+          "e5 | link | 로그인 | - | top",
+          "e6 | link | 장바구니 2 | - | top",
+          "e7 | other | 필터 | - | middle",
+          "e8 | heading | 필터 | - | top",
+          "e9 | other | 정렬 | - | top",
+          "e10 | button | 추천순 | checked | top",
+          "e11 | button | 낮은 가격순 | unchecked | top",
+          "e12 | button | 리뷰 많은순 | unchecked | top",
+          "e13 | text | 검색 결과 128개 | - | top",
+          "e14 | text | 가격 | - | top",
+          "e15 | link | 무선 이어폰 프로 | - | top",
+          "e16 | link | 노이즈캔슬링 이어폰 S | - | top",
+          "e17 | text | 1만원 이하 | - | top",
+          "e18 | text | 1만~5만원 | - | top",
+          "e19 | checkbox | 1만원 이하 | unchecked | top",
+          "e20 | checkbox | 1만~5만원 | checked | top",
+          "e21 | text | 39,000원 | - | top",
+          "e22 | text | 48,500원 | - | top",
+          "e23 | text | 5만원 이상 | - | top",
+          "e24 | checkbox | 5만원 이상 | unchecked | top",
+          "e25 | text | ★ 4.6 · 리뷰 1,204 | - | top",
+          "e26 | text | ★ 4.4 · 리뷰 389 | - | top",
+          "e27 | text | 배송 | - | top",
+          "e28 | button | 찜하기 | - | top",
+          "e29 | button | 찜하기 | - | top",
+          "e30 | text | 무료배송 | - | top",
+          "e31 | text | 오늘 출발 | - | top",
+          "e32 | checkbox | 무료배송 | checked | top",
+          "e33 | checkbox | 오늘 출발 | unchecked | top",
+          "e34 | button | 필터 적용 | - | middle",
+          "e35 | link | 스포츠 넥밴드 이어폰 | - | middle",
+          "e36 | link | 오픈형 이어폰 에어 | - | middle",
+          "e37 | text | 21,900원 | - | middle",
+          "e38 | text | 32,000원 | - | middle",
+          "e39 | text | ★ 4.1 · 리뷰 77 | - | middle",
+          "e40 | text | 품절 — 입고되면 이메일로 알려 드려요 | - | middle",
+          "e41 | button | 찜하기 | - | middle",
+          "e42 | button | 재입고 알림 신청 | - | middle",
+          "e43 | other | 페이지 | - | middle",
+          "e44 | button | 이전 페이지 | disabled | middle",
+          "e45 | link | 다음 페이지 | - | middle",
+          "e46 | text | 1 / 11 | - | middle",
+          "e47 | other | 쿠키 안내 | - | bottom",
+          "e48 | button | 필수 쿠키만 허용 | - | bottom",
+          "e49 | button | 모두 허용 | - | bottom",
+          "e50 | text | 더 나은 쇼핑 경험을 위해 쿠키를 사용합니다. 쿠키 설정은 언제든 바꿀 수 있어요. | - | bottom"
+        ],
+        "texts": [
+          "이어폰",
+          "검색",
+          "모아마켓",
+          "회원가입",
+          "로그인",
+          "장바구니 2",
+          "필터",
+          "추천순",
+          "낮은 가격순",
+          "리뷰 많은순",
+          "검색 결과 128개",
+          "가격",
+          "무선 이어폰 프로",
+          "노이즈캔슬링 이어폰 S",
+          "1만원 이하",
+          "1만~5만원",
+          "39,000원",
+          "48,500원",
+          "5만원 이상",
+          "★ 4.6 · 리뷰 1,204",
+          "★ 4.4 · 리뷰 389",
+          "배송",
+          "찜하기",
+          "찜하기",
+          "무료배송",
+          "오늘 출발",
+          "필터 적용",
+          "스포츠 넥밴드 이어폰",
+          "오픈형 이어폰 에어",
+          "21,900원",
+          "32,000원",
+          "★ 4.1 · 리뷰 77",
+          "품절 — 입고되면 이메일로 알려 드려요",
+          "찜하기",
+          "재입고 알림 신청",
+          "이전 페이지",
+          "다음 페이지",
+          "1 / 11",
+          "필수 쿠키만 허용",
+          "모두 허용",
+          "더 나은 쇼핑 경험을 위해 쿠키를 사용합니다. 쿠키 설정은 언제든 바꿀 수 있어요."
+        ]
+      },
+      "target": "e48 | button | 필수 쿠키만 허용 | - | bottom"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.11
+      }
+    },
+    "usage": {
+      "input_tokens": 1697,
+      "output_tokens": 21
+    }
+  }
+}

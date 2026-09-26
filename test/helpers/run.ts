@@ -6,6 +6,7 @@ import { after } from 'node:test';
 import type { QaEventBody } from '../../src/core/events.ts';
 import { writeSecure } from '../../src/core/fsx.ts';
 import type { Platform } from '../../src/core/types.ts';
+import { acquireDisplayLock, clearDisplayUnknown, markDisplayUnknown, readDisplayUnknown } from '../../src/drivers/index.ts';
 import type { JevSetup, OcrFn } from '../../src/runner/engine.ts';
 import { runSmoke, runTests, type RunnerDeps, type RunResult } from '../../src/runner/index.ts';
 import type { FakeDriver } from './fake-driver.ts';
@@ -14,6 +15,7 @@ import { UNCALIBRATED } from './jev-stub.ts';
 export const PROFILES: Record<string, string> = {
   tteonam: readFileSync(new URL('../../apps/tteonam.yaml', import.meta.url), 'utf8'),
   example: 'id: example\nname: Example Tickets\nandroid:\n  package: example.tickets\n',
+  'web-demo': readFileSync(new URL('../../apps/web-demo.yaml', import.meta.url), 'utf8'),
 };
 
 const roots: string[] = [];
@@ -30,11 +32,22 @@ export function tempRoot(files: Record<string, string> = {}): string {
   return root;
 }
 
+/** This Mac's display state (the real lock and record files) kept in `dir`, never the host's `DISPLAY_DIR`. */
+export function displayDeps(dir: string): Pick<RunnerDeps, 'acquireDisplayLock' | 'readDisplayUnknown' | 'markDisplayUnknown' | 'clearDisplayUnknown'> {
+  return {
+    acquireDisplayLock: () => acquireDisplayLock({ dir }),
+    readDisplayUnknown: () => readDisplayUnknown({ dir }),
+    markDisplayUnknown: (record) => markDisplayUnknown(record, { dir }),
+    clearDisplayUnknown: () => clearDisplayUnknown({ dir }),
+  };
+}
+
 export function fakeDeps(root: string, driver: FakeDriver, jev: JevSetup = UNCALIBRATED): Partial<RunnerDeps> {
   return {
     createDriver: () => driver,
     pickDevice: async (platform: Platform) => ({ platform, id: driver.deviceId, name: 'Fake Pixel', osVersion: '17', state: 'booted', kind: 'emulator' }),
     acquireLock: () => ({ release: () => undefined }),
+    ...displayDeps(join(root, '.qa', 'display')),
     jev: () => jev,
     ocr: null,
     clock: driver.clock,
@@ -52,16 +65,16 @@ export interface FakeRun {
   events: QaEventBody[];
 }
 
-/** Writes `tests` (relative path → YAML) under a temp root and runs them on Android with the fake driver. */
+/** Writes `tests` (relative path → YAML) under a temp root and runs them (default on Android) with the fake driver. */
 export async function runYaml(
   tests: Record<string, string>,
   driver: FakeDriver,
-  opts: { jev?: JevSetup; files?: Record<string, string>; junit?: boolean; ocr?: OcrFn } = {},
+  opts: { jev?: JevSetup; files?: Record<string, string>; junit?: boolean; ocr?: OcrFn; platform?: Platform } = {},
 ): Promise<FakeRun> {
   const root = tempRoot({ ...opts.files, ...tests });
   const events: QaEventBody[] = [];
   const result = await runTests(
-    { paths: Object.keys(tests).map((t) => join(root, t)), platform: 'android', junit: opts.junit, events: { emit: (e) => events.push(e) } },
+    { paths: Object.keys(tests).map((t) => join(root, t)), platform: opts.platform ?? 'android', junit: opts.junit, events: { emit: (e) => events.push(e) } },
     { ...fakeDeps(root, driver, opts.jev), ...(opts.ocr ? { ocr: opts.ocr } : {}) },
   );
   return { result, root, events };

@@ -1,0 +1,57 @@
+{
+  "key": "83fe683d0010db138b0c58fbdf2824b7a291938b17a7aa7b60cebbf8d5ccc6fe",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfd67771fe806f2c771ba3c4d5",
+  "latencyMs": 233,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 동네장터 | - | top",
+          "e2 | heading | 이용 만족도 조사 (5/5) | - | top",
+          "e3 | text | 마지막 문항: 직거래 약속을 잡을 때 불편했던 점이 있나요? | - | top",
+          "e4 | input | 답변 | value=\"약속 장소를 지도에서 고를 수 있으면 좋겠어요.\" | top",
+          "e5 | text | 제출하면 답변을 고칠 수 없어요. | - | top",
+          "e6 | button | 이전 문항 | - | middle",
+          "e7 | button | 응답 제출 | - | middle",
+          "e8 | button | 나중에 하기 | - | middle"
+        ],
+        "texts": [
+          "동네장터",
+          "이용 만족도 조사 (5/5)",
+          "마지막 문항: 직거래 약속을 잡을 때 불편했던 점이 있나요?",
+          "약속 장소를 지도에서 고를 수 있으면 좋겠어요.",
+          "제출하면 답변을 고칠 수 없어요.",
+          "이전 문항",
+          "응답 제출",
+          "나중에 하기"
+        ]
+      },
+      "target": "e7 | button | 응답 제출 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.81
+      }
+    },
+    "usage": {
+      "input_tokens": 675,
+      "output_tokens": 21
+    }
+  }
+}

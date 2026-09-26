@@ -63,12 +63,39 @@ test('claim band: ≥ yes pass, ≤ no fail, strictly between inconclusive', () 
 
 test('usableGate refuses missing records, other models/versions and primitives that failed criteria', () => {
   const cal = testCalibration();
-  assert.equal(usableGate(null, 'jev-1.13.0', 'grounding').reason, 'uncalibrated');
-  assert.match(usableGate(cal, 'jev-1.14.0', 'claim').reason ?? '', /^uncalibrated/);
-  assert.match(usableGate({ ...cal, questionVersion: 'q-v0' }, 'jev-1.13.0', 'claim').reason ?? '', /^uncalibrated/);
+  assert.equal(usableGate(null, 'jev-1.13.0', 'grounding', 'app').reason, 'uncalibrated');
+  assert.match(usableGate(cal, 'jev-1.14.0', 'claim', 'app').reason ?? '', /^uncalibrated/);
+  assert.match(usableGate({ ...cal, questionVersion: 'q-v0' }, 'jev-1.13.0', 'claim', 'app').reason ?? '', /^uncalibrated/);
   const failed = { ...cal, which: { ...cal.which, status: 'failed' as const } };
-  assert.match(usableGate(failed, 'jev-1.13.0', 'which').reason ?? '', /^uncalibrated/);
-  assert.deepEqual(usableGate(failed, 'jev-1.13.0', 'claim').gate, cal.claim.gate);
+  assert.match(usableGate(failed, 'jev-1.13.0', 'which', 'app').reason ?? '', /^uncalibrated/);
+  assert.deepEqual(usableGate(failed, 'jev-1.13.0', 'claim', 'app').gate, cal.claim.gate);
+});
+
+test('usableGate(commit) picks the gate of the target surface; a surface without its own gate stays uncalibrated', () => {
+  const cal = testCalibration();
+  const app = { risky: 0.47 };
+  const web = { risky: 0.2 };
+  const both = { ...cal, commit: { ...cal.commit, gate: app, surfaceGates: { web } } };
+  assert.deepEqual(usableGate(both, 'jev-1.13.0', 'commit', 'app').gate, app);
+  assert.deepEqual(usableGate(both, 'jev-1.13.0', 'commit', 'web').gate, web);
+  // Records without a web gate (older records, or a web holdout that missed the criteria) never fall back to the app one.
+  for (const commit of [{ ...cal.commit, gate: app }, { ...cal.commit, gate: app, surfaceGates: {} }]) {
+    const r = usableGate({ ...cal, commit }, 'jev-1.13.0', 'commit', 'web');
+    assert.deepEqual([r.gate, r.reason], [null, 'uncalibrated: 웹 화면 commit 보정 전']);
+  }
+  // A failed section (app criteria missed) blocks every surface, the web gate included.
+  const failed = { ...both, commit: { ...both.commit, status: 'failed' as const } };
+  assert.match(usableGate(failed, 'jev-1.13.0', 'commit', 'web').reason ?? '', /^uncalibrated: commit/);
+});
+
+test('usableGate always names the surface: primitives without per-surface gates keep theirs on web, commit never defaults to app', () => {
+  const cal = testCalibration();
+  const both = { ...cal, commit: { ...cal.commit, gate: { risky: 0.47 }, surfaceGates: { web: { risky: 0.2 } } } };
+  // A web profile's grounding/claim/which and its plan reviews still get the calibrated gate.
+  for (const p of ['grounding', 'claim', 'which', 'review'] as const) assert.deepEqual(usableGate(both, 'jev-1.13.0', p, 'web').gate, both[p].gate, p);
+  // No default surface (tsc fails this line otherwise): a caller that forgets it cannot silently get the app gate.
+  // @ts-expect-error — the surface argument is required
+  usableGate(both, 'jev-1.13.0', 'commit');
 });
 
 const dir = mkdtempSync(join(tmpdir(), 'jev-cal-'));
@@ -86,4 +113,15 @@ test('loadCalibration: null when absent, parsed when valid, error when corrupt o
   assert.throws(() => loadCalibration('jev-1.13.0', 'q-v1', dir), (e: unknown) => e instanceof JevError && e.kind === 'config');
   writeFileSync(file, '{not json');
   assert.throws(() => loadCalibration('jev-1.13.0', 'q-v1', dir), (e: unknown) => e instanceof JevError && e.kind === 'config');
+});
+
+test('loadCalibration: a record whose commit section is advisory is refused; a failed commit section is fail-closed', () => {
+  mkdirSync(join(dir, 'jev-1.13.0'), { recursive: true });
+  const file = join(dir, 'jev-1.13.0', 'q-v1.json');
+  const cal = testCalibration();
+  writeFileSync(file, JSON.stringify({ ...cal, commit: { ...cal.commit, status: 'advisory' } }));
+  assert.throws(() => loadCalibration('jev-1.13.0', 'q-v1', dir), (e: unknown) => e instanceof JevError && e.kind === 'config' && e.message.includes('commit.status'));
+  writeFileSync(file, JSON.stringify({ ...cal, status: 'failed', commit: { ...cal.commit, status: 'failed' } }));
+  const loaded = loadCalibration('jev-1.13.0', 'q-v1', dir);
+  assert.match(usableGate(loaded, 'jev-1.13.0', 'commit', 'app').reason ?? '', /^uncalibrated: commit/);
 });

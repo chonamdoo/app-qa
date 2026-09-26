@@ -29,10 +29,14 @@ struct SidePanelView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             Divider()
-            switch tab {
-            case .queue: QueueView()
-            case .plan: PlanChecklistView()
+            // The tab body takes the remaining height, so an empty state never pushes the tab bar off the top.
+            VStack(spacing: 0) {
+                switch tab {
+                case .queue: QueueView()
+                case .plan: PlanChecklistView()
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
     }
 }
@@ -263,7 +267,7 @@ private struct TestRow: View {
                 Text(test.name ?? test.id).font(.callout.weight(.medium)).lineLimit(2)
                 if entry.status == "draft" { Tag(text: "draft", color: .orange) }
                 if entry.status == "rejected" { Tag(text: "rejected", color: .red) }
-                ForEach(test.platforms, id: \.self) { Tag(text: Palette.platformLabel[$0] ?? $0) }
+                ForEach(test.platforms, id: \.self) { Tag(text: workspace.label(platform: $0)) }
             }
             .accessibilityIdentifier("plan.test.\(test.id)")
             if let error = test.error {
