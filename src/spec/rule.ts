@@ -184,6 +184,14 @@ function operatorProblem(rule: unknown, groups: ReadonlySet<string>, read: Set<s
 }
 
 /**
+ * Every named group of a `checkEach` pattern, compiled as the runner compiles it (`u`): an always-matching empty
+ * alternative lists them all in `groups`. Throws on an invalid pattern.
+ */
+export function patternGroups(pattern: string): Set<string> {
+  return new Set(Object.keys(new RegExp(`(?:${pattern})|`, 'u').exec('')!.groups ?? {}));
+}
+
+/**
  * Why `rule` is not a checkable JSONLogic rule over the pattern's named `groups` (Korean), or null. Every object in it
  * must be one known operator with the operands it needs, every `var` outside a collection's logic must name a group and
  * none inside may (it reads the item there), and the rule must read at least one group.

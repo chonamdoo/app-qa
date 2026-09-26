@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { groupData, judgeLines, ruleProblem } from '../../src/runner/rule.ts';
+import { groupData, judgeLines, ruleProblem } from '../../src/spec/rule.ts';
 
 const groups = new Set(['n', 's']);
 const n = { var: 'n' };

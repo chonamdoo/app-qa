@@ -4,6 +4,7 @@
 // untestable with a reason).
 import type { z } from 'zod';
 import { labelRisk } from '../policy/risk.ts';
+import { patternGroups, ruleProblem } from '../spec/rule.ts';
 import { findStepKind, STEP_BRANCHES, TestSpec, type AppProfile } from '../spec/schema.ts';
 import type { ScreenInfo } from './context.ts';
 import { isPlainObject, visitJson } from './json.ts';
@@ -171,18 +172,15 @@ export function checkTest(raw: unknown, index: number, ctx: CheckContext): Check
       }
     }
     if (kind === 'checkEach' && isPlainObject(value) && typeof value.pattern === 'string') {
+      let groups: Set<string> | null = null;
       try {
-        new RegExp(value.pattern);
-        const groups = new Set([...value.pattern.matchAll(/\(\?<([A-Za-z_$][\w$]*)>/g)].map((m) => m[1]!));
-        const vars = new Set<string>();
-        visitJson(value.rule, (key, v) => {
-          const name = Array.isArray(v) ? v[0] : v;
-          if (key === 'var' && typeof name === 'string' && name) vars.add(name.split('.')[0]!);
-        });
-        for (const name of vars) if (!groups.has(name)) errors.push(`${path}: checkEach.rule의 var "${name}"가 pattern의 이름 그룹에 없습니다`);
+        groups = patternGroups(value.pattern);
       } catch {
         errors.push(`${path}: checkEach.pattern 정규식이 올바르지 않습니다`);
       }
+      // The runner's own check: a rule it would refuse (ERROR invalid_rule) is refused here.
+      const problem = groups && ruleProblem(value.rule, groups);
+      if (problem) errors.push(`${path}: checkEach.${problem}`);
     }
     if (kind === 'which' && isPlainObject(value)) for (const [branch, sub] of Object.entries(value)) walkSteps(sub, `${path}.which[${JSON.stringify(branch)}]`);
     if (kind === 'repeat' && isPlainObject(value)) walkSteps(value.steps, `${path}.repeat.steps`);

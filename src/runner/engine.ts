@@ -50,7 +50,7 @@ import { assessRisk, labelRisk, type RiskAssessment } from '../policy/risk.ts';
 import { qaStatus } from '../report/status.ts';
 import { ActionPreparer, TRUNCATED_TARGET, type Approval, type Mutation, type Obs, type Refusal } from './prepare.ts';
 import { asSelector, notFoundDiagnostics, resolveDeterministic, stateMatches, targetText, type TargetQuery, type TargetSpec } from './resolve.ts';
-import { groupData, judgeLines, ruleProblem, type LineMatch } from './rule.ts';
+import { groupData, judgeLines, patternGroups, ruleProblem, type LineMatch } from '../spec/rule.ts';
 import { EvidenceSanitizer, maskValue, SanitizedStore } from './sanitize.ts';
 import { expandStep, UnsetVariableError } from './steps.ts';
 import type { RunStore } from './store.ts';
@@ -1258,9 +1258,7 @@ export class TestSession {
     } catch (err) {
       return { verdict: 'ERROR', code: 'invalid_regex', reason: `checkEach 정규식 오류: ${(err as Error).message}` };
     }
-    // Every named group of the pattern: an always-matching empty alternative lists them all in `groups`.
-    const groups = new Set(Object.keys(new RegExp(`(?:${check.pattern})|`, 'u').exec('')!.groups ?? {}));
-    const invalid = ruleProblem(check.rule, groups);
+    const invalid = ruleProblem(check.rule, patternGroups(check.pattern));
     if (invalid) return { verdict: 'ERROR', code: 'invalid_rule', reason: `checkEach 규칙 오류: ${invalid}` };
     const deadline = this.deadline(timeout);
     let obs = first;

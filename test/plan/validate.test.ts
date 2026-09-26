@@ -92,11 +92,16 @@ describe('generated test validation', () => {
     assert.deepEqual(errorsOf({ ...valid, steps: [{ remember: { name: 'flight', from: { regex: '(?<value>[A-Z]{2}\\d+)' } } }, { assertText: '${flight}' }] }), []);
   });
 
-  test('regexes must compile and checkEach vars must be named groups', () => {
+  test('regexes must compile and checkEach rules pass the runner’s own rule check', () => {
     assert.match(errorsOf({ ...valid, steps: [{ assertText: { regex: '([' } }] }).join('\n'), /정규식이 올바르지 않습니다/);
-    const rule = (v: string) => ({ checkEach: { pattern: '^(?<min>\\d+)분$', rule: { '>=': [{ var: v }, 0] } } });
-    assert.deepEqual(errorsOf({ ...valid, steps: [rule('min')] }), []);
-    assert.match(errorsOf({ ...valid, steps: [rule('minutes')] }).join('\n'), /var "minutes"가 pattern의 이름 그룹에 없습니다/);
+    const check = (rule: object) => ({ checkEach: { pattern: '^(?<min>\\d+)분$', rule } });
+    assert.deepEqual(errorsOf({ ...valid, steps: [check({ '>=': [{ var: 'min' }, 0] })] }), []);
+    assert.match(errorsOf({ ...valid, steps: [check({ '>=': [{ var: 'minutes' }, 0] })] }).join('\n'), /"minutes"는 pattern의 이름 그룹이 아님/);
+    // Rules the runner refuses (ERROR invalid_rule) never reach a saved test: a group read inside a collection's logic,
+    // a missing operand, a rule that reads no group.
+    for (const rule of [{ none: [{ merge: [{ var: 'min' }] }, { '>': [{ var: 'min' }, 0] }] }, { '%': [{ var: 'min' }] }, { '==': [1, 1] }]) {
+      assert.match(errorsOf({ ...valid, steps: [check(rule)] }).join('\n'), /checkEach\.rule/, JSON.stringify(rule));
+    }
   });
 
   test('literals missing from the screen inventory are warnings, not errors', () => {
