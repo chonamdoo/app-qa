@@ -1,9 +1,16 @@
 // Shared contracts between observe / jev / drivers / runner / plan.
 // Every module codes against these types; change them only through the integration owner.
 
-export type Platform = 'android' | 'ios';
+/**
+ * Where a test runs. `android`/`ios` run a native app profile on a device, or a web profile in the device browser
+ * (Chrome / Safari app). `desktop-*` run web profiles in the macOS browser. Static facts: `core/platform.ts`.
+ */
+export type Platform = 'android' | 'ios' | 'desktop-chrome' | 'desktop-safari';
 
-/** Device tap coordinate space: Android = physical px, iOS = points. */
+/** What the target is: a native app, or a website shown in a browser. */
+export type Surface = 'app' | 'web';
+
+/** Device tap coordinate space: Android = physical px, iOS = points, desktop = CSS px of the viewport. */
 export interface Rect {
   x: number;
   y: number;
@@ -42,7 +49,7 @@ export interface RawNode {
   /** Global paint order: higher = drawn later (on top). Android: window order, then DFS with siblings sorted by drawing-order. iOS: DFS document order. */
   z: number;
   windowId: string | null;
-  /** Android class name (android.widget.Button) or iOS element type without prefix (Button, StaticText…). */
+  /** Android class name (android.widget.Button), iOS element type without prefix (Button, StaticText…), or `web:<kind>` for desktop DOM nodes. */
   className: string;
   text: string | null;
   /** Android content-desc / iOS label. */
@@ -57,16 +64,22 @@ export interface RawNode {
 
 export interface Snapshot {
   platform: Platform;
+  surface: Surface;
   takenAt: string; // ISO
-  /** Screen size in tap coordinates (Android px from window rect, iOS pt). */
+  /** Screen size in tap coordinates (Android px from window rect, iOS pt, desktop viewport CSS px). */
   screen: Rect;
   nodes: RawNode[];
-  /** Exact page source as returned by the driver (kept for receipts / fixtures). */
+  /** Exact page source as returned by the driver (kept for receipts / fixtures). Desktop: canonical web XML (`observe/web.ts`). */
   rawSource: string;
-  /** PNG bytes when requested. Pixel space may differ from tap space (iOS @3x). */
+  /** PNG bytes when requested. Pixel space may differ from tap space by a uniform scale (iOS @3x, desktop DPR). */
   screenshotPng: Uint8Array | null;
-  /** Foreground app id (Android package / iOS bundleId) when the driver can tell. */
+  /** Foreground app id (Android package / iOS bundleId / desktop browser name) when the driver can tell. */
   foregroundApp: string | null;
+  /**
+   * Web surface only: the page URL as the browser shows it. Desktop: full `location.href`. Mobile: the address-bar
+   * text (often host only, e.g. `localhost:8765`). null for apps or when the browser does not expose it.
+   */
+  pageUrl: string | null;
   keyboardShown: boolean;
   /** iOS: deepest element depth seen; `depthCapped` when it reached the snapshotMaxDepth setting (tree may be truncated). */
   maxDepth: number | null;
@@ -145,25 +158,41 @@ export interface TypeOutcome extends ActionOutcome {
   path: 'setValue' | 'keys' | 'clipboard';
 }
 
-export interface AppTarget {
+interface TargetBase {
   platform: Platform;
-  /** Android package / iOS bundle id. */
+  /** Native: Android package / iOS bundle id. Web: the browser (`com.android.chrome`, `com.apple.mobilesafari`, `chrome`, `safari`). */
   appId: string;
+}
+
+export interface NativeTarget extends TargetBase {
+  kind: 'app';
   /** Optional Android launch activity. */
   activity?: string;
   /** Optional binary for install/reinstall (APK or simulator .app). */
   binaryPath?: string;
 }
 
+export interface WebTarget extends TargetBase {
+  kind: 'web';
+  /** Absolute http(s) start URL. */
+  url: string;
+  /** Allowed origins (`scheme://host[:port]`); navigation elsewhere is blocked or reported. */
+  origins: readonly string[];
+  /** Desktop viewport in CSS px; ignored on devices. */
+  viewport: { width: number; height: number };
+}
+
+export type AppTarget = NativeTarget | WebTarget;
+
 export type ResetMode = 'none' | 'relaunch' | 'clear' | 'reinstall';
 
 export interface DeviceInfo {
   platform: Platform;
-  id: string; // adb serial / simulator UDID
+  id: string; // adb serial / simulator UDID / desktop browser platform id
   name: string;
   osVersion: string;
   state: 'booted' | 'shutdown' | 'offline';
-  kind: 'emulator' | 'simulator' | 'device';
+  kind: 'emulator' | 'simulator' | 'device' | 'browser';
 }
 
 export interface Driver {
@@ -192,8 +221,11 @@ export interface Driver {
   openUrl(app: AppTarget, url: string): Promise<ActionOutcome>;
   setLocation(lat: number, lon: number): Promise<ActionOutcome>;
   foregroundApp(): Promise<string | null>;
-  /** iOS: WDA `hittable` of the element at/around a point; Android: undefined (geometry test is authoritative). */
-  isHittable?(p: Point): Promise<boolean | undefined>;
+  /**
+   * Whether a tap at `p` reaches the element occupying `target` (iOS: WDA `hittable`; desktop: `elementFromPoint`
+   * lands in an element whose box is `target`). undefined = the driver cannot tell (geometry is authoritative).
+   */
+  isHittable?(p: Point, target: Rect | null): Promise<boolean | undefined>;
   /**
    * Start collecting device logs for the app; slice returns text between two ISO timestamps. Every line passes
    * `sanitize` before it touches disk (the runner's evidence sanitizer) — raw device output is never stored.
@@ -261,7 +293,9 @@ export interface HealthFinding {
     | 'rn_logbox_error'
     | 'rn_logbox_warning'
     | 'flutter_error'
-    | 'blank_screen';
+    | 'blank_screen'
+    | 'origin_mismatch'
+    | 'page_load_error';
   severity: 'fail' | 'warn';
   evidence: string;
 }
