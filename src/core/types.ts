@@ -216,7 +216,11 @@ export interface Driver {
   hideKeyboard(): Promise<ActionOutcome>;
   launch(app: AppTarget, opts?: { permissions?: Record<string, 'allow' | 'deny' | 'unset'>; arguments?: string[] }): Promise<ActionOutcome>;
   terminate(app: AppTarget): Promise<ActionOutcome>;
-  /** clear on iOS also runs `simctl keychain <udid> reset` (device-wide). */
+  /**
+   * clear: iOS apps are reinstalled from the backup and the device-wide keychain is reset (`simctl keychain <udid> reset`);
+   * an iOS web target wipes Safari website data only (no keychain reset); Android Chrome = `pm clear` + re-preparation;
+   * desktop = a new session (fresh browser profile).
+   */
   reset(app: AppTarget, mode: ResetMode): Promise<ActionOutcome>;
   openUrl(app: AppTarget, url: string): Promise<ActionOutcome>;
   setLocation(lat: number, lon: number): Promise<ActionOutcome>;
