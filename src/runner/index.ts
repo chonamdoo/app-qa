@@ -7,7 +7,7 @@ import type { EventSink } from '../core/events.ts';
 import { newRunId, sha256, writeJson, writeSecure } from '../core/fsx.ts';
 import { PLATFORM_INFO, PLATFORMS } from '../core/platform.ts';
 import type { DeviceInfo, Driver, Platform, ScreenModel, Verdict, WebTarget } from '../core/types.ts';
-import { acquireDeviceLock, createDriver, pickDevice } from '../drivers/index.ts';
+import { acquireDeviceLock, createDriver, failureStatus, pickDevice } from '../drivers/index.ts';
 import { JevClient } from '../jev/client.ts';
 import { loadJevConfig } from '../jev/config.ts';
 import { loadCalibration } from '../jev/gates.ts';
@@ -177,6 +177,23 @@ interface Slot {
   problem: { code: string; reason: string } | null;
 }
 
+/** Releases the slot's device lock at most once: after the slot ran, and again in the run's cleanup for slots that never did. */
+function releaseSlot(slot: Slot): void {
+  const lock = slot.lock;
+  slot.lock = null;
+  lock?.release();
+}
+
+/**
+ * Slots that run one after another. Desktop browsers share one lane (one display, pointer and keyboard focus);
+ * `displayUnknown` is set once a browser window may have been left on that display, and nothing more runs there.
+ */
+interface Lane {
+  desktop: boolean;
+  slots: Slot[];
+  displayUnknown: string | null;
+}
+
 /** Picks and locks one device per platform; failures become a per-platform problem (tests there ERROR). */
 async function claimDevices(d: RunnerDeps, platforms: readonly Platform[], ids: Partial<Record<Platform, string>> | undefined): Promise<Map<Platform, Slot>> {
   const slots = new Map<Platform, Slot>();
@@ -289,44 +306,56 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
     requested.filter((p) => planned.some((x) => x.platform === p)),
     opts.deviceIds,
   );
-  const jev = d.jev();
-  store.emit({
-    type: 'run.started',
-    runId,
-    runDir: store.runDir,
-    tests: loaded.tests.map((t) => TestSession.announce(t, planned.filter((x) => x.test === t).map((x) => x.platform))),
-    devices: [...slots.values()].flatMap((s) => (s.device ? [{ platform: s.platform, id: s.device.id, name: s.device.name }] : [])),
-  });
-  if (!d.ocr) store.emit({ type: 'log', level: 'warn', source: 'runner', message: 'OCR 도우미가 없어 OCR 없이 실행합니다 (qa setup으로 설치)' });
-  for (const r of early) {
-    store.emit({ type: 'test.finished', runId, testId: r.id, platform: r.platform, verdict: r.verdict, reason: r.reason, durationMs: 0 });
-  }
-
-  const runSlot = async (slot: Slot): Promise<TestResult[]> => {
-    const mine = planned.filter((x) => x.platform === slot.platform);
-    const out: TestResult[] = [];
-    const skip = (test: LoadedTest, verdict: Verdict, code: string, reason: string) => {
-      const base = { id: test.id, name: test.spec.name, file: posixRel(d.root, test.file), app: test.spec.app, test };
-      const r = unrunResult(base, slot.platform, verdict, code, reason, slot.device, new EvidenceSanitizer(test.profile.redact));
-      store.emit({ type: 'test.finished', runId, testId: r.id, platform: r.platform, verdict, reason: r.reason, durationMs: 0 });
-      out.push(r);
-    };
-    if (slot.problem || !slot.device) {
-      for (const { test } of mine) skip(test, 'ERROR', slot.problem?.code ?? 'no_device', slot.problem?.reason ?? '기기 없음');
-      return out;
+  const results: TestResult[] = [];
+  try {
+    const jev = d.jev();
+    store.emit({
+      type: 'run.started',
+      runId,
+      runDir: store.runDir,
+      tests: loaded.tests.map((t) => TestSession.announce(t, planned.filter((x) => x.test === t).map((x) => x.platform))),
+      devices: [...slots.values()].flatMap((s) => (s.device ? [{ platform: s.platform, id: s.device.id, name: s.device.name }] : [])),
+    });
+    if (!d.ocr) store.emit({ type: 'log', level: 'warn', source: 'runner', message: 'OCR 도우미가 없어 OCR 없이 실행합니다 (qa setup으로 설치)' });
+    for (const r of early) {
+      store.emit({ type: 'test.finished', runId, testId: r.id, platform: r.platform, verdict: r.verdict, reason: r.reason, durationMs: 0 });
     }
-    const device = slot.device;
-    const driver = d.createDriver(slot.platform, device.id);
-    try {
+
+    const runSlot = async (slot: Slot, lane: Lane): Promise<TestResult[]> => {
+      const mine = planned.filter((x) => x.platform === slot.platform);
+      const out: TestResult[] = [];
+      const skip = (test: LoadedTest, verdict: Verdict, code: string, reason: string) => {
+        const base = { id: test.id, name: test.spec.name, file: posixRel(d.root, test.file), app: test.spec.app, test };
+        const r = unrunResult(base, slot.platform, verdict, code, reason, slot.device, new EvidenceSanitizer(test.profile.redact));
+        store.emit({ type: 'test.finished', runId, testId: r.id, platform: r.platform, verdict, reason: r.reason, durationMs: 0 });
+        out.push(r);
+      };
+      // A browser window of this lane may still be on the display: its input and focus would reach the wrong window.
+      const loseDisplay = (clean: EvidenceSanitizer, what: string, err: unknown) => {
+        lane.displayUnknown = clean.text(`데스크톱 화면 상태를 알 수 없어 남은 브라우저 테스트를 실행하지 않음: ${PLATFORM_INFO[slot.platform].label} ${what} (${message(err)})`);
+        store.emit({ type: 'log', level: 'error', source: 'runner', message: lane.displayUnknown });
+      };
+      if (slot.problem || !slot.device) {
+        for (const { test } of mine) skip(test, 'ERROR', slot.problem?.code ?? 'no_device', slot.problem?.reason ?? '기기 없음');
+        return out;
+      }
+      const device = slot.device;
+      const driver = d.createDriver(slot.platform, device.id);
       // One session per app: capabilities are app-specific.
       const apps = [...new Set(mine.map((x) => x.test.spec.app))];
       for (const app of apps) {
         const group = mine.filter((x) => x.test.spec.app === app);
-        const target = appTarget(group[0]!.test.profile, slot.platform)!;
+        if (lane.displayUnknown !== null) {
+          for (const { test } of group) skip(test, 'ERROR', 'display_unknown', lane.displayUnknown);
+          continue;
+        }
+        const profile = group[0]!.test.profile;
+        const target = appTarget(profile, slot.platform)!;
         try {
           await driver.open(target);
         } catch (err) {
           for (const { test } of group) skip(test, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`);
+          if (lane.desktop && failureStatus(err) !== 'rejected') loseDisplay(new EvidenceSanitizer(profile.redact), '세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음', err);
           continue;
         }
         try {
@@ -344,30 +373,46 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
             out.push(await session.run());
           }
         } finally {
-          await driver.close().catch(() => undefined);
+          try {
+            await driver.close();
+          } catch (err) {
+            // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
+            if (lane.desktop) loseDisplay(new EvidenceSanitizer(profile.redact), '세션 종료를 확인하지 못함', err);
+          }
         }
       }
-    } finally {
-      slot.lock?.release();
-    }
-    return out;
-  };
-  // Desktop browsers share this Mac's display, pointer and keyboard focus, so they run one after another (measured:
-  // Safari's clicks had no effect while a Chrome window was in front of it); devices run in parallel.
-  const lanes = new Map<string, Slot[]>();
-  for (const slot of slots.values()) {
-    const lane = PLATFORM_INFO[slot.platform].host === 'desktop' ? 'desktop' : slot.platform;
-    lanes.set(lane, [...(lanes.get(lane) ?? []), slot]);
-  }
-  const perLane = await Promise.all(
-    [...lanes.values()].map(async (lane) => {
-      const out: TestResult[] = [];
-      for (const slot of lane) out.push(...(await runSlot(slot)));
       return out;
-    }),
-  );
+    };
+    // Desktop browsers share this Mac's display, pointer and keyboard focus, so they run one after another (measured:
+    // Safari's clicks had no effect while a Chrome window was in front of it); devices run in parallel.
+    const lanes = new Map<string, Lane>();
+    for (const slot of slots.values()) {
+      const desktop = PLATFORM_INFO[slot.platform].host === 'desktop';
+      const key = desktop ? 'desktop' : slot.platform;
+      const lane = lanes.get(key) ?? { desktop, slots: [], displayUnknown: null };
+      lane.slots.push(slot);
+      lanes.set(key, lane);
+    }
+    // Every lane settles before the locks are released: a lane that throws does not free a device another lane still uses.
+    const settled = await Promise.allSettled(
+      [...lanes.values()].map(async (lane) => {
+        const out: TestResult[] = [];
+        for (const slot of lane.slots) {
+          out.push(...(await runSlot(slot, lane)));
+          releaseSlot(slot);
+        }
+        return out;
+      }),
+    );
+    for (const lane of settled) {
+      if (lane.status === 'rejected') throw lane.reason;
+      results.push(...lane.value);
+    }
+  } finally {
+    for (const slot of slots.values()) releaseSlot(slot);
+  }
 
-  const byKey = new Map(perLane.flat().map((r) => [`${r.id} ${r.platform}`, r]));
+  const byKey = new Map(results.map((r) => [`${r.id} ${r.platform}`, r]));
   const ordered: TestResult[] = [];
   for (const test of loaded.tests) for (const p of requested) {
     const r = byKey.get(`${test.id} ${p}`);

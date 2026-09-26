@@ -6,6 +6,7 @@ import { PATHS } from '../../src/core/config.ts';
 import type { Candidate, Rect, ScreenModel } from '../../src/core/types.ts';
 import { loadFixtureModel } from '../../src/jev/calibrate.ts';
 import { buildScreenModel, parseWebSource, webSourceFromExtract } from '../../src/observe/index.ts';
+import { runExtract } from './_dom.ts';
 import { loadModel, loadSnapshot, snapshotOf } from './_fixtures.ts';
 
 type ExtractNode = {
@@ -104,6 +105,30 @@ describe('webSourceFromExtract', () => {
     assert.equal(src.pageUrl, 'http://localhost/');
     assert.equal(src.truncated, true);
     assert.match(src.xml, /<web [^>]*truncated="true"/);
+  });
+});
+
+describe('WEB_EXTRACT_SCRIPT (laid-out page, no browser)', () => {
+  it('text directly under <body> or inside a skipped wrapper is a visible text line; hidden text is not', () => {
+    const message = '정말 삭제하시겠습니까? 되돌릴 수 없습니다.';
+    const extract = runExtract(
+      {
+        tag: 'body',
+        box: [0, 0, 1280, 800],
+        children: [
+          { text: message, box: [20, 20, 277, 19] },
+          { tag: 'button', box: [20, 39, 39, 22], children: [{ text: '취소', box: [26, 42, 27, 16] }] },
+          { tag: 'button', box: [63, 39, 39, 22], children: [{ text: '삭제', box: [69, 42, 27, 16] }] },
+          { tag: 'span', box: [0, 0, 0, 0], style: { display: 'contents' }, children: [{ text: '래퍼 안 문장', box: [146, 40, 78, 19] }] },
+          { tag: 'div', box: [20, 70, 200, 19], style: { visibility: 'hidden' }, children: [{ text: '숨은 문장', box: [20, 70, 60, 19] }] },
+          { text: '화면 밖 문장', box: [20, 900, 90, 19] },
+        ],
+      },
+      { width: 1280, height: 800 },
+    );
+    const m = webModel(extract as Extract);
+    assert.deepEqual(m.texts, [message, '취소', '삭제', '래퍼 안 문장']);
+    one(m, '삭제');
   });
 });
 

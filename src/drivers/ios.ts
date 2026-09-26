@@ -256,18 +256,21 @@ export class IosDriver extends AppiumDriver {
   /**
    * WDA `hittable` of the element a tap at `p` is meant for. With a target box: the last element (document order) whose
    * frame is exactly that box — measured on Safari, the last element merely containing the point is a full-screen,
-   * non-hittable browser container, so the point query answers for the wrong element there. Without a box (OCR
-   * candidates), or when no element has that frame: the last element whose frame contains the point. XPath because WDA
-   * predicates cannot do the `x + width` arithmetic. Undefined when no element is found.
+   * non-hittable browser container, so the point query answers for the wrong element there. No element with that frame
+   * means the target moved or disappeared: false (never another element's answer). Without a box (OCR candidates): the
+   * last element whose frame contains the point, undefined when there is none. XPath because WDA predicates cannot do
+   * the `x + width` arithmetic.
    */
   async isHittable(p: Point, target: Rect | null): Promise<boolean | undefined> {
+    if (target) {
+      const exact = `(//*[@x = ${Math.round(target.x)} and @y = ${Math.round(target.y)} and @width = ${Math.round(target.width)} and @height = ${Math.round(target.height)}])[last()]`;
+      const id = await this.api.findElement({ using: 'xpath', value: exact });
+      return id !== null && (await this.api.elementAttribute(id, 'hittable')) === 'true';
+    }
     const x = Math.round(p.x);
     const y = Math.round(p.y);
     const containing = `(//*[not(self::XCUIElementTypeApplication or self::XCUIElementTypeWindow) and @x <= ${x} and @y <= ${y} and @x + @width >= ${x} and @y + @height >= ${y}])[last()]`;
-    const exact = target
-      ? `(//*[@x = ${Math.round(target.x)} and @y = ${Math.round(target.y)} and @width = ${Math.round(target.width)} and @height = ${Math.round(target.height)}])[last()]`
-      : null;
-    const id = (exact && (await this.api.findElement({ using: 'xpath', value: exact }))) || (await this.api.findElement({ using: 'xpath', value: containing }));
+    const id = await this.api.findElement({ using: 'xpath', value: containing });
     if (!id) return undefined;
     return (await this.api.elementAttribute(id, 'hittable')) === 'true';
   }

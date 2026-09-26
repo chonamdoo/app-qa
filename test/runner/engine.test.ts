@@ -182,6 +182,8 @@ describe('deterministic assertions', () => {
       'negation without operand': '{ "!": [] }',
       'in with one operand': '{ in: [ { var: wait } ] }',
       'empty comparison behind a true branch': '{ or: [ { "<": [ { var: wait }, 100 ] }, { "===": [] } ] }',
+      // `%` of one operand is NaN on every line, and `NaN != 0` is true.
+      'modulo without its divisor': '{ "!=": [ { "%": [ { var: wait } ] }, 0 ] }',
       'constant comparison reading no group': '{ "==": [ 1, 1 ] }',
       'var naming no group of the pattern': '{ "<": [ { var: minutes }, 100 ] }',
       'empty var name': '{ "<": [ { var: "" }, 100 ] }',

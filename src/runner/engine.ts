@@ -639,13 +639,8 @@ export class TestSession {
       );
       if (typed.error?.startsWith('INPUT_UNVERIFIED')) throw new StepAbort('FAIL', 'input_unverified', `입력 확인 실패: ${typed.error}`);
       let settleFrom = t.obs;
-      if (step.submit) {
-        // Typing may change the screen: Enter is approved on the observation after typing, and its effect is measured
-        // against that observation (pixels included) — an Enter that changes nothing is no_effect unless expectNoChange.
-        const enter = approved(await this.preparer.focused(ctx, step.allowRisky ?? false));
-        settleFrom = { ...enter.obs, png: await this.env.driver.screenshot() };
-        await this.act(ctx, 'press', { text: 'enter' }, () => this.env.driver.press('enter'));
-      }
+      // Typing may change the screen: Enter is approved on the observation after typing.
+      if (step.submit) settleFrom = await this.pressEnter(ctx, step.allowRisky ?? false);
       await this.settle(ctx, settleFrom, step.submit === true && !step.expectNoChange, timeout);
       return PASS(`"${t.candidate.name}"에 입력 확인 (${typed.path})${step.submit ? ' 후 Enter' : ''}`);
     }
@@ -660,9 +655,10 @@ export class TestSession {
     }
     if ('press' in step) {
       // Enter submits the focused form or dialog; back/tab/escape/delete only navigate or edit.
-      if (step.press === 'enter') approved(await this.preparer.focused(ctx, step.allowRisky ?? false));
-      await this.act(ctx, 'press', { text: step.press }, () => this.env.driver.press(step.press));
-      await this.settle(ctx, obs, !step.expectNoChange, timeout);
+      let settleFrom = obs;
+      if (step.press === 'enter') settleFrom = await this.pressEnter(ctx, step.allowRisky ?? false);
+      else await this.act(ctx, 'press', { text: step.press }, () => this.env.driver.press(step.press));
+      await this.settle(ctx, settleFrom, !step.expectNoChange, timeout);
       return PASS(`${step.press} 키 누름`);
     }
     if ('hideKeyboard' in step) {
@@ -976,6 +972,18 @@ export class TestSession {
     }
     if (out.status === 'rejected') throw onRejected ? new StepAbort(onRejected.verdict, onRejected.code, `${onRejected.reason}: ${out.error ?? ''}`) : new StepAbort('ERROR', 'action_rejected', `행동 거부됨(${kind}): ${out.error ?? ''}`);
     return out;
+  }
+
+  /**
+   * Presses Enter (`press: enter`, `type.submit`) approved on a fresh observation of the focused field. Returns the settle
+   * baseline: the observation after the commit check plus a screenshot taken then, so a change while Jev answered is not
+   * the Enter's effect (an Enter that changes nothing after it is no_effect unless expectNoChange).
+   */
+  private async pressEnter(ctx: StepCtx, allowRisky: boolean): Promise<Obs> {
+    const enter = approved(await this.preparer.focused(ctx, allowRisky));
+    const baseline = { ...enter.obs, png: await this.env.driver.screenshot() };
+    await this.act(ctx, 'press', { text: 'enter' }, () => this.env.driver.press('enter'));
+    return baseline;
   }
 
   /**

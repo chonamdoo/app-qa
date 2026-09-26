@@ -147,17 +147,31 @@ export class DesktopWebDriver implements Driver {
     };
   }
 
-  /** New browser session (fresh profile) sized to the target viewport. */
+  /**
+   * New browser session (fresh profile) sized to the target viewport. `rejected` (RefusedError) only when no browser
+   * window can remain: Appium did not start (no session request was sent), safaridriver refused remote automation, or
+   * the viewport could not be fitted and the session end was confirmed. A failed or timed-out session request is
+   * `uncertain`: the browser may have opened a window on the shared display (Appium also answers `session not created`
+   * for driver failures after the browser started).
+   */
   async #startSession(target: WebTarget): Promise<void> {
-    const client = new AppiumClient(this.#opts.serverUrl ?? (await ensureAppium()).url);
+    const t0 = performance.now();
+    let url: string;
     try {
-      await client.createSession(this.#capabilities());
+      url = this.#opts.serverUrl ?? (await ensureAppium()).url;
+    } catch (err) {
+      throw new RefusedError((err as Error).message);
+    }
+    const client = new AppiumClient(url);
+    const capabilities = this.#capabilities();
+    try {
+      await client.createSession(capabilities);
     } catch (err) {
       const message = (err as Error).message;
       if (this.platform === 'desktop-safari' && SAFARI_AUTOMATION_OFF.test(message)) {
         throw new RefusedError(`Safari 원격 자동화가 허용되지 않아 세션을 만들 수 없습니다. ${SAFARI_AUTOMATION_HINT}. (safaridriver: ${message.slice(0, 300)})`);
       }
-      throw err;
+      throw new StepError({ status: 'uncertain', ms: elapsed(t0), error: `브라우저 세션을 만들지 못했습니다(창이 남았을 수 있음): ${message}` });
     }
     this.#client = client;
     this.#target = target;
@@ -165,7 +179,7 @@ export class DesktopWebDriver implements Driver {
       await this.#fitViewport(client, target.viewport);
     } catch (err) {
       await this.#endSession();
-      throw err;
+      throw new RefusedError((err as Error).message);
     }
     if (this.#logFile) this.#logTimer ??= setInterval(() => void this.#drainLogs().catch(() => undefined), LOG_POLL_MS).unref();
   }
@@ -225,11 +239,17 @@ export class DesktopWebDriver implements Driver {
     await this.#startSession(target);
   }
 
-  /** Best-effort: `close` reports nothing, so an unconfirmed DELETE is dropped here (the server's `newCommandTimeout` ends the session); `terminate` reports it. */
+  /**
+   * Ends the session and drops local state (log file, sanitizers, log timer) whatever the outcome; an unconfirmed
+   * DELETE is rethrown as the `uncertain` StepError: the window may still be on the shared display.
+   */
   async close(): Promise<void> {
-    await this.#endSession().catch(() => undefined);
-    this.#logFile = null;
-    this.#sanitizers.clear();
+    try {
+      await this.#endSession();
+    } finally {
+      this.#logFile = null;
+      this.#sanitizers.clear();
+    }
   }
 
   async snapshot(opts: { screenshot?: boolean } = {}): Promise<Snapshot> {

@@ -230,6 +230,26 @@ describe('press: enter and type.submit go through the policy', () => {
     assert.equal(unchecked.called('press').length, 0);
   });
 
+  it('press: enter whose Enter changes nothing is INCONCLUSIVE no_effect, measured from the screen after the commit check', async () => {
+    // A departure row changes while Jev answers (unrelated to the field: the approval holds); the Enter itself changes
+    // nothing. Measured from the step start, that change would count as the Enter's effect.
+    const run = async (extra: string) => {
+      const driver = new FakeDriver(search());
+      const jev = jevStub(() => {
+        driver.screen = search([['9G401 · ', '9G402 · ']]);
+        return noul(0.02);
+      });
+      const { result } = await runYaml({ 'tests/e.e2e.yaml': spec(`  - press: enter\n${extra}`) }, driver, { jev: jev.setup });
+      assert.deepEqual(driver.called('press').map((c) => c.args[0]), ['enter']);
+      return result.tests[0]!;
+    };
+    const inert = await run('');
+    assert.equal(inert.verdict, 'INCONCLUSIVE', inert.reason);
+    assert.equal(inert.code, 'no_effect');
+    const allowed = await run('    expectNoChange: true\n');
+    assert.equal(allowed.verdict, 'PASS', allowed.reason);
+  });
+
   it('a line break in typed text is a submission: blocked_by_policy before any driver call, typed only with allowRisky', async () => {
     const VAR = 'QA_PREPARE_MULTILINE';
     process.env[VAR] = 'first\nsecond';

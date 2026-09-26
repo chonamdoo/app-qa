@@ -7,6 +7,7 @@ import { describe, it } from 'node:test';
 import { W3C_KEYS } from '../../src/appium/client.ts';
 import { PATHS } from '../../src/core/config.ts';
 import type { DeviceInfo, WebTarget } from '../../src/core/types.ts';
+import { failureStatus } from '../../src/drivers/base.ts';
 import { chooseDevice } from '../../src/drivers/devices.ts';
 import { DesktopWebDriver } from '../../src/drivers/desktop.ts';
 import type { Reply, StubRequest } from './stubs.ts';
@@ -41,14 +42,32 @@ describe('open', () => {
     });
   });
 
-  it('fails and ends the session when the screen cannot fit the viewport', async () => {
+  it('fails and ends the session when the screen cannot fit the viewport: refused, the window is confirmed gone', async () => {
     const stub = await startW3CStub({ maxWindow: { width: 1440, height: 850 } });
     const driver = new DesktopWebDriver('desktop-chrome', 'desktop-chrome', { serverUrl: stub.url });
     try {
-      await assert.rejects(driver.open(CHROME), /뷰포트를 1280×800로 맞추지 못했습니다 \(현재 1280×763\)/);
+      await assert.rejects(driver.open(CHROME), (err: Error) => /뷰포트를 1280×800로 맞추지 못했습니다 \(현재 1280×763\)/.test(err.message) && failureStatus(err) === 'rejected');
       assert.ok(stub.requests.some((r) => r.method === 'DELETE' && r.path === '/session/s1'));
     } finally {
       stub.close();
+    }
+  });
+
+  it('a failed session request is uncertain (a window may exist), and so is an unconfirmed end after an unfitted viewport', async () => {
+    const answers: Record<string, (req: StubRequest) => Reply | undefined> = {
+      'dropped connection': (req) => (req.method === 'POST' && req.path === '/session' ? 'destroy' : undefined),
+      'session not created after launch': (req) => (req.method === 'POST' && req.path === '/session' ? { status: 500, body: { value: { error: 'session not created', message: 'chrome not reachable' } } } : undefined),
+      'unfitted viewport, DELETE lost': (req) => (req.method === 'DELETE' ? 'destroy' : undefined),
+    };
+    for (const [name, override] of Object.entries(answers)) {
+      const stub = await startW3CStub({ maxWindow: { width: 1440, height: 850 } }, override);
+      try {
+        const driver = new DesktopWebDriver('desktop-chrome', 'desktop-chrome', { serverUrl: stub.url });
+        await assert.rejects(driver.open(CHROME), (err: Error) => failureStatus(err) === 'uncertain', name);
+        assert.equal((await driver.launch(CHROME)).status, 'uncertain', name);
+      } finally {
+        stub.close();
+      }
     }
   });
 
@@ -353,6 +372,22 @@ describe('ending the browser session', () => {
         assert.equal(stub.requests.filter((r) => r.method === 'POST' && r.path === '/session').length, 1, `${name}: no second session`);
         assert.equal(posted(stub, '/url').length, 0, name);
       }, (req) => (req.method === 'DELETE' ? reply : undefined));
+    }
+  });
+
+  it('close reports an unconfirmed DELETE as uncertain after dropping the session locally', async () => {
+    for (const [name, reply] of Object.entries(DELETE_FAILURES)) {
+      const stub = await startW3CStub({}, (req) => (req.method === 'DELETE' ? reply : undefined));
+      try {
+        const driver = new DesktopWebDriver('desktop-chrome', 'desktop-chrome', { serverUrl: stub.url });
+        await driver.open(CHROME);
+        await assert.rejects(driver.close(), (err: Error) => failureStatus(err) === 'uncertain' && /세션 종료를 확인하지 못했습니다/.test(err.message), name);
+        // The session is dropped locally: a second close sends nothing and reports nothing.
+        await driver.close();
+        assert.equal(deletes(stub), 1, name);
+      } finally {
+        stub.close();
+      }
     }
   });
 

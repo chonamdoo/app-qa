@@ -5,60 +5,54 @@
 // anything; every such case is an ERROR instead.
 import jsonLogic from 'json-logic-js';
 
-/** json-logic-js 2.0.5 operators. `log` is left out: it prints group values to stdout, around the evidence sanitizer. */
-const OPERATORS: Record<string, true> = {
-  '==': true,
-  '===': true,
-  '!=': true,
-  '!==': true,
-  '>': true,
-  '>=': true,
-  '<': true,
-  '<=': true,
-  '!!': true,
-  '!': true,
-  '%': true,
-  in: true,
-  cat: true,
-  substr: true,
-  '+': true,
-  '*': true,
-  '-': true,
-  '/': true,
-  min: true,
-  max: true,
-  merge: true,
-  var: true,
-  missing: true,
-  missing_some: true,
-  if: true,
-  '?:': true,
-  and: true,
-  or: true,
-  filter: true,
-  map: true,
-  reduce: true,
-  all: true,
-  none: true,
-  some: true,
-};
-
-/** Operand count [min, max] a comparison or logic operator needs to test anything (`<`/`<=` take 3 for between). */
-const ARITY: Record<string, readonly [number, number]> = {
+/**
+ * json-logic-js 2.0.5 operators a rule may use, each with the operand count [min, max] it needs to compute anything: the
+ * library reads a missing operand as `undefined` (`{"%":[n]}` is NaN, and `NaN != 0` is true) and ignores extra ones.
+ * The allow list is this table, so no allowed operator goes unchecked. `log` is left out: it prints group values to
+ * stdout, around the evidence sanitizer.
+ */
+const OPERATORS: Record<string, readonly [number, number]> = {
   '==': [2, 2],
   '===': [2, 2],
   '!=': [2, 2],
   '!==': [2, 2],
   '>': [2, 2],
   '>=': [2, 2],
+  // A third operand makes a between check.
   '<': [2, 3],
   '<=': [2, 3],
+  '!!': [1, 1],
+  '!': [1, 1],
+  '%': [2, 2],
+  in: [2, 2],
+  cat: [1, Infinity],
+  // source, start, optional length.
+  substr: [2, 3],
+  '+': [2, Infinity],
+  '*': [2, Infinity],
+  // One operand negates.
+  '-': [1, 2],
+  '/': [2, 2],
+  min: [1, Infinity],
+  max: [1, Infinity],
+  merge: [1, Infinity],
+  // No default: a missing group must not turn into a value the rule accepts.
+  var: [1, 1],
+  missing: [1, Infinity],
+  // need count, keys.
+  missing_some: [2, 2],
+  // condition, then, else; more pairs chain else-ifs.
+  if: [3, Infinity],
+  '?:': [3, 3],
   and: [1, Infinity],
   or: [1, Infinity],
-  '!': [1, 1],
-  '!!': [1, 1],
-  in: [2, 2],
-  var: [1, 1],
+  // array, logic applied to each item (reduce: optional initial value).
+  filter: [2, 2],
+  map: [2, 2],
+  reduce: [2, 3],
+  all: [2, 2],
+  none: [2, 2],
+  some: [2, 2],
 };
 
 function operandProblem(value: unknown, groups: ReadonlySet<string>, read: Set<string>, path: string): string | null {
@@ -80,12 +74,10 @@ function operatorProblem(rule: unknown, groups: ReadonlySet<string>, read: Set<s
   if (!Object.hasOwn(OPERATORS, op)) return `${path}: 알 수 없는 JSONLogic 연산자 "${op}"`;
   // json-logic-js passes a non-array operand as the single operand.
   const operands: unknown[] = Array.isArray(operand) ? operand : [operand];
-  if (Object.hasOwn(ARITY, op)) {
-    const [min, max] = ARITY[op]!;
-    if (operands.length < min || operands.length > max) {
-      const need = min === max ? `${min}개` : max === Infinity ? `${min}개 이상` : `${min}~${max}개`;
-      return `${path}.${op}: 피연산자 ${operands.length}개 (필요: ${need})`;
-    }
+  const [min, max] = OPERATORS[op]!;
+  if (operands.length < min || operands.length > max) {
+    const need = min === max ? `${min}개` : max === Infinity ? `${min}개 이상` : `${min}~${max}개`;
+    return `${path}.${op}: 피연산자 ${operands.length}개 (필요: ${need})`;
   }
   if (op === 'var') {
     const name = operands[0];

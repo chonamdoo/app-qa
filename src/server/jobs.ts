@@ -33,8 +33,13 @@ export type SmokeParams = z.infer<typeof SmokeParams>;
 
 export const PlanParams = z.strictObject({
   app: z.string().min(1),
-  /** Document paths (uploads or local files); empty = app profile `docs`. */
+  /** Documents; empty = app profile `docs`. The server replaces them with the exact files resolved at enqueue. */
   docs: z.array(z.string().min(1)).default([]),
+  /**
+   * Set by the server with `docs` (a client value is dropped): realpaths each document must still lie inside when the
+   * planner reads it.
+   */
+  docRoots: z.array(z.string().min(1)).optional(),
   /** Scenario typed in the UI (virtual document `inline.md`). */
   text: z.string().min(1).optional(),
   llm: z.enum(['claude-cli', 'codex-cli']).optional(),

@@ -44,6 +44,8 @@ export interface GeneratePlanOptions {
   app: string;
   /** Paths, globs or directories; empty = the app profile's `docs` (unless `text` is given). */
   docs: string[];
+  /** Set with `docs` by a server plan job: `docs` are exact files, each re-confined to these realpaths when read. */
+  docRoots?: string[];
   /** Scenario typed in the UI / `--text` (virtual document `inline.md`). */
   text?: string;
   llm?: LlmProvider;
@@ -110,7 +112,7 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
     for (const r of previous?.requirements ?? []) reservedSlugs.set(r.doc, r.id.slice(0, r.id.indexOf('#')));
 
     progress('ingest', `문서 ${sources.length + (hasText ? 1 : 0)}개 읽는 중`);
-    const docs = await ingestDocuments(sources, { text: opts.text, cwd: opts.cwd, reservedSlugs });
+    const docs = await ingestDocuments(sources, { text: opts.text, cwd: opts.cwd, reservedSlugs, confinedTo: opts.docs.length ? opts.docRoots : undefined });
     progress('ingest', `문서 ${docs.length}개: ${docs.map((d) => d.path).join(', ')}`);
     const requirements = segmentRequirements(docs);
     if (!requirements.length) throw new Error('문서에서 요구사항을 찾지 못했습니다');

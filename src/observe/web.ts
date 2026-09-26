@@ -53,11 +53,13 @@ export const WEB_NODE_CAP = 3000;
  * `parent` = index of the nearest emitted ancestor (-1 for the root `document` node = the viewport), rects in
  * viewport-relative CSS px, and `flags` = names of the true flags. Only nodes that intersect the viewport are emitted;
  * hidden subtrees (display:none, `hidden`, aria-hidden, opacity 0) are skipped; visibility:hidden, display:contents and
- * zero-size elements are skipped but their children are still walked. Password fields report bullets × length, never the
- * value. For each interactive or text node, `elementFromPoint` at the centre of its on-screen part finds what a real click
- * would hit; when that is neither the node, inside it, nor an ancestor of it, the covering layer (nearest fixed/sticky
- * ancestor-or-self of the hit that does not contain the node, else the hit element) is flagged `occluder` (and emitted
- * as an `overlay` node when it was filtered out, e.g. an invisible click-catcher).
+ * zero-size elements are skipped but their children are still walked. An emitted element carries its own text; text
+ * whose element is not emitted (directly under `<body>`, in skipped wrappers) becomes a `text` node with the box of the
+ * rendered text. Password fields report bullets × length, never the value. For each interactive or text node,
+ * `elementFromPoint` at the centre of its on-screen part finds what a real click would hit; when that is neither the
+ * node, inside it, nor an ancestor of it, the covering layer (nearest fixed/sticky ancestor-or-self of the hit that does
+ * not contain the node, else the hit element) is flagged `occluder` (and emitted as an `overlay` node when it was
+ * filtered out, e.g. an invisible click-catcher).
  */
 export const WEB_EXTRACT_SCRIPT = String.raw`
 const CAP = ${WEB_NODE_CAP};
@@ -155,6 +157,19 @@ let truncated = false;
 const se = document.scrollingElement || document.documentElement;
 nodes.push({ parent: -1, kind: 'document', name: clean(document.title) || null, text: null, id: null, value: null, hint: null, x: 0, y: 0, w: W, h: H, flags: ['enabled'].concat(se.scrollHeight > H + 1 || se.scrollWidth > W + 1 ? ['scrollable'] : []) });
 indexOf.set(document.body, 0);
+// Text nodes whose own element is not emitted (direct children of <body>, of display:contents / zero-size wrappers,
+// slotted text) become 'text' nodes with the box of their rendered text, so visible prose is never dropped.
+const looseText = (t, parent, cs) => {
+  const text = clean(t.data);
+  if (!text || cs.visibility !== 'visible') return;
+  const range = document.createRange();
+  range.selectNodeContents(t);
+  const r = range.getBoundingClientRect();
+  if (!(r.width > 0 && r.height > 0 && r.right > 0 && r.bottom > 0 && r.left < W && r.top < H)) return;
+  if (nodes.length >= CAP) { truncated = true; return; }
+  elements.push(t);
+  nodes.push({ parent, kind: 'text', name: null, text, id: null, value: null, hint: null, x: r.left, y: r.top, w: r.width, h: r.height, flags: ['enabled'] });
+};
 const walk = (el, parent, parentPointer) => {
   if (SKIP.has(el.tagName) || el.hidden || el.getAttribute('aria-hidden') === 'true') return;
   if (el.tagName === 'INPUT' && el.type === 'hidden') return;
@@ -212,9 +227,16 @@ const walk = (el, parent, parentPointer) => {
     });
     if (leaf) return;
   } else if (LEAF.has(el.tagName)) return;
-  for (const c of flatChildNodes(el)) if (c.nodeType === 1) walk(c, me, pointer);
+  for (const c of flatChildNodes(el)) {
+    if (c.nodeType === 1) walk(c, me, pointer);
+    else if (c.nodeType === 3 && me === parent) looseText(c, me, cs);
+  }
 };
-for (const c of flatChildNodes(document.body)) if (c.nodeType === 1) walk(c, 0, false);
+const bodyStyle = getComputedStyle(document.body);
+for (const c of flatChildNodes(document.body)) {
+  if (c.nodeType === 1) walk(c, 0, false);
+  else if (c.nodeType === 3) looseText(c, 0, bodyStyle);
+}
 
 const layers = new Set();
 for (let i = 1; i < nodes.length; i++) {

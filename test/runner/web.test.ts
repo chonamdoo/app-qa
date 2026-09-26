@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import type { QaEventBody } from '../../src/core/events.ts';
 import type { Platform, Snapshot } from '../../src/core/types.ts';
-import { appTarget, inspectScreen, runTests } from '../../src/runner/index.ts';
+import { RefusedError, StepError } from '../../src/drivers/index.ts';
+import { appTarget, inspectScreen, runTests, type RunnerDeps } from '../../src/runner/index.ts';
 import { AppProfile } from '../../src/spec/schema.ts';
 import { FakeClock, FakeDriver, fixtureSnapshot, hits } from '../helpers/fake-driver.ts';
 import { commitSafe, webCalibration } from '../helpers/jev-stub.ts';
@@ -169,5 +171,94 @@ describe('web targets', () => {
     assert.deepEqual(driver.called('openUrl').map((c) => c.args[1]), ['http://localhost:4173/']);
     assert.match(table, /\| button \| 도움말 \|/);
     assert.match(table, /페이지 http:\/\/localhost:4173\//);
+  });
+});
+
+describe('the desktop lane (every desktop browser on one display)', () => {
+  const drivers = (): Record<Platform, FakeDriver> => {
+    const clock = new FakeClock();
+    return {
+      android: new FakeDriver(fixtureSnapshot('android', 'web-demo', 'index'), clock),
+      ios: new FakeDriver(fixtureSnapshot('ios', 'web-demo', 'index'), clock),
+      'desktop-chrome': new FakeDriver(index(), clock),
+      'desktop-safari': new FakeDriver({ ...index(), platform: 'desktop-safari' }, clock),
+    };
+  };
+  /** A website test and an app test under `all`: the site runs on both desktop browsers (Chrome first), the app and the site on each device. */
+  const runAll = async (d: Record<Platform, FakeDriver>, overrides: Partial<RunnerDeps> = {}) => {
+    const root = tempRoot({
+      'tests/site.e2e.yaml': web('  - assertText: 상품 3개\n'),
+      'tests/app.e2e.yaml': 'name: 앱 테스트\napp: tteonam\nstart: attach\nsteps:\n  - wait: 10\n',
+    });
+    const events: QaEventBody[] = [];
+    const result = await runTests(
+      { paths: [join(root, 'tests')], platform: 'all', events: { emit: (e) => events.push(e) } },
+      {
+        ...fakeDeps(root, d['desktop-chrome']),
+        clock: d.android.clock,
+        createDriver: (platform) => d[platform],
+        pickDevice: async (platform) => ({ platform, id: `${platform}-1`, name: platform, osVersion: '1', state: 'booted', kind: platform.startsWith('desktop') ? 'browser' : 'emulator' }),
+        ...overrides,
+      },
+    );
+    const rows = result.tests.map((t) => `${t.id} ${t.platform} ${t.verdict} ${t.code ?? '-'}`).sort();
+    return { result, rows, events };
+  };
+
+  it('runs no further browser once a session end is unconfirmed; a device session end failure changes nothing', async () => {
+    const d = drivers();
+    d['desktop-chrome'].closeError = new StepError({ status: 'uncertain', ms: 0, error: '브라우저 세션 종료를 확인하지 못했습니다: socket hang up' });
+    d.android.closeError = new Error('device offline');
+    const { result, rows, events } = await runAll(d);
+    assert.deepEqual(rows, [
+      'app android PASS -',
+      'app ios PASS -',
+      'site android PASS -',
+      'site desktop-chrome PASS -',
+      'site desktop-safari ERROR display_unknown',
+      'site ios PASS -',
+    ]);
+    const safari = result.tests.find((t) => t.platform === 'desktop-safari')!;
+    assert.equal(safari.qaStatus, 'BLOCKED');
+    assert.match(safari.reason, /데스크톱 화면 상태를 알 수 없어 .*Chrome \(macOS\) 세션 종료를 확인하지 못함 \(브라우저 세션 종료를 확인하지 못했습니다: socket hang up\)/);
+    assert.equal(d['desktop-safari'].called('open').length, 0, 'Safari never opened a window next to the old one');
+    assert.ok(events.some((e) => e.type === 'log' && e.level === 'error' && e.message === safari.reason));
+  });
+
+  it('runs no further browser after a session start that may have left a window; a refused start does not stop the lane', async () => {
+    const uncertain = drivers();
+    uncertain['desktop-chrome'].openError = new StepError({ status: 'uncertain', ms: 0, error: '세션 생성 시간 초과' });
+    const stopped = await runAll(uncertain);
+    assert.ok(stopped.rows.includes('site desktop-chrome ERROR session_failed'), stopped.rows.join('\n'));
+    assert.ok(stopped.rows.includes('site desktop-safari ERROR display_unknown'), stopped.rows.join('\n'));
+    assert.match(stopped.result.tests.find((t) => t.platform === 'desktop-safari')!.reason, /Chrome \(macOS\) 세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음/);
+    assert.equal(uncertain['desktop-safari'].called('open').length, 0);
+
+    const refused = drivers();
+    refused['desktop-chrome'].openError = new RefusedError('Chrome 실행 파일 없음');
+    const went = await runAll(refused);
+    assert.ok(went.rows.includes('site desktop-chrome ERROR session_failed'), went.rows.join('\n'));
+    assert.ok(went.rows.includes('site desktop-safari PASS -'), went.rows.join('\n'));
+  });
+
+  it('releases every claimed lock once when a desktop slot throws, each only after its own lane finished', async () => {
+    const d = drivers();
+    const boom = new Error('증거 쓰기 실패');
+    const released: string[] = [];
+    await assert.rejects(
+      runAll(d, {
+        createDriver: (platform) => {
+          if (platform === 'desktop-chrome') throw boom;
+          return d[platform];
+        },
+        acquireLock: (id) => {
+          const platform = id.replace(/-1$/, '') as Platform;
+          return { release: () => released.push(`${id} closes=${d[platform].called('close').length}`) };
+        },
+      }),
+      boom,
+    );
+    // Devices ran both apps (two sessions closed) before their locks went; Safari never ran behind the throwing Chrome.
+    assert.deepEqual(released.sort(), ['android-1 closes=2', 'desktop-chrome-1 closes=0', 'desktop-safari-1 closes=0', 'ios-1 closes=2']);
   });
 });

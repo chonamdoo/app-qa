@@ -1,8 +1,8 @@
 // Document ingestion for `qa plan`: resolves paths, globs and directories (with `~`), reads every supported format
 // into markdown text, spreadsheet rows or a JSON tree, and records {path, sha256, kind} for traceability.
-import { globSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { globSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, extname, join, relative, resolve, sep } from 'node:path';
+import { basename, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import ExcelJS from 'exceljs';
 import mammoth from 'mammoth';
 import { extractText, getDocumentProxy } from 'unpdf';
@@ -59,10 +59,16 @@ export interface IngestOptions {
   cwd?: string;
   /** Slugs already used by the existing plan (display path → slug): same path keeps its slug, others are avoided. */
   reservedSlugs?: ReadonlyMap<string, string>;
+  /**
+   * `sources` are the exact files a server plan job resolved and confined when it was queued: they are read as given
+   * (no glob or folder expansion), and each file's realpath must still lie inside one of these realpaths when read.
+   */
+  confinedTo?: readonly string[];
 }
 
 export async function ingestDocuments(sources: readonly string[], opts: IngestOptions = {}): Promise<IngestedDoc[]> {
-  const files = resolveDocPaths(sources, opts.cwd ?? process.cwd());
+  const cwd = opts.cwd ?? process.cwd();
+  const files = opts.confinedTo ? sources.map((source) => resolve(cwd, source)) : resolveDocPaths(sources, cwd);
   const reserved = opts.reservedSlugs ?? new Map<string, string>();
   const used = new Set<string>();
   const assignSlug = (path: string, name: string): string => {
@@ -81,8 +87,9 @@ export async function ingestDocuments(sources: readonly string[], opts: IngestOp
 
   const docs: IngestedDoc[] = [];
   for (const file of files) {
-    const kind = KINDS[extname(file).toLowerCase()]!;
-    const bytes = readFileSync(file);
+    const kind = KINDS[extname(file).toLowerCase()];
+    if (!kind) throw new Error(`지원하지 않는 문서 형식입니다 (${extname(file) || '확장자 없음'}): ${displayPath(file)}`);
+    const bytes = readFileSync(opts.confinedTo ? confinedPath(file, opts.confinedTo) : file);
     const path = displayPath(file);
     let body: DocBody;
     try {
@@ -138,6 +145,22 @@ function resolveDocPaths(sources: readonly string[], cwd: string): string[] {
     add(abs);
   }
   return out;
+}
+
+/** Realpath of a queued document, refused when it no longer lies inside `roots` (e.g. swapped for a link leading out). */
+function confinedPath(file: string, roots: readonly string[]): string {
+  let real: string;
+  try {
+    real = realpathSync(file);
+  } catch {
+    throw new Error(`문서를 찾을 수 없습니다: ${displayPath(file)}`);
+  }
+  const inside = roots.some((root) => {
+    const rel = relative(root, real);
+    return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+  });
+  if (!inside) throw new Error(`문서가 허용된 위치 밖을 가리킵니다 (작업을 등록한 뒤 링크로 바뀐 파일은 읽지 않습니다): ${displayPath(file)}`);
+  return real;
 }
 
 function walk(dir: string): string[] {

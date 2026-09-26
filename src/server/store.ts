@@ -1,7 +1,7 @@
 // Read-only views over the project state the UI browses: runs (.qa/runs), plans (tests/generated), app profiles (apps/).
-import { existsSync, globSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, globSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 import { expandHome } from '../core/config.ts';
@@ -59,12 +59,68 @@ function realpathLoose(path: string): string {
 
 const GLOB_CHARS = /[*?[\]{}]/;
 
+/** Document formats `qa plan` reads (uploads and plan-job documents). */
+export const DOC_EXTENSIONS: Record<string, true> = {
+  '.md': true,
+  '.markdown': true,
+  '.txt': true,
+  '.csv': true,
+  '.tsv': true,
+  '.json': true,
+  '.yaml': true,
+  '.yml': true,
+  '.xlsx': true,
+  '.docx': true,
+  '.pdf': true,
+};
+
+/** Supported files under `dir`, sorted; dot entries, `node_modules` and links are skipped (as `qa plan` walks folders). */
+function walkDocs(dir: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walkDocs(path));
+    else if (entry.isFile() && DOC_EXTENSIONS[extname(path).toLowerCase()]) out.push(path);
+  }
+  return out;
+}
+
+/** One document source (absolute path, glob or folder) → its supported files now. */
+function expandDoc(abs: string, isGlob: boolean, doc: string): string[] {
+  if (isGlob) {
+    const hits = globSync(abs)
+      .map((hit) => resolve(hit))
+      .filter((hit) => DOC_EXTENSIONS[extname(hit).toLowerCase()] && statSync(hit, { throwIfNoEntry: false })?.isFile())
+      .sort();
+    if (!hits.length) throw new PathRejected(`글롭에 맞는 문서가 없습니다: ${doc}`);
+    return hits;
+  }
+  let stat;
+  try {
+    stat = statSync(abs);
+  } catch {
+    throw new PathRejected(`문서를 찾을 수 없습니다: ${doc}`);
+  }
+  if (stat.isDirectory()) {
+    const hits = walkDocs(abs);
+    if (!hits.length) throw new PathRejected(`폴더에 지원하는 문서가 없습니다: ${doc}`);
+    return hits;
+  }
+  if (!DOC_EXTENSIONS[extname(abs).toLowerCase()]) throw new PathRejected(`지원하지 않는 문서 형식입니다: ${doc} — md, txt, csv, tsv, json, yaml, xlsx, docx, pdf`);
+  return [abs];
+}
+
 /**
- * Plan-job document sources → absolute paths/globs (`~` expanded, relative to `root`), each confined to `roots` by
- * realpath (glob base and every current glob hit included). Entries listed verbatim in `allowed` (the app profile's
- * `docs`) pass unchanged. Absolute output keeps the planner independent of the engine's working directory.
+ * Plan-job document sources → the exact files the planner reads, resolved when the job is queued (`~` expanded,
+ * relative to `root`, globs and folders expanded) so the job never globs again. Every file must lie inside `roots` by
+ * realpath, except the files of entries listed verbatim in `allowed` (the app profile's `docs`). `docRoots` are the
+ * realpaths the planner re-checks each file against right before reading it: the roots plus every `allowed` file.
  */
-export function resolvePlanDocs(docs: readonly string[], opts: { root: string; roots: readonly string[]; allowed: readonly string[] }): string[] {
+export function resolvePlanDocs(
+  docs: readonly string[],
+  opts: { root: string; roots: readonly string[]; allowed: readonly string[] },
+): { docs: string[]; docRoots: string[] } {
   const realRoots = opts.roots.map(realpathLoose);
   const inside = (path: string): boolean => {
     const real = realpathLoose(path);
@@ -73,16 +129,23 @@ export function resolvePlanDocs(docs: readonly string[], opts: { root: string; r
       return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
     });
   };
-  return docs.map((doc) => {
-    if (opts.allowed.includes(doc)) return doc;
+  const files = new Set<string>();
+  const trusted: string[] = [];
+  for (const doc of docs) {
+    const allowed = opts.allowed.includes(doc);
+    const outside = () => new PathRejected(`문서 경로가 허용된 위치 밖입니다 (프로젝트, .qa/uploads, 앱 프로필 docs만 가능): ${doc}`);
     const abs = resolve(opts.root, expandHome(doc));
     const segments = abs.split(sep);
     const firstGlob = segments.findIndex((segment) => GLOB_CHARS.test(segment));
-    const confined =
-      firstGlob === -1 ? inside(abs) : inside(segments.slice(0, firstGlob).join(sep) || sep) && globSync(abs).every((hit) => inside(resolve(hit)));
-    if (!confined) throw new PathRejected(`문서 경로가 허용된 위치 밖입니다 (프로젝트, .qa/uploads, 앱 프로필 docs만 가능): ${doc}`);
-    return abs;
-  });
+    // The base is checked before anything is read, so an outside path is refused alike whether or not it exists.
+    if (!allowed && !inside(firstGlob === -1 ? abs : segments.slice(0, firstGlob).join(sep) || sep)) throw outside();
+    for (const file of expandDoc(abs, firstGlob !== -1, doc)) {
+      if (allowed) trusted.push(realpathSync(file));
+      else if (!inside(file)) throw outside();
+      files.add(file);
+    }
+  }
+  return { docs: [...files], docRoots: [...realRoots, ...trusted] };
 }
 
 const EventBase = { seq: z.number().int(), ts: z.string() };

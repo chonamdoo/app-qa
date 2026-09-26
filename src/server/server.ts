@@ -15,7 +15,7 @@ import { loadAppProfile } from '../spec/load.ts';
 import { profilePlatforms, type AppProfile } from '../spec/schema.ts';
 import { JobQueue, JobRequest, type JobHandlers } from './jobs.ts';
 import { SseHub } from './sse.ts';
-import { listAppProfiles, listPlans, listRuns, PathRejected, readPlanView, resolveInside, resolvePlanDocs, runDirFor } from './store.ts';
+import { DOC_EXTENSIONS, listAppProfiles, listPlans, listRuns, PathRejected, readPlanView, resolveInside, resolvePlanDocs, runDirFor } from './store.ts';
 
 export interface ServerHandlers extends JobHandlers {
   devices(): Promise<DeviceInfo[]>;
@@ -80,20 +80,6 @@ const CONTENT_TYPES: Record<string, string> = {
   '.log': 'text/plain; charset=utf-8',
   '.yaml': 'text/yaml; charset=utf-8',
   '.mp4': 'video/mp4',
-};
-
-const UPLOAD_EXTENSIONS: Record<string, true> = {
-  '.md': true,
-  '.markdown': true,
-  '.txt': true,
-  '.csv': true,
-  '.tsv': true,
-  '.json': true,
-  '.yaml': true,
-  '.yml': true,
-  '.xlsx': true,
-  '.docx': true,
-  '.pdf': true,
 };
 
 const MAX_JSON_BYTES = 1024 * 1024;
@@ -193,9 +179,13 @@ export function createServer(opts: ServerOptions): QaServer {
         const parsed = JobRequest.safeParse(await readJson(req));
         if (!parsed.success) throw new HttpError(400, '작업 요청이 올바르지 않습니다', parsed.error.issues);
         const request = parsed.data;
-        if (request.kind === 'plan' && request.params.docs.length) {
-          const profile = (await listAppProfiles(paths.apps)).profiles.find((p) => p.id === request.params.app);
-          request.params.docs = resolvePlanDocs(request.params.docs, { root: paths.root, roots: [paths.root, paths.uploads], allowed: profile?.docs ?? [] });
+        if (request.kind === 'plan') {
+          // `docRoots` belongs to the server: a client value is dropped, and set only for the files resolved here.
+          request.params.docRoots = undefined;
+          if (request.params.docs.length) {
+            const profile = (await listAppProfiles(paths.apps)).profiles.find((p) => p.id === request.params.app);
+            Object.assign(request.params, resolvePlanDocs(request.params.docs, { root: paths.root, roots: [paths.root, paths.uploads], allowed: profile?.docs ?? [] }));
+          }
         }
         sendJson(res, 201, jobs.enqueue(request));
       },
@@ -328,7 +318,7 @@ export function createServer(opts: ServerOptions): QaServer {
         }
         const name = sanitizeFileName(decoded);
         const ext = extname(name).toLowerCase();
-        if (!UPLOAD_EXTENSIONS[ext]) throw new HttpError(415, `지원하지 않는 문서 형식입니다: ${ext || '(확장자 없음)'} — md, txt, csv, tsv, json, yaml, xlsx, docx, pdf`);
+        if (!DOC_EXTENSIONS[ext]) throw new HttpError(415, `지원하지 않는 문서 형식입니다: ${ext || '(확장자 없음)'} — md, txt, csv, tsv, json, yaml, xlsx, docx, pdf`);
         const body = await readBody(req, maxUpload);
         const file = join(paths.uploads, `${randomUUID()}-${name}`);
         writeSecure(file, body);

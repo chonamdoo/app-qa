@@ -10,6 +10,7 @@ export { desktopBrowserChecks } from '../appium/setup.ts';
 export { listApps, type AppInfo } from './apps.ts';
 export { backupApp, findBackup, type BackupResult } from './backup.ts';
 export type { DriverOptions, Key, LaunchOptions, PermissionState } from './base.ts';
+export { failureStatus, RefusedError, StepError } from './base.ts';
 export { androidChromeChecks, iosSafariChecks, prepareAndroidChrome } from './browser-prep.ts';
 export { listDevices, pickDevice } from './devices.ts';
 export { acquireDeviceLock, DeviceLockedError, type DeviceLock } from './lock.ts';

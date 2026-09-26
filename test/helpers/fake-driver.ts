@@ -82,8 +82,10 @@ export class FakeDriver implements Driver {
   typeError: string | null = null;
   /** What `clearText` leaves in the field (non-empty = INPUT_UNVERIFIED quoting it raw, as the real driver does). */
   clearLeft = '';
-  /** Makes `open` (the automation session) fail with this message. */
-  openError: string | null = null;
+  /** Makes `open` (the automation session) fail: a message throws a plain Error (outcome unknown), an Error is thrown as is. */
+  openError: string | Error | null = null;
+  /** Makes `close` fail (e.g. a session end the driver could not confirm). */
+  closeError: Error | null = null;
   logText = '09-26 08:21:00.000  1234  1234 E ReactNativeJS: boom\n';
   crashes: { name: string; content: string }[] = [];
   /** The sanitizer the runner handed to `startLogs`; captured lines pass it, as in the real drivers. */
@@ -111,10 +113,11 @@ export class FakeDriver implements Driver {
 
   async open(app: AppTarget): Promise<void> {
     this.record('open', app);
-    if (this.openError !== null) throw new Error(this.openError);
+    if (this.openError !== null) throw typeof this.openError === 'string' ? new Error(this.openError) : this.openError;
   }
   async close(): Promise<void> {
     this.record('close');
+    if (this.closeError !== null) throw this.closeError;
   }
   async snapshot(opts: { screenshot?: boolean } = {}): Promise<Snapshot> {
     this.record('snapshot', opts.screenshot ?? false);

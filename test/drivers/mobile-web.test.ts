@@ -392,6 +392,36 @@ describe('iOS Safari web targets', () => {
     }
   });
 
+  it("isHittable with a target box answers only for the element with that frame; a missing target is false, never another element's answer", async () => {
+    const target = { x: 20, y: 300, width: 120, height: 44 };
+    const noSuchElement = { status: 404, body: { value: { error: 'no such element', message: 'none' } } };
+    for (const [exact, expected] of [
+      ['true', true],
+      ['false', false],
+      [null, false],
+    ] as const) {
+      stub = await startAppiumStub((req) => {
+        if (req.path === '/session/s1/element') {
+          const xpath = String(req.body?.value);
+          // The point query would find a hittable element: it must never answer for a box target.
+          if (xpath.includes('@x <=')) return { body: { value: { [W3C_ELEMENT_KEY]: 'P1' } } };
+          if (xpath.includes('@x = 20 and @y = 300 and @width = 120 and @height = 44')) return exact === null ? noSuchElement : { body: { value: { [W3C_ELEMENT_KEY]: 'T1' } } };
+        }
+        if (req.path === '/session/s1/element/T1/attribute/hittable') return { body: { value: exact } };
+        if (req.path === '/session/s1/element/P1/attribute/hittable') return { body: { value: 'true' } };
+        return undefined;
+      });
+      const driver = new IosDriver(UDID, { serverUrl: stub.url });
+      await driver.open(SAFARI_WEB);
+      assert.equal(await driver.isHittable({ x: 80, y: 322 }, target), expected, `exact=${exact}`);
+      assert.ok(!stub.requests.some((r) => String(r.body?.value).includes('@x <=')), `exact=${exact}: no point query with a target box`);
+      // Without a box (OCR candidates) the point query answers.
+      assert.equal(await driver.isHittable({ x: 80, y: 322 }, null), true);
+      await driver.close();
+      stub.close();
+    }
+  });
+
   it('snapshot pageUrl is the address field value without the left-to-right mark', async () => {
     const source =
       '<?xml version="1.0" encoding="UTF-8"?><AppiumAUT><XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Safari" label="Safari" enabled="true" x="0" y="0" width="402" height="874" bundleId="com.apple.mobilesafari">' +

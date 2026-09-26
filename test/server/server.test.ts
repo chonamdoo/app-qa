@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
-import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import type { QaEvent } from '../../src/core/events.ts';
+import { generatePlan } from '../../src/plan/index.ts';
 import type { JobContext, JobOutcome, PlanParams, RunParams } from '../../src/server/jobs.ts';
 import { createServer, type QaServer, type ServerHandlers } from '../../src/server/server.ts';
+import { fakeLlm, tempDir } from '../plan/helpers.ts';
 
 interface Reply {
   status: number;
@@ -306,11 +308,54 @@ describe('jobs', { timeout: 10_000 }, () => {
       }
       assert.equal(planCalls.length, 0);
 
+      mkdirSync(join(root, 'uploads'), { recursive: true });
+      writeFileSync(join(root, 'uploads', 'new.md'), '# upload');
       const done = waitForEvent((e) => e.type === 'job.finished' && e.kind === 'plan');
-      await postJob({ kind: 'plan', params: { app: 'demo', docs: ['docs/spec.md', 'docs/sub/*.md', join(root, 'uploads', 'new.md'), join(outside, 'profile.md')] } });
+      await postJob({ kind: 'plan', params: { app: 'demo', docs: ['docs/spec.md', 'docs/sub/*.md', join(root, 'uploads', 'new.md'), join(outside, 'profile.md')], docRoots: ['/'] } });
       await done;
-      assert.deepEqual(planCalls.at(-1)?.docs, [join(root, 'docs', 'spec.md'), join(root, 'docs', 'sub', '*.md'), join(root, 'uploads', 'new.md'), join(outside, 'profile.md')]);
+      // The job gets the files matched now (never the glob), and the realpaths the planner re-checks them against: a
+      // client-sent `docRoots` is dropped, and an app profile document widens the roots by that one file only.
+      assert.deepEqual(planCalls.at(-1)?.docs, [join(root, 'docs', 'spec.md'), join(root, 'docs', 'sub', 'a.md'), join(root, 'uploads', 'new.md'), join(outside, 'profile.md')]);
+      assert.deepEqual(planCalls.at(-1)?.docRoots, [realpathSync(root), realpathSync(join(root, 'uploads')), realpathSync(join(outside, 'profile.md'))]);
     } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  test('a document swapped for a link leading out after enqueue fails the plan job before the LLM sees it', async () => {
+    const outside = mkdtempSync(join(tmpdir(), 'qa-outside-'));
+    const fake = fakeLlm('claude', [JSON.stringify({ tests: [], untestable: [] })]);
+    const { promise: queued, resolve: release } = Promise.withResolvers<void>();
+    planImpl = async (params, { events, signal }) => {
+      await queued;
+      const { planPath } = await generatePlan({
+        ...params,
+        events,
+        signal,
+        llm: 'claude-cli',
+        env: fake.env,
+        root: tempDir(),
+        contextDirs: { inventory: tempDir(), envExample: join(tempDir(), 'none') },
+        jev: { client: null, calibration: null, reason: 'jev_unavailable: test' },
+      });
+      return { ok: true, message: 'ok', resultPath: planPath };
+    };
+    try {
+      writeFileSync(join(outside, 'secret.md'), '# 비밀\n\n외부 파일의 비밀 문구 X7-OUTSIDE\n');
+      mkdirSync(join(root, 'x7'), { recursive: true });
+      writeFileSync(join(root, 'x7', 'parking.md'), '# 주차\n\n주차 탭에 빈자리가 보인다.\n');
+      const job = await postJob({ kind: 'plan', params: { app: 'tteonam', docs: ['x7/*.md'] } });
+      const finished = waitForEvent((e) => e.type === 'job.finished' && e.jobId === job.id);
+      rmSync(join(root, 'x7', 'parking.md'));
+      symlinkSync(join(outside, 'secret.md'), join(root, 'x7', 'parking.md'));
+      release();
+      await finished;
+      const view = JSON.parse((await call(`/api/jobs/${job.id}`)).body.toString()) as { state: string; message: string };
+      assert.equal(view.state, 'failed');
+      assert.match(view.message, /^문서가 허용된 위치 밖을 가리킵니다 .*: .*parking\.md$/);
+      assert.deepEqual(fake.calls(), [], 'the LLM CLI never ran, so the outside text never reached it');
+    } finally {
+      planImpl = recordPlan;
       rmSync(outside, { recursive: true, force: true });
     }
   });
