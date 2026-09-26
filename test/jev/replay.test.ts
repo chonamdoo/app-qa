@@ -78,7 +78,7 @@ test('runtime grounding (strict) reproduces every recorded golden verdict, Korea
   if (g.primitive !== 'grounding') return;
   for (const item of g.items) {
     const m = screen(item.screen, item.patch);
-    const d = await groundChoice(client, m.candidates, item.intent, { texts: m.texts, calibration, strict: true });
+    const d = await groundChoice(client, m.candidates, item.intent, { texts: m.texts, calibration, surface: m.snapshot.surface, strict: true });
     const got = d.verdict === 'pass' ? `pass:${d.candidate?.key}` : d.verdict;
     assert.equal(got, want.get(item.id), `${item.id} ${item.intent}: ${d.reason}`);
   }
@@ -90,7 +90,7 @@ test('runtime claim, which and commit reproduce every recorded golden verdict', 
   if (claims.primitive === 'claim') {
     for (const item of claims.items) {
       const m = screen(item.screen, item.patch);
-      const d = await judgeClaim(client, m.candidates, item.claim, { texts: m.texts, calibration });
+      const d = await judgeClaim(client, m.candidates, item.claim, { texts: m.texts, calibration, surface: m.snapshot.surface });
       assert.equal(d.verdict, claimWant.get(item.id), `${item.id}: ${d.reason}`);
     }
   }
@@ -99,7 +99,7 @@ test('runtime claim, which and commit reproduce every recorded golden verdict', 
   if (which.primitive === 'which') {
     for (const item of which.items) {
       const m = screen(item.screen, item.patch);
-      const d = await judgeWhich(client, m.candidates, item.options, { texts: m.texts, calibration });
+      const d = await judgeWhich(client, m.candidates, item.options, { texts: m.texts, calibration, surface: m.snapshot.surface });
       const expectedVerdict = whichWant.get(item.id)!;
       assert.equal(d.verdict, expectedVerdict.startsWith('pass:') ? 'pass' : expectedVerdict, `${item.id}: ${d.reason}`);
       if (d.verdict === 'pass') assert.equal(d.option, item.options[Number(expectedVerdict.slice('pass:s'.length))]);
@@ -131,7 +131,7 @@ test('runtime review reproduces every recorded golden verdict (defective tests s
   assert.equal(review.primitive, 'review');
   if (review.primitive !== 'review') return;
   for (const item of review.items) {
-    const d = await reviewGenerated(client, { requirement: item.requirement, test: item.test }, { calibration });
+    const d = await reviewGenerated(client, { requirement: item.requirement, test: item.test }, { calibration, surface: 'app' });
     assert.equal(d.verdict, want.get(item.id), `${item.id}: ${d.reason}`);
     if (item.kind !== 'good') assert.equal(d.verdict, 'draft', item.id);
   }

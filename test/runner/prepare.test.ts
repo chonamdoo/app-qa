@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import type { ClaimDecision, Snapshot } from '../../src/core/types.ts';
 import { runTests } from '../../src/runner/index.ts';
 import type { ActionPreparer } from '../../src/runner/prepare.ts';
-import { FakeDriver, fixtureSnapshot, type FakeCall } from '../helpers/fake-driver.ts';
+import { FakeDriver, fixtureSnapshot, hits, type FakeCall } from '../helpers/fake-driver.ts';
 import { commitSafe, jevStub, noul, testCalibration } from '../helpers/jev-stub.ts';
 import { fakeDeps, runYaml, tempRoot } from '../helpers/run.ts';
 
@@ -81,6 +81,61 @@ describe('policy on the final fresh observation', () => {
     assert.equal(shifted.result.tests[0]!.code, 'stale_target', shifted.result.tests[0]!.reason);
     assert.match(shifted.result.tests[0]!.reason, /위치가 바뀜/);
     assert.equal(moving.called('tap').length, 0);
+  });
+
+  it('taps the target at the safe point of the observation after the commit check, hit-tested there', async () => {
+    // While Jev answers, a touchable layer appears over part of 설정 (`cover` = its share of the button from the right).
+    const launch = fixtureSnapshot('android', 'tteonam', 'launch', { foreground: APP });
+    const button = launch.nodes.find((n) => n.desc === '설정')!;
+    const covered = (share: number): Snapshot => {
+      const width = Math.ceil(button.rect.width * share);
+      const layer = {
+        ...button,
+        id: 'overlay',
+        parentId: null,
+        childIds: [],
+        z: Math.max(...launch.nodes.map((n) => n.z)) + 1,
+        desc: null,
+        rect: { x: button.rect.x + button.rect.width - width, y: button.rect.y, width, height: button.rect.height },
+      };
+      return { ...launch, nodes: [...launch.nodes, layer] };
+    };
+    const inLayer = (s: Snapshot, p: { x: number; y: number }) => {
+      const r = s.nodes.at(-1)!.rect;
+      return p.x >= r.x && p.x < r.x + r.width && p.y >= r.y && p.y < r.y + r.height;
+    };
+    const tapWith = async (share: number, hittable: boolean) => {
+      const driver = new FakeDriver(launch);
+      const next = covered(share);
+      const jev = jevStub(() => {
+        driver.screen = next;
+        driver.hittable = () => hittable;
+        return noul(0.02);
+      });
+      const { result } = await runYaml({ 'tests/o.e2e.yaml': spec('  - tap: 설정\n    expectNoChange: true\n') }, driver, { jev: jev.setup });
+      return { driver, next, t: result.tests[0]! };
+    };
+
+    // The centre is now under the layer: the tap goes to the uncovered part, and the driver hit-tests that point.
+    const partial = await tapWith(0.6, true);
+    assert.equal(partial.t.verdict, 'PASS', partial.t.reason);
+    const [tap] = partial.driver.called('tap');
+    const point = tap!.args[0] as { x: number; y: number };
+    assert.ok(hits(partial.next, '설정', point), `tap ${JSON.stringify(point)} misses 설정`);
+    assert.ok(!inLayer(partial.next, point), `tap ${JSON.stringify(point)} lands on the new layer`);
+    assert.deepEqual(partial.driver.called('isHittable').at(-1)!.args[0], point);
+
+    // The driver says the new point is not hittable: stale, never tapped.
+    const refused = await tapWith(0.6, false);
+    assert.equal(refused.t.verdict, 'FAIL');
+    assert.equal(refused.t.code, 'stale_target', refused.t.reason);
+    assert.match(refused.t.reason, /Jev commit 확인 중 .*isHittable=false/);
+    assert.equal(refused.driver.called('tap').length, 0);
+
+    // Fully covered: nothing of 설정 can be tapped any more.
+    const full = await tapWith(1, true);
+    assert.equal(full.t.code, 'stale_target', full.t.reason);
+    assert.equal(full.driver.called('tap').length, 0);
   });
 });
 

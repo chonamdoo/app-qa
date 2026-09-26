@@ -25,6 +25,8 @@ export interface JudgeOptions {
   /** App-profile redactor; defaults to the built-in PII patterns only. */
   redact?: Redactor;
   calibration: Calibration | null | undefined;
+  /** The surface judged (the target's, not the snapshot's): picks the gate where the calibration has one per surface. */
+  surface: Surface;
   signal?: AbortSignal;
 }
 
@@ -79,7 +81,7 @@ export async function groundChoice(
   intent: string,
   opts: JudgeOptions & { strict?: boolean },
 ): Promise<GroundingDecision> {
-  const usable = usableGate(opts.calibration, client.model, 'grounding');
+  const usable = usableGate(opts.calibration, client.model, 'grounding', opts.surface);
   if (!usable.gate) return { verdict: 'error', candidate: null, probabilities: null, decisionSource: 'none', receipt: null, reason: usable.reason };
   if (cands.length === 0) return { verdict: 'not_found', candidate: null, probabilities: null, decisionSource: 'none', receipt: null, reason: '후보 없음' };
   if (cands.length >= MAX_CHOICE_OPTIONS) {
@@ -110,7 +112,7 @@ export async function groundChoice(
 
 /** Noul: does the current screen support `claim`? pass / fail / inconclusive by the calibrated band. */
 export async function judgeClaim(client: JevClient, cands: readonly Candidate[], claim: string, opts: JudgeOptions): Promise<ClaimDecision> {
-  const usable = usableGate(opts.calibration, client.model, 'claim');
+  const usable = usableGate(opts.calibration, client.model, 'claim', opts.surface);
   if (!usable.gate) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: null, reason: usable.reason };
   const call = await ask(client, claimRequest(cands, claim, opts.texts, opts.redact ?? BUILTIN_REDACTOR), opts.signal);
   if (!call.ok) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: call.receipt, reason: call.reason };
@@ -125,7 +127,7 @@ export async function judgeClaim(client: JevClient, cands: readonly Candidate[],
  * (`s0..sN` in option order, plus `none` = still loading / none of these).
  */
 export async function judgeWhich(client: JevClient, cands: readonly Candidate[], options: readonly string[], opts: JudgeOptions): Promise<WhichDecision> {
-  const usable = usableGate(opts.calibration, client.model, 'which');
+  const usable = usableGate(opts.calibration, client.model, 'which', opts.surface);
   if (!usable.gate) return { verdict: 'error', option: null, probabilities: null, receipt: null, reason: usable.reason };
   if (options.length < 1 || options.length >= MAX_CHOICE_OPTIONS) {
     return { verdict: 'error', option: null, probabilities: null, receipt: null, reason: `which 선택지 수 ${options.length} (허용 1..${MAX_CHOICE_OPTIONS - 1})` };
@@ -154,7 +156,7 @@ export async function judgeCommit(
   client: JevClient,
   cands: readonly Candidate[],
   target: Candidate,
-  opts: JudgeOptions & { surface: Surface },
+  opts: JudgeOptions,
 ): Promise<ClaimDecision> {
   const usable = usableGate(opts.calibration, client.model, 'commit', opts.surface);
   if (!usable.gate) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: null, reason: usable.reason };
@@ -175,10 +177,10 @@ export async function judgeCommit(
 export async function reviewGenerated(
   client: JevClient,
   input: { requirement: { id: string; text: string }; test: unknown },
-  opts: { redact?: Redactor; calibration: Calibration | null | undefined; signal?: AbortSignal },
+  opts: { redact?: Redactor; calibration: Calibration | null | undefined; surface: Surface; signal?: AbortSignal },
 ): Promise<ReviewDecision> {
   const empty = { addressesRequirement: null, unrelatedSteps: null, needsClarification: null };
-  const usable = usableGate(opts.calibration, client.model, 'review');
+  const usable = usableGate(opts.calibration, client.model, 'review', opts.surface);
   if (!usable.gate) return { verdict: 'error', review: { ...empty, issues: [usable.reason] }, receipt: null, reason: usable.reason };
   const gate = usable.gate;
   const call = await ask(client, reviewRequest(input, opts.redact ?? BUILTIN_REDACTOR), opts.signal);

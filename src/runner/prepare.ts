@@ -1,8 +1,9 @@
 // Action preparation (architecture §5 위험 정책, §11, invariants 4–5): a mutation is approved only on the final fresh
 // observation — refind + hit-test (after scroll/swipe/back: the target must hold still) → deterministic policy on the
 // fresh target and screen → mandatory Jev commit check for deterministically safe targets without `allowRisky` → after
-// that wait, a new observation must show the same screen and target → one explicit approval result. Nothing here
-// dispatches; the session acts only on `approved`.
+// that wait, a new observation must show the same screen and target, hit-tested again at its tap point on that
+// observation → one explicit approval result carrying that target. Nothing here dispatches; the session acts only on
+// `approved`.
 import type { Candidate, ClaimDecision, Point, Rect, ScreenModel } from '../core/types.ts';
 import { isUnoccludedAt, refind } from '../observe/index.ts';
 import { assessRisk, DESTRUCTIVE_CONTEXT, type RiskAssessment } from '../policy/risk.ts';
@@ -124,7 +125,7 @@ export class ActionPreparer<Ctx> {
       return { status: 'not_editable', reason: `"${fresh.candidate.name}"(${fresh.candidate.role})은(는) 입력 필드가 아님 — 입력·지우기 대상은 편집 가능한 필드여야 합니다` };
     }
     const verdict = await this.judge(ctx, fresh.candidate, source === 'jev', fresh.obs, mutation, allowRisky);
-    return verdict.status === 'approved' ? { status: 'approved', candidate: fresh.candidate, obs: verdict.obs } : verdict;
+    return verdict.status === 'approved' ? { status: 'approved', candidate: verdict.target, obs: verdict.obs } : verdict;
   }
 
   /**
@@ -151,8 +152,13 @@ export class ActionPreparer<Ctx> {
     return { status: 'blocked_by_policy', reason: `허용 범위 밖 이동 차단: ${problem}` };
   }
 
-  /** Policy, then the commit check; an approval carries the observation to act on (after a commit check, a newer one). */
-  private async judge(ctx: Ctx, target: Candidate | null, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean): Promise<Approval<{ obs: Obs }>> {
+  /**
+   * Policy, then the commit check. An approval carries the observation and target to act on: after a commit check, a
+   * newer observation and the target as it shows it (its tap point recomputed around anything that appeared meanwhile).
+   */
+  private judge(ctx: Ctx, target: Candidate, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean): Promise<Approval<{ obs: Obs; target: Candidate }>>;
+  private judge(ctx: Ctx, target: Candidate | null, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean): Promise<Approval<{ obs: Obs; target: Candidate | null }>>;
+  private async judge(ctx: Ctx, target: Candidate | null, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean): Promise<Approval<{ obs: Obs; target: Candidate | null }>> {
     const { model } = obs;
     const risk = mutation === 'submit' ? submitRisk(target, model, this.host.profile) : assessRisk(target, model, this.host.profile);
     // Risky elements act only through selector/fast path: allowRisky never unlocks a Jev-grounded risky target.
@@ -171,16 +177,19 @@ export class ActionPreparer<Ctx> {
       }
       // The screen may change while Jev answers: the approval holds only if a new observation still shows the same
       // target and the deterministic policy still passes on it (a destructive dialog that appeared meanwhile blocks).
+      // A tapped target is hit-tested again at its new tap point: something drawn over part of it moves the point.
       const now = await this.host.observe(target.source === 'ocr' ? 'force' : 'never');
       const same = targetNow(target, now.model);
       if ('reason' in same) return { status: 'stale_target', reason: `Jev commit 확인 중 ${same.reason} — 실행하지 않음` };
       const riskNow = mutation === 'submit' ? submitRisk(same.candidate, now.model, this.host.profile) : assessRisk(same.candidate, now.model, this.host.profile);
       if (riskNow.risky) return this.block(ctx, [...riskNow.reasons, 'Jev commit 확인 중 화면이 바뀜'], false);
+      const hit = mutation === 'submit' ? null : await this.hitProblem(same.candidate, now);
+      if (hit) return { status: 'stale_target', reason: `Jev commit 확인 중 ${hit} — 실행하지 않음` };
       this.host.policy(ctx, risk.risky, false, risk.reasons);
-      return { status: 'approved', obs: now };
+      return { status: 'approved', obs: now, target: same.candidate };
     }
     this.host.policy(ctx, risk.risky, false, risk.reasons);
-    return { status: 'approved', obs };
+    return { status: 'approved', obs, target };
   }
 
   /** The Jev commit judgement, recorded as a `commit` decision; an unusable Jev is verdict 'error' (never asked). */
@@ -226,11 +235,14 @@ export class ActionPreparer<Ctx> {
       }
     }
     if (!cur) return { ok: false, moving: false, reason: `재관찰에서 "${c.name}"을(를) 다시 찾지 못함`, obs };
-    const node = cur.source === 'tree' ? nodeOf(obs.model, cur.nodeId) : undefined;
-    if (node && !isUnoccludedAt(obs.model.snapshot.nodes, node, cur.tapPoint)) return { ok: false, moving: false, reason: `"${c.name}" 탭 지점을 다른 요소가 덮고 있음`, obs };
-    if ((await host.isHittable(cur.tapPoint, node ? node.rect : null)) === false) {
-      return { ok: false, moving: false, reason: `"${c.name}" isHittable=false`, obs };
-    }
-    return { ok: true, candidate: cur, obs };
+    const hit = await this.hitProblem(cur, obs);
+    return hit ? { ok: false, moving: false, reason: hit, obs } : { ok: true, candidate: cur, obs };
+  }
+
+  /** Why a tap at `c.tapPoint` would not reach `c` on `obs` (another element drawn over it, the driver's hit-test), or null. */
+  private async hitProblem(c: Candidate, obs: Obs): Promise<string | null> {
+    const node = c.source === 'tree' ? nodeOf(obs.model, c.nodeId) : undefined;
+    if (node && !isUnoccludedAt(obs.model.snapshot.nodes, node, c.tapPoint)) return `"${c.name}" 탭 지점을 다른 요소가 덮고 있음`;
+    return (await this.host.isHittable(c.tapPoint, node ? node.rect : null)) === false ? `"${c.name}" isHittable=false` : null;
   }
 }

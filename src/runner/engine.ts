@@ -165,6 +165,14 @@ function approved<T extends object>(approval: Approval<T>): { status: 'approved'
 
 const PASS = (reason: string): Outcome => ({ verdict: 'PASS', code: null, reason });
 
+/**
+ * Absence is never judged on a truncated observation (`depthCapped`: the web node cap, the iOS depth cap): what the
+ * check says is missing may lie past the cut. Presence checks still count what was observed.
+ */
+function truncatedAbsence(what: string): Outcome {
+  return { verdict: 'INCONCLUSIVE', code: 'observation_truncated', reason: `화면 구조가 잘려 관찰됨(노드·깊이 상한) — 없음을 판정할 수 없음: ${what}` };
+}
+
 function fingerprint(model: ScreenModel): string {
   return `${model.fingerprints.identity}|${model.fingerprints.layout}`;
 }
@@ -254,10 +262,9 @@ export class TestSession {
       recentScroll: () => this.recentScroll,
       isHittable: async (p, target) => env.driver.isHittable?.(p, target),
       // The target decides the surface (gate availability and the threshold used): a web target stays web even if a
-      // driver mislabels a snapshot (fail-closed).
+      // driver mislabels a snapshot (fail-closed). Every Jev decision names it (`jevProblem`, `judgeOpts`).
       commitProblem: () => this.jevProblem('commit', app.kind),
-      judgeCommit: (ctx, model, target) =>
-        this.jevCall(ctx, () => judgeCommit(this.env.jev.client!, model.candidates, target, { ...this.judgeOpts(model), surface: app.kind })),
+      judgeCommit: (ctx, model, target) => this.jevCall(ctx, () => judgeCommit(this.env.jev.client!, model.candidates, target, this.judgeOpts(model))),
       decide: (ctx, d) => this.decide(ctx, d),
       policy: (ctx, risky, blocked, reasons) => this.emitRef(ctx, { type: 'policy', risky, blocked, reasons }),
     });
@@ -380,7 +387,7 @@ export class TestSession {
   private async reference(ctx: StepCtx, obs: Obs): Promise<void> {
     const claim = '이 화면은 오류 화면이거나 내용 없이 비어 있다';
     const none = { kind: 'claim' as const, intent: claim, top: null, target: null, model: null, requestId: null, latencyMs: null, reference: true };
-    const problem = this.jevProblem('claim');
+    const problem = this.jevProblem('claim', this.app.kind);
     if (problem) {
       this.decide(ctx, { ...none, source: 'none', verdict: 'error', reason: `참고용 Jev 판단 불가: ${problem}` });
       return;
@@ -787,10 +794,10 @@ export class TestSession {
   // ───────────────────────── Jev plumbing ─────────────────────────
 
   /**
-   * Null when Jev may decide `primitive` (the commit gate: on screens of `surface`); otherwise why not (reasons for
+   * Null when Jev may decide `primitive` on screens of `surface` (the target's); otherwise why not (reasons for
    * missing calibration start with `uncalibrated`).
    */
-  private jevProblem(primitive: CalibratedPrimitive, surface?: Surface): string | null {
+  private jevProblem(primitive: CalibratedPrimitive, surface: Surface): string | null {
     const { client, calibration, problem } = this.env.jev;
     if (!calibration) return problem ? `uncalibrated: ${problem}` : 'uncalibrated';
     const usable = usableGate(calibration, client?.model ?? JEV_MODEL, primitive, surface);
@@ -813,7 +820,7 @@ export class TestSession {
   }
 
   private judgeOpts(model: ScreenModel) {
-    return { texts: model.texts, redact: this.out.clean.text, calibration: this.env.jev.calibration, signal: this.env.signal };
+    return { texts: model.texts, redact: this.out.clean.text, calibration: this.env.jev.calibration, surface: this.app.kind, signal: this.env.signal };
   }
 
   private decide(ctx: StepCtx, d: DecisionSummary): void {
@@ -893,7 +900,7 @@ export class TestSession {
       }
       let notFoundReason = det.reason;
       if (det.kind === 'jev') {
-        jevBlocked = this.jevProblem('grounding');
+        jevBlocked = this.jevProblem('grounding', this.app.kind);
         const fp = fingerprint(obs.model);
         if (!jevBlocked && fp !== lastFp) {
           lastFp = fp;
@@ -1137,7 +1144,7 @@ export class TestSession {
       else if (det.kind === 'ambiguous') return { verdict: 'INCONCLUSIVE', code: 'ambiguous', reason: det.reason };
       else if (det.kind === 'not_found') absent = true;
       else {
-        const problem = this.jevProblem('grounding');
+        const problem = this.jevProblem('grounding', this.app.kind);
         if (problem) return this.jevFailure(`${problem} (안 보임은 Jev로만 확인 가능)`);
         const fp = fingerprint(obs.model);
         if (fp !== lastFp) {
@@ -1151,6 +1158,10 @@ export class TestSession {
         absent = lastAbsent;
       }
       const now = this.env.clock.now();
+      if (absent && obs.model.snapshot.depthCapped) {
+        await this.captureAfter(ctx, obs);
+        return truncatedAbsence(`"${intent}" 안 보임`);
+      }
       if (absent) {
         if (absentSince === null) absentSince = now;
         else if (now - absentSince >= HOLD_MS) {
@@ -1180,6 +1191,10 @@ export class TestSession {
         return PASS(`텍스트 있음: "${hit}"`);
       }
       if (!present) {
+        if (hit === undefined && obs.model.snapshot.depthCapped) {
+          await this.captureAfter(ctx, obs);
+          return truncatedAbsence(`텍스트 없음 ${describeMatch(m)}`);
+        }
         if (hit === undefined) {
           absentSince ??= now;
           if (now - absentSince >= HOLD_MS) {
@@ -1231,7 +1246,7 @@ export class TestSession {
   }
 
   private async doClaim(ctx: StepCtx, obs: Obs, claim: string): Promise<Outcome> {
-    const problem = this.jevProblem('claim');
+    const problem = this.jevProblem('claim', this.app.kind);
     if (problem) return this.jevFailure(problem);
     const d = await this.jevCall(ctx, () => judgeClaim(this.env.jev.client!, obs.model.candidates, claim, this.judgeOpts(obs.model)));
     this.decide(ctx, {
@@ -1291,7 +1306,7 @@ export class TestSession {
   private async doWhich(ctx: StepCtx, step: WhichStepSpec, first: Obs): Promise<Outcome> {
     const branches = step.which;
     const options = Object.keys(branches);
-    const problem = this.jevProblem('which');
+    const problem = this.jevProblem('which', this.app.kind);
     if (problem) return this.jevFailure(problem);
     const deadline = this.deadline(step.timeout);
     let obs = first;
@@ -1404,7 +1419,12 @@ export class TestSession {
   private async condition(ctx: StepCtx, cond: Condition): Promise<boolean> {
     const obs = await this.observe();
     if ('text' in cond) return textFound(cond.text, textLines(obs.model)) !== undefined;
-    if ('noText' in cond) return textFound(cond.noText, textLines(obs.model)) === undefined;
+    if ('noText' in cond) {
+      if (textFound(cond.noText, textLines(obs.model)) !== undefined) return false;
+      if (!obs.model.snapshot.depthCapped) return true;
+      const out = truncatedAbsence(`조건 noText ${describeMatch(cond.noText)}`);
+      throw new StepAbort(out.verdict, out.code, out.reason);
+    }
     const r = await this.resolveLoop(ctx, obs, { target: cond.see }, { strict: true, deadline: this.env.clock.now(), ocr: false });
     if (r.ok) return true;
     if (r.outcome.code === 'not_found') return false;
@@ -1460,7 +1480,7 @@ export class TestSession {
     const det = resolveDeterministic(obs.model, { target: see });
     if (det.kind === 'found') return true;
     if (det.kind !== 'jev') return false;
-    const problem = this.jevProblem('grounding');
+    const problem = this.jevProblem('grounding', this.app.kind);
     if (problem) {
       this.warnOnce(`when:${i}`, `when 인터럽트 "${targetText(see)}": Jev 사용 불가(${problem}) — 결정적 일치만 확인`);
       return false;

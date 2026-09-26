@@ -207,6 +207,31 @@ describe('deterministic assertions', () => {
     assert.equal(fail.result.tests[0]!.code, 'text_present');
   });
 
+  it('never passes an absence check on a truncated observation; presence checks still count what was seen', async () => {
+    // depthCapped: the web extract hit its node cap / the iOS source hit its depth cap — the rest of the screen is unknown.
+    const cut = { ...screen('launch'), depthCapped: true };
+    const absences = {
+      assertNoText: '  - assertNoText: 오류가 발생했습니다\n',
+      seeNot: '  - seeNot: 로그인 버튼\n',
+      expectNoText: '  - wait: 10\n    expect: { noText: 오류가 발생했습니다 }\n',
+      whileNoText: '  - repeat: { while: { noText: 오류가 발생했습니다 }, steps: [ { wait: 10 } ] }\n',
+    };
+    for (const [name, steps] of Object.entries(absences)) {
+      const jev = jevStub((_id, q) => choice(q, 'none', 0.9));
+      const t = (await runYaml({ 'tests/t.e2e.yaml': spec(steps) }, new FakeDriver(cut), { jev: jev.setup })).result.tests[0]!;
+      assert.equal(t.verdict, 'INCONCLUSIVE', `${name}: ${t.reason}`);
+      assert.equal(t.code, 'observation_truncated', `${name}: ${t.reason}`);
+      assert.match(t.reason, /잘려 관찰됨/, name);
+    }
+    const present = await runYaml({ 'tests/t.e2e.yaml': spec('  - assertText: 출국장\n  - see: 설정\n  - assertNoText: 출발했어요\n    timeout: 300\n') }, new FakeDriver(cut));
+    assert.deepEqual(present.result.tests[0]!.steps.map((s) => [s.kind, s.verdict, s.code]), [
+      ['start', 'PASS', null],
+      ['assertText', 'PASS', null],
+      ['see', 'PASS', null],
+      ['assertNoText', 'FAIL', 'text_present'],
+    ]);
+  });
+
   it('remember stores a value that later steps expand with ${var}', async () => {
     const steps = `  - remember: { name: gate, from: { regex: "^J(?<value>\\\\d+)-" } }
   - assertText: "J\${gate}-J35"

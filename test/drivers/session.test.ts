@@ -155,6 +155,26 @@ describe('mutating commands succeed only with W3C value null', () => {
   });
 });
 
+describe('a tap that gives no input focus', () => {
+  it('typeText and clearText are uncertain (the tap was sent; its effect is unknown), and nothing is typed or cleared', async () => {
+    const noSuchElement: Reply = { status: 404, body: { value: { error: 'no such element', message: 'none' } } };
+    const stub = await startAppiumStub((req) => (req.path === '/session/s1/element/active' || req.path === '/session/s1/element' ? noSuchElement : undefined));
+    const driver = new AndroidDriver('emulator-5554', { serverUrl: stub.url });
+    try {
+      await driver.open({ kind: 'app', platform: 'android', appId: 'kr.tteonam.app' });
+      for (const o of [await driver.typeText({ x: 10, y: 10 }, '대한항공'), await driver.clearText({ x: 10, y: 10 })]) {
+        assert.equal(o.status, 'uncertain');
+        assert.match(o.error ?? '', /입력 포커스가 생기지 않았습니다/);
+      }
+      assert.equal(stub.requests.filter((r) => r.path === '/session/s1/actions').length, 2);
+      assert.ok(!stub.requests.some((r) => /\/element\/[^/]+\/(?:value|clear)$/.test(r.path)));
+    } finally {
+      await driver.close();
+      stub.close();
+    }
+  });
+});
+
 describe('mutating mobile: scripts succeed only with their documented answer', () => {
   const AT = { x: 10, y: 10 };
   const IOS_APP = { kind: 'app' as const, platform: 'ios' as const, appId: 'kr.tteonam.app' };

@@ -52,12 +52,23 @@ describe('open', () => {
     }
   });
 
-  it('refuses a target that is not a web profile for this browser', async () => {
+  it('refuses a target that is not a web profile for this browser, or whose start URL a device driver would refuse', async () => {
     const stub = await startW3CStub();
     try {
-      for (const target of [{ ...SAFARI }, { ...CHROME, appId: 'com.android.chrome' }, { ...CHROME, url: 'javascript:alert(1)' }, { kind: 'app', platform: 'desktop-chrome', appId: 'chrome' } as const]) {
+      for (const target of [
+        { ...SAFARI },
+        { ...CHROME, appId: 'com.android.chrome' },
+        { ...CHROME, url: 'javascript:alert(1)' },
+        { ...CHROME, url: 'http://qa:hunter2@localhost:4173/' },
+        { ...CHROME, url: 'http://evil.example/' },
+        { ...CHROME, origins: ['http://localhost:4173/path'] },
+        { kind: 'app', platform: 'desktop-chrome', appId: 'chrome' } as const,
+      ]) {
         const driver = new DesktopWebDriver('desktop-chrome', 'desktop-chrome', { serverUrl: stub.url });
-        await assert.rejects(driver.open(target), { name: 'RefusedError' });
+        await assert.rejects(driver.open(target), { name: 'RefusedError' }, JSON.stringify(target));
+        const launched = await driver.launch(target);
+        assert.equal(launched.status, 'rejected', JSON.stringify(target));
+        assert.doesNotMatch(launched.error ?? '', /hunter2/);
       }
       assert.equal(stub.requests.length, 0);
     } finally {
@@ -176,11 +187,13 @@ describe('typeText / clearText', () => {
     });
   });
 
-  it('a field that is not editable after the tap is rejected before any key is sent', async () => {
+  it('a click that focused no editable field is uncertain (it was sent; its effect is unknown), and no key is sent', async () => {
     await withDriver({ field: null }, async (d, stub) => {
-      const o = await d.typeText(AT, '한글');
-      assert.equal(o.status, 'rejected');
-      assert.match(o.error ?? '', /편집 가능한 입력 포커스/);
+      for (const o of [await d.typeText(AT, '한글'), await d.clearText(AT)]) {
+        assert.equal(o.status, 'uncertain');
+        assert.match(o.error ?? '', /편집 가능한 입력 포커스/);
+      }
+      assert.equal(posted(stub, '/actions').length, 2);
       assert.deepEqual(keysDown(stub), []);
     });
   });
@@ -254,7 +267,7 @@ describe('back', () => {
 });
 
 describe('unsupported operations are refused before dispatch', () => {
-  it('permissions, launch arguments, reinstall, location, non-http urls', async () => {
+  it('permissions, launch arguments, reinstall, location, non-http urls, credentials, other origins', async () => {
     await withDriver({}, async (d, stub) => {
       const outcomes = [
         await d.launch(CHROME, { permissions: { location: 'allow' } }),
@@ -263,9 +276,14 @@ describe('unsupported operations are refused before dispatch', () => {
         await d.setLocation(37.5, 127),
         await d.openUrl(CHROME, 'javascript:alert(1)'),
         await d.openUrl(CHROME, 'file:///etc/passwd'),
+        await d.openUrl(CHROME, 'http://qa:hunter2@localhost:4173/login.html'),
+        await d.openUrl(CHROME, 'https://evil.example/login.html'),
+        await d.openUrl(CHROME, 'http://localhost:4174/'),
       ];
-      assert.deepEqual(outcomes.map((o) => o.status), Array(6).fill('rejected'));
+      assert.deepEqual(outcomes.map((o) => o.status), Array(9).fill('rejected'));
+      assert.ok(outcomes.every((o) => !o.error?.includes('hunter2')));
       assert.equal(posted(stub, '/url').length, 0);
+      assert.equal((await d.openUrl(CHROME, 'http://localhost:4173/login.html')).status, 'completed');
     });
   });
 });
@@ -310,6 +328,42 @@ describe('outcomes of lost or garbled answers', () => {
       },
       (req) => (req.path === '/session/s1/actions' ? { status: 500, body: { value: { error: 'unknown error', message: 'unknown error: tab crashed' } } } : undefined),
     );
+  });
+});
+
+describe('ending the browser session', () => {
+  const DELETE_FAILURES: Record<string, Reply> = {
+    'dropped connection': 'destroy',
+    'garbled answer': { body: { value: { deleted: true } } },
+    'W3C error': { status: 500, body: { value: { error: 'unknown error', message: 'quit failed' } } },
+  };
+  const deletes = (stub: W3CStub) => stub.requests.filter((r) => r.method === 'DELETE' && r.path === '/session/s1').length;
+
+  it('terminate and reset clear are uncertain when the DELETE is not confirmed; clear then opens no new session', async () => {
+    for (const [name, reply] of Object.entries(DELETE_FAILURES)) {
+      await withDriver({}, async (d, stub) => {
+        const o = await d.terminate(CHROME);
+        assert.equal(o.status, 'uncertain', name);
+        assert.match(o.error ?? '', /세션 종료를 확인하지 못했습니다/, name);
+        assert.equal(deletes(stub), 1, name);
+      }, (req) => (req.method === 'DELETE' ? reply : undefined));
+      await withDriver({}, async (d, stub) => {
+        const o = await d.reset(CHROME, 'clear');
+        assert.equal(o.status, 'uncertain', name);
+        assert.equal(stub.requests.filter((r) => r.method === 'POST' && r.path === '/session').length, 1, `${name}: no second session`);
+        assert.equal(posted(stub, '/url').length, 0, name);
+      }, (req) => (req.method === 'DELETE' ? reply : undefined));
+    }
+  });
+
+  it('a confirmed DELETE completes terminate; reset clear opens a fresh session at the start URL', async () => {
+    await withDriver({}, async (d, stub) => {
+      assert.equal((await d.reset(CHROME, 'clear')).status, 'completed');
+      assert.equal(deletes(stub), 1);
+      assert.equal(stub.requests.filter((r) => r.method === 'POST' && r.path === '/session').length, 2);
+      assert.deepEqual(posted(stub, '/url').map((r) => r.body), [{ url: CHROME.url }]);
+      assert.equal((await d.terminate(CHROME)).status, 'completed');
+    });
   });
 });
 

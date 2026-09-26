@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { EventBus } from '../../src/core/events.ts';
-import { deviceClaims, JobQueue, JobRequest, type JobHandlers, type JobOutcome } from '../../src/server/jobs.ts';
+import { JobQueue, JobRequest, jobClaims, type JobHandlers, type JobOutcome } from '../../src/server/jobs.ts';
 import { AppProfile } from '../../src/spec/schema.ts';
 
 const webProfile = AppProfile.parse({ id: 'shop', name: '상점', web: { url: 'http://localhost:4173/', platforms: ['desktop-chrome', 'android'] } });
@@ -27,19 +27,19 @@ describe('job request validation', () => {
 });
 
 describe('device claims', () => {
-  test('smoke `all` claims exactly the profile platforms; desktop claims its one browser', () => {
+  test('smoke `all` claims exactly the profile platforms; desktop claims its one browser and the display', () => {
     const smoke = request({ kind: 'smoke', params: { app: 'shop', platform: 'all', deviceIds: { android: 'emulator-5554' } } });
-    assert.deepEqual(deviceClaims(smoke, webProfile), ['android:emulator-5554', 'desktop-chrome:desktop-chrome']);
-    assert.deepEqual(deviceClaims(request({ kind: 'smoke', params: { app: 'tteonam' } }), appProfile), ['android:*']);
+    assert.deepEqual(jobClaims(smoke, webProfile), { devices: ['android:emulator-5554', 'desktop-chrome:desktop-chrome'], resources: ['android:emulator-5554', 'desktop-chrome:desktop-chrome', 'desktop:display'] });
+    assert.deepEqual(jobClaims(request({ kind: 'smoke', params: { app: 'tteonam' } }), appProfile), { devices: ['android:*'], resources: ['android:*'] });
   });
 
   test('`all` without a known profile (runs, unloadable profile) claims every platform', () => {
-    assert.deepEqual(deviceClaims(request({ kind: 'run', params: {} })), ['android:*', 'ios:*', 'desktop-chrome:desktop-chrome', 'desktop-safari:desktop-safari']);
-    assert.deepEqual(deviceClaims(request({ kind: 'smoke', params: { app: 'gone' } }), null).length, 4);
+    assert.deepEqual(jobClaims(request({ kind: 'run', params: {} })).devices, ['android:*', 'ios:*', 'desktop-chrome:desktop-chrome', 'desktop-safari:desktop-safari']);
+    assert.deepEqual(jobClaims(request({ kind: 'smoke', params: { app: 'gone' } }), null).devices.length, 4);
   });
 
-  test('capture on desktop claims the browser', () => {
-    assert.deepEqual(deviceClaims(request({ kind: 'capture', params: { app: 'shop', platform: 'desktop-safari', name: 'home' } })), ['desktop-safari:desktop-safari']);
+  test('capture on desktop claims the browser and the display', () => {
+    assert.deepEqual(jobClaims(request({ kind: 'capture', params: { app: 'shop', platform: 'desktop-safari', name: 'home' } })), { devices: ['desktop-safari:desktop-safari'], resources: ['desktop-safari:desktop-safari', 'desktop:display'] });
   });
 });
 
@@ -83,5 +83,16 @@ describe('job queue with web targets', () => {
     assert.equal(desktop.title, '스모크 · shop · Chrome (macOS)');
     assert.equal(all.title, '스모크 · shop · Android Chrome + Chrome (macOS)');
     await drain();
+  });
+
+  test('desktop Chrome and desktop Safari jobs share the one display: the second waits, device jobs still run beside them', async () => {
+    const { queue, drain } = parkedQueue();
+    const chrome = queue.enqueue(request({ kind: 'run', params: { platform: 'desktop-chrome' } }));
+    const safari = queue.enqueue(request({ kind: 'capture', params: { app: 'shop', platform: 'desktop-safari', name: 'home' } }));
+    const android = queue.enqueue(request({ kind: 'smoke', params: { app: 'tteonam', platform: 'android' } }));
+    assert.deepEqual([chrome, safari, android].map((j) => queue.get(j.id)?.state), ['running', 'queued', 'running']);
+    assert.deepEqual(queue.get(safari.id)?.devices, ['desktop-safari:desktop-safari']);
+    await drain();
+    assert.ok(queue.get(chrome.id)!.finishedAt! <= queue.get(safari.id)!.startedAt!);
   });
 });

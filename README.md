@@ -101,4 +101,4 @@ open .tools/mac-build/Build/Products/Debug/AppQA.app
 - iOS Safari에서 `open`은 새 탭을 연다. 그 직후 `back`은 되돌아갈 기록이 없어 거부된다.
 - Android Chrome에서 탭의 첫 페이지에서 `back`하면 Chrome을 벗어나 `app_not_foreground`가 된다.
 - 웹 commit 게이트(0.20)는 `로그인`을 외부 변경으로 보는 오경보가 있다 — 필요한 탭은 `allowRisky`로 승인한다.
-- 한 실행 안의 데스크톱 Chrome·Safari는 화면·입력 포커스를 공유하므로 차례로 실행된다.
+- 데스크톱 Chrome·Safari는 화면·입력 포커스를 공유하므로 한 실행 안에서도, 작업 큐의 서로 다른 작업 사이에서도 차례로 실행된다.

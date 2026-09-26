@@ -33,13 +33,13 @@ function clientFor(answers: Record<string, unknown>) {
 
 test('without a calibration record every primitive errors as uncalibrated and never calls Jev', async () => {
   const { client, calls } = clientFor({});
-  const opts = { texts, calibration: null };
+  const opts = { texts, calibration: null, surface: 'app' as const };
   const g = await groundChoice(client, cands, '닫기 버튼', opts);
   assert.deepEqual([g.verdict, g.reason, g.candidate, g.receipt], ['error', 'uncalibrated', null, null]);
   assert.equal((await judgeClaim(client, cands, '시트가 열려 있다', opts)).verdict, 'error');
   assert.equal((await judgeWhich(client, cands, ['홈', '시트'], opts)).verdict, 'error');
-  assert.equal((await judgeCommit(client, cands, cands[2]!, { ...opts, surface: 'app' })).verdict, 'error');
-  const r = await reviewGenerated(client, { requirement: { id: 'r1', text: '항공편을 지울 수 있다' }, test: {} }, { calibration: null });
+  assert.equal((await judgeCommit(client, cands, cands[2]!, opts)).verdict, 'error');
+  const r = await reviewGenerated(client, { requirement: { id: 'r1', text: '항공편을 지울 수 있다' }, test: {} }, { calibration: null, surface: 'app' });
   assert.deepEqual([r.verdict, r.review.issues], ['error', ['uncalibrated']]);
   assert.equal(calls.length, 0);
 });
@@ -48,10 +48,10 @@ test('a primitive whose calibration failed stays fail-closed while calibrated on
   const cal = testCalibration();
   cal.grounding.status = 'failed';
   const { client, calls } = clientFor({ claim: { type: 'noul', noul: 0.95 } });
-  const g = await groundChoice(client, cands, '닫기', { texts, calibration: cal });
+  const g = await groundChoice(client, cands, '닫기', { texts, calibration: cal, surface: 'app' });
   assert.equal(g.verdict, 'error');
   assert.match(g.reason, /^uncalibrated/);
-  const c = await judgeClaim(client, cands, '시트가 열려 있다', { texts, calibration: cal });
+  const c = await judgeClaim(client, cands, '시트가 열려 있다', { texts, calibration: cal, surface: 'app' });
   assert.equal(c.verdict, 'pass');
   assert.equal(calls.length, 1);
 });
@@ -59,13 +59,13 @@ test('a primitive whose calibration failed stays fail-closed while calibrated on
 test('a calibration for another model is not used', async () => {
   const cal = { ...testCalibration(), model: 'jev-1.12.0' };
   const { client, calls } = clientFor({});
-  assert.match((await judgeClaim(client, cands, 'x', { texts, calibration: cal })).reason, /^uncalibrated/);
+  assert.match((await judgeClaim(client, cands, 'x', { texts, calibration: cal, surface: 'app' })).reason, /^uncalibrated/);
   assert.equal(calls.length, 0);
 });
 
 test('grounding pass returns the chosen candidate, its probabilities and the receipt', async () => {
   const { client } = clientFor({ target: choiceAnswer({ e1: 0.01, e2: 0.02, e3: 0.96, none: 0.01 }) });
-  const g = await groundChoice(client, cands, '등록한 항공편 삭제', { texts, calibration: testCalibration() });
+  const g = await groundChoice(client, cands, '등록한 항공편 삭제', { texts, calibration: testCalibration(), surface: 'app' });
   assert.equal(g.verdict, 'pass');
   assert.equal(g.candidate?.name, '내 항공편 지우기');
   assert.equal(g.decisionSource, 'jev');
@@ -76,10 +76,10 @@ test('grounding pass returns the chosen candidate, its probabilities and the rec
 
 test('grounding not_found and ambiguous never carry a candidate', async () => {
   const miss = clientFor({ target: choiceAnswer({ e1: 0.05, e2: 0.05, e3: 0.05, none: 0.85 }) });
-  const nf = await groundChoice(miss.client, cands, '로그인 버튼', { texts, calibration: testCalibration() });
+  const nf = await groundChoice(miss.client, cands, '로그인 버튼', { texts, calibration: testCalibration(), surface: 'app' });
   assert.deepEqual([nf.verdict, nf.candidate], ['not_found', null]);
   const split = clientFor({ target: choiceAnswer({ e1: 0.0, e2: 0.5, e3: 0.46, none: 0.04 }) });
-  const amb = await groundChoice(split.client, cands, '항공편 버튼', { texts, calibration: testCalibration() });
+  const amb = await groundChoice(split.client, cands, '항공편 버튼', { texts, calibration: testCalibration(), surface: 'app' });
   assert.deepEqual([amb.verdict, amb.candidate], ['ambiguous', null]);
 });
 
@@ -87,14 +87,14 @@ test('strict grounding (see) refuses the gap rescue that tap accepts', async () 
   const answers = { target: choiceAnswer({ e1: 0.65, e2: 0.1, e3: 0.1, none: 0.15 }) };
   const cal = testCalibration();
   cal.grounding.gate = { minTop: 0.7, minGap: 0.3, maxNone: 0.2, noneMin: 0.6, rescueGap: 0.5 };
-  assert.equal((await groundChoice(clientFor(answers).client, cands, '닫기', { texts, calibration: cal })).verdict, 'pass');
-  assert.equal((await groundChoice(clientFor(answers).client, cands, '닫기', { texts, calibration: cal, strict: true })).verdict, 'ambiguous');
+  assert.equal((await groundChoice(clientFor(answers).client, cands, '닫기', { texts, calibration: cal, surface: 'app' })).verdict, 'pass');
+  assert.equal((await groundChoice(clientFor(answers).client, cands, '닫기', { texts, calibration: cal, surface: 'app', strict: true })).verdict, 'ambiguous');
 });
 
 test('an API failure becomes verdict error with the failing receipt, not a guess', async () => {
   const stub = scriptedFetch([{ status: 422, body: { detail: [] } }]);
   const client = new JevClient(testConfig(), { fetchImpl: stub.fetchImpl, sleep: noSleep });
-  const g = await groundChoice(client, cands, '닫기', { texts, calibration: testCalibration() });
+  const g = await groundChoice(client, cands, '닫기', { texts, calibration: testCalibration(), surface: 'app' });
   assert.equal(g.verdict, 'error');
   assert.equal(g.candidate, null);
   assert.match(g.reason, /^jev_http/);
@@ -108,6 +108,7 @@ test('redaction masks app-profile patterns and built-in PII in rows, texts and i
     texts: ['카드 1234-5678-9012-3456', '주민번호 900101-1234567'],
     redact: createRedactor(['[A-Z]{3}\\d{3}']),
     calibration: testCalibration(),
+    surface: 'app',
   });
   const sent = calls[0]!.body;
   for (const secret of ['ABC123', 'user@example.com', '010-1234-5678', '1234-5678-9012-3456', '900101-1234567']) {
@@ -140,9 +141,9 @@ test('a secret containing `|` is redacted in its raw field, before the row forma
 
 test('which maps the winning s-key back to the option text; none means loading / none of these', async () => {
   const options = ['홈 화면', '내 항공편 시트'];
-  const hit = await judgeWhich(clientFor({ screen: choiceAnswer({ s0: 0.05, s1: 0.93, none: 0.02 }) }).client, cands, options, { texts, calibration: testCalibration() });
+  const hit = await judgeWhich(clientFor({ screen: choiceAnswer({ s0: 0.05, s1: 0.93, none: 0.02 }) }).client, cands, options, { texts, calibration: testCalibration(), surface: 'app' });
   assert.deepEqual([hit.verdict, hit.option], ['pass', '내 항공편 시트']);
-  const none = await judgeWhich(clientFor({ screen: choiceAnswer({ s0: 0.1, s1: 0.1, none: 0.8 }) }).client, cands, options, { texts, calibration: testCalibration() });
+  const none = await judgeWhich(clientFor({ screen: choiceAnswer({ s0: 0.1, s1: 0.1, none: 0.8 }) }).client, cands, options, { texts, calibration: testCalibration(), surface: 'app' });
   assert.deepEqual([none.verdict, none.option], ['none', null]);
 });
 
@@ -187,7 +188,7 @@ test('review: a failed review calibration keeps every test out of approvable wit
   const cal = testCalibration();
   cal.review.status = 'failed';
   const { client, calls } = clientFor({});
-  const r = await reviewGenerated(client, { requirement: { id: 'r', text: 'x' }, test: {} }, { calibration: cal });
+  const r = await reviewGenerated(client, { requirement: { id: 'r', text: 'x' }, test: {} }, { calibration: cal, surface: 'app' });
   assert.equal(r.verdict, 'error');
   assert.match(r.review.issues[0] ?? '', /^uncalibrated/);
   assert.equal(calls.length, 0);
@@ -198,14 +199,14 @@ test('review: all three Nouls inside the gate → approvable; any outside → dr
   const ok = await reviewGenerated(
     clientFor({ addresses_requirement: { type: 'noul', noul: 0.9 }, unrelated_steps: { type: 'noul', noul: 0.1 }, needs_clarification: { type: 'noul', noul: 0.2 } }).client,
     input,
-    { calibration: testCalibration() },
+    { calibration: testCalibration(), surface: 'app' },
   );
   assert.equal(ok.verdict, 'approvable');
   assert.deepEqual(ok.review, { addressesRequirement: 0.9, unrelatedSteps: 0.1, needsClarification: 0.2, issues: [] });
   const bad = await reviewGenerated(
     clientFor({ addresses_requirement: { type: 'noul', noul: 0.79 }, unrelated_steps: { type: 'noul', noul: 0.21 }, needs_clarification: { type: 'noul', noul: 0.3 } }).client,
     input,
-    { calibration: testCalibration() },
+    { calibration: testCalibration(), surface: 'app' },
   );
   assert.equal(bad.verdict, 'draft');
   assert.equal(bad.review.issues.length, 2);

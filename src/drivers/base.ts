@@ -111,6 +111,9 @@ export function typeVerdict(expected: string, before: string, after: string, sec
 
 const elapsed = (t0: number) => Math.round(performance.now() - t0);
 
+/** A tap that was sent but gave no element input focus: what the tap did is unknown, so it is `uncertain`, never `rejected`. */
+const NO_FOCUS: ActionOutcome = { status: 'uncertain', ms: 0, error: '탭은 보냈지만 입력 포커스가 생기지 않았습니다 (탭의 효과를 알 수 없음)' };
+
 export abstract class AppiumDriver implements Driver {
   abstract readonly platform: Platform;
   readonly deviceId: string;
@@ -290,7 +293,7 @@ export abstract class AppiumDriver implements Driver {
     let before: FieldValue | null = null;
     const prep = await this.act(async () => {
       id = await this.waitFocused();
-      if (!id) throw new RefusedError('탭한 위치에 입력 포커스가 생기지 않았습니다');
+      if (!id) throw new StepError(NO_FOCUS);
       if (opts.append) {
         before = await this.readField(id);
         expected = before.value + text;
@@ -335,7 +338,7 @@ export abstract class AppiumDriver implements Driver {
     let after: FieldValue | null = null;
     const o = await this.act(async () => {
       const id = await this.waitFocused();
-      if (!id) throw new RefusedError('탭한 위치에 입력 포커스가 생기지 않았습니다');
+      if (!id) throw new StepError(NO_FOCUS);
       await this.api.clear(id);
       after = await this.readBack(id, '', false);
     });

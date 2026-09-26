@@ -1,8 +1,9 @@
-// `summary.json` data model (v1): written by the runner, read by report generation, `qa report` and the server.
+// `summary.json` data model (v2): written by the runner, read by report generation, `qa report` and the server.
+// v2 added `qaCounts` and per-result `surface` / `qaStatus`; `qa report` still reads v1 (`report/index.ts`).
 import type { HealthFinding, Platform, Point, Surface, Verdict } from '../core/types.ts';
 import type { QaStatus } from './status.ts';
 
-export const SUMMARY_SCHEMA = 'app-qa/summary/v1';
+export const SUMMARY_SCHEMA = 'app-qa/summary/v2';
 
 export interface DecisionSummary {
   kind: 'grounding' | 'claim' | 'which' | 'commit' | 'check';

@@ -13,7 +13,8 @@ import { PATHS } from '../core/config.ts';
 import { PLATFORM_INFO } from '../core/platform.ts';
 import type { ActionOutcome, AppTarget, Driver, Point, Rect, ResetMode, Snapshot, TypeOutcome, WebTarget } from '../core/types.ts';
 import { parseWebSource, WEB_EXTRACT_SCRIPT, webSourceFromExtract } from '../observe/web.ts';
-import { failureStatus, RefusedError, valueMatches, type DriverOptions, type Key, type LaunchOptions } from './base.ts';
+import { navigationProblem, targetProblem } from './appid.ts';
+import { failureStatus, RefusedError, StepError, valueMatches, type DriverOptions, type Key, type LaunchOptions } from './base.ts';
 import { sliceLog } from './logs.ts';
 
 /**
@@ -87,11 +88,6 @@ const SAFARI_AUTOMATION_OFF = /remote automation|safaridriver --enable|--enable'
 
 const elapsed = (t0: number) => Math.round(performance.now() - t0);
 
-/** Refuses anything but an absolute http(s) URL (a `javascript:` URL would run page code instead of navigating). */
-function assertHttpUrl(url: string): void {
-  if (!URL.canParse(url) || !/^https?:$/.test(new URL(url).protocol)) throw new RefusedError(`http(s) 주소가 아닙니다: ${JSON.stringify(url.slice(0, 200))}`);
-}
-
 /** `YYYY-MM-DD HH:MM:SS.mmm` in host local time — the iOS compact-log stamp, so `sliceLog(…'ios'…)` slices console lines too. */
 function localStamp(ms: number): string {
   const d = new Date(ms);
@@ -125,13 +121,10 @@ export class DesktopWebDriver implements Driver {
     return this.#client;
   }
 
-  /** The target as a web profile for this browser; anything else is refused. */
+  /** The target as a web profile for this browser, validated like every driver's (`targetProblem`: http(s) start URL without credentials, inside its origins); anything else is refused. */
   #web(app: AppTarget): WebTarget {
-    const info = PLATFORM_INFO[this.platform];
-    if (app.kind !== 'web' || app.platform !== this.platform || app.appId !== info.browser) {
-      throw new RefusedError(`${info.label}에서는 ${info.browser} 웹 대상만 실행할 수 있습니다: ${JSON.stringify(app.appId.slice(0, 120))}`);
-    }
-    assertHttpUrl(app.url);
+    const problem = targetProblem(this.platform, app);
+    if (problem !== null || app.kind !== 'web') throw new RefusedError(problem ?? `${PLATFORM_INFO[this.platform].label}에서는 웹 대상만 실행할 수 있습니다`);
     return app;
   }
 
@@ -191,13 +184,21 @@ export class DesktopWebDriver implements Driver {
     }
   }
 
+  /**
+   * Drops the session. A DELETE that fails, times out or answers anything but W3C `null` leaves the browser (and its
+   * window on the shared display) in an unknown state: it throws an `uncertain` StepError instead of reporting an end.
+   */
   async #endSession(): Promise<void> {
     if (this.#logTimer) clearInterval(this.#logTimer);
     this.#logTimer = null;
     await this.#drainLogs().catch(() => undefined);
     const client = this.#client;
     this.#client = null;
-    await client?.deleteSession().catch(() => undefined);
+    try {
+      await client?.deleteSession();
+    } catch (err) {
+      throw new StepError({ status: 'uncertain', ms: 0, error: `브라우저 세션 종료를 확인하지 못했습니다: ${(err as Error).message}` });
+    }
   }
 
   #noteFailure(err: unknown): void {
@@ -217,15 +218,16 @@ export class DesktopWebDriver implements Driver {
     }
   }
 
-  /** A new session for `app`; a session still open from an earlier target is ended first (its browser window would linger). */
+  /** A new session for `app`; a session still open from an earlier target is ended first (its browser window would linger) — an unconfirmed end refuses to open a second one. */
   async open(app: AppTarget): Promise<void> {
     const target = this.#web(app);
     await this.#endSession();
     await this.#startSession(target);
   }
 
+  /** Best-effort: `close` reports nothing, so an unconfirmed DELETE is dropped here (the server's `newCommandTimeout` ends the session); `terminate` reports it. */
   async close(): Promise<void> {
-    await this.#endSession();
+    await this.#endSession().catch(() => undefined);
     this.#logFile = null;
     this.#sanitizers.clear();
   }
@@ -311,7 +313,8 @@ export class DesktopWebDriver implements Driver {
 
   /**
    * Tap `at`, require a focused text field, clear it with ⌘A + Backspace (or move the caret to the end when appending),
-   * type `text` as key actions in the same dispatch, then read the value back. Mismatch → `INPUT_UNVERIFIED`.
+   * type `text` as key actions in the same dispatch, then read the value back. Mismatch → `INPUT_UNVERIFIED`. A click
+   * that focused no text field is `uncertain`: it was sent, and what it did is unknown.
    */
   async #fill(at: Point, text: string, opts: { secure?: boolean; append?: boolean }): Promise<TypeOutcome> {
     const t0 = performance.now();
@@ -324,7 +327,7 @@ export class DesktopWebDriver implements Driver {
     let field: Field | null = null;
     const focus = await this.#act(async () => {
       field = await this.#waitField(secure);
-      if (!field) throw new RefusedError('탭한 위치에 편집 가능한 입력 포커스가 생기지 않았습니다');
+      if (!field) throw new StepError({ status: 'uncertain', ms: 0, error: '클릭은 보냈지만 편집 가능한 입력 포커스가 생기지 않았습니다 (클릭의 효과를 알 수 없음)' });
     });
     const target = field as Field | null;
     if (focus.status !== 'completed' || !target) return done(focus);
@@ -425,8 +428,8 @@ export class DesktopWebDriver implements Driver {
 
   openUrl(app: AppTarget, url: string): Promise<ActionOutcome> {
     return this.#act(async () => {
-      this.#web(app);
-      assertHttpUrl(url);
+      const problem = navigationProblem(this.#web(app), url);
+      if (problem) throw new RefusedError(problem);
       await this.#api.navigate(url, NAV_TIMEOUT_MS);
     });
   }

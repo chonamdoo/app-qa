@@ -186,6 +186,8 @@ const PNG_MAGIC = 0x89504e47;
  * - Desktop browsers: WebDriver Navigate To / Back / Perform Actions "return success with data null" (W3C WebDriver
  *   §10.1, §10.3, §15.7); appium-chromium-driver 3.1.1 and appium-safari-driver 5.0.10 proxy chromedriver/safaridriver
  *   bodies unchanged.
+ * - Delete Session: base-driver 10.8.1 never proxies it (`lib/protocol/protocol.ts:298-302`) and answers null whatever the
+ *   driver returned (`lib/protocol/protocol.ts:521-528`); W3C WebDriver §8.2 "return success with data null".
  */
 const Done = z.null();
 
@@ -373,11 +375,12 @@ export class AppiumClient {
     return session.capabilities;
   }
 
+  /** Ends the session; completes only with W3C `null` (a failed, timed-out or garbled DELETE throws — the session may live on). */
   async deleteSession(timeoutMs = 30_000): Promise<void> {
     if (!this.sessionId) return;
     const id = this.sessionId;
     this.sessionId = null;
-    await this.request('DELETE', `/session/${id}`, undefined, timeoutMs);
+    decode(Done, await this.request('DELETE', `/session/${id}`, undefined, timeoutMs), 'DELETE /session');
   }
 
   async source(): Promise<string> {

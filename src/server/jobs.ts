@@ -1,5 +1,5 @@
-// Job queue: validated requests, per-resource serialization (FIFO per device, and per app for plan generation),
-// cancellation via AbortController.
+// Job queue: validated requests, per-resource serialization (FIFO per device, the one desktop display, and per app for
+// plan generation), cancellation via AbortController.
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { EventSink, JobKind } from '../core/events.ts';
@@ -116,7 +116,7 @@ export interface JobView {
 
 interface Job extends JobView {
   request: JobRequest;
-  /** Resources held while running: the device claims plus `plan:<app>` for plan jobs (one generation per app). */
+  /** Resources held while running: the device claims, `desktop:display` for desktop browsers, `plan:<app>` for plan jobs (one generation per app). */
   claims: string[];
   controller: AbortController | null;
 }
@@ -128,24 +128,35 @@ function claimFor(platform: Platform, deviceId: string | undefined): string {
   return `${platform}:${deviceId ?? (PLATFORM_INFO[platform].host === 'desktop' ? platform : '*')}`;
 }
 
+/** This Mac's one screen, pointer and keyboard: every desktop browser drives it, so desktop jobs never run side by side. */
+const DESKTOP_DISPLAY = 'desktop:display';
+
 /**
- * Device claims of a request. `all` = the app profile's platforms; without a profile (runs span apps unknown here, or the
- * profile does not load) it claims every platform, so a job never runs beside another on a device it may use.
+ * Claims of a request: `devices` (shown per job) and every resource held while it runs. `all` = the app profile's
+ * platforms; without a profile (runs span apps unknown here, or the profile does not load) it claims every platform, so a
+ * job never runs beside another on a device it may use. A desktop platform also claims `desktop:display`.
  */
-export function deviceClaims(req: JobRequest, profile: AppProfile | null = null): string[] {
+export function jobClaims(req: JobRequest, profile: AppProfile | null = null): { devices: string[]; resources: string[] } {
+  let platforms: { platform: Platform; deviceId: string | undefined }[];
   switch (req.kind) {
     case 'run':
     case 'smoke': {
       const { platform, deviceIds } = req.params;
-      const platforms: readonly Platform[] = platform !== 'all' ? [platform] : profile ? profilePlatforms(profile) : PLATFORMS;
-      return platforms.map((p) => claimFor(p, deviceIds[p]));
+      const chosen: readonly Platform[] = platform !== 'all' ? [platform] : profile ? profilePlatforms(profile) : PLATFORMS;
+      platforms = chosen.map((p) => ({ platform: p, deviceId: deviceIds[p] }));
+      break;
     }
     case 'capture':
-      return [claimFor(req.params.platform, req.params.deviceId)];
+      platforms = [{ platform: req.params.platform, deviceId: req.params.deviceId }];
+      break;
     case 'plan':
     case 'calibrate':
-      return [];
+      platforms = [];
+      break;
   }
+  const devices = platforms.map(({ platform, deviceId }) => claimFor(platform, deviceId));
+  const display = platforms.some(({ platform }) => PLATFORM_INFO[platform].host === 'desktop') ? [DESKTOP_DISPLAY] : [];
+  return { devices, resources: [...devices, ...display, ...(req.kind === 'plan' ? [`plan:${req.params.app}`] : [])] };
 }
 
 /** `<resource>:<id>` claims conflict on the same resource with the same id or a `*`; ids may contain `:` (adb over Wi-Fi). */
@@ -211,7 +222,7 @@ export class JobQueue {
 
   enqueue(request: JobRequest, parentId: string | null = null): JobView {
     const profile = request.kind === 'smoke' || request.kind === 'capture' ? this.profileOf(request.params.app) : null;
-    const devices = deviceClaims(request, profile);
+    const { devices, resources } = jobClaims(request, profile);
     const job: Job = {
       id: randomUUID(),
       kind: request.kind,
@@ -219,7 +230,7 @@ export class JobQueue {
       state: 'queued',
       params: request.params,
       devices,
-      claims: [...devices, ...(request.kind === 'plan' ? [`plan:${request.params.app}`] : [])],
+      claims: resources,
       parentId,
       cancelRequested: false,
       createdAt: new Date().toISOString(),

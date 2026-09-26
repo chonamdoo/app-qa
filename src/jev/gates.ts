@@ -102,13 +102,14 @@ const SURFACE_KO: Record<Surface, string> = { app: '앱', web: '웹' };
 /**
  * The gate for one primitive, or a reason why Jev must not decide: no record, a record for another model /
  * question version, a primitive whose pre-registered criteria were not met, or a commit check on a `surface` without
- * its own calibrated gate.
+ * its own calibrated gate. Every caller names the surface it judges (only commit has per-surface gates today), so a
+ * web decision can never silently use an app gate.
  */
 export function usableGate<K extends CalibratedPrimitive>(
   calibration: Calibration | null | undefined,
   model: string,
   primitive: K,
-  surface: Surface = 'app',
+  surface: Surface,
 ): { gate: Calibration[K]['gate']; reason: null } | { gate: null; reason: string } {
   if (!calibration) return { gate: null, reason: 'uncalibrated' };
   if (calibration.model !== model || calibration.questionVersion !== QUESTION_VERSION) {

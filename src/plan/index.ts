@@ -9,6 +9,7 @@ import { join, relative, resolve, sep } from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 import { loadEnv, ROOT } from '../core/config.ts';
 import type { EventSink } from '../core/events.ts';
+import type { Surface } from '../core/types.ts';
 import { newRunId } from '../core/fsx.ts';
 import { JevClient } from '../jev/client.ts';
 import { loadJevConfig } from '../jev/config.ts';
@@ -138,13 +139,14 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
     const jev = opts.jev ?? resolveJev(env);
     if (!jev.client) warn(`Jev를 쓸 수 없어 모든 테스트를 draft로 둡니다: ${jev.reason ?? 'unavailable'}`);
     const redact = createRedactor(context.profile.redact);
+    const surface: Surface = context.profile.web ? 'web' : 'app';
     const entries: PlanTest[] = new Array(placed.length);
     let next = 0;
     const worker = async () => {
       while (next < placed.length) {
         const k = next++;
         const { test, id, file } = placed[k]!;
-        entries[k] = await reviewTest(test, id, rel(file), byId, jev, redact, opts.approve === true, opts.signal);
+        entries[k] = await reviewTest(test, id, rel(file), byId, jev, redact, surface, opts.approve === true, opts.signal);
       }
     };
     await Promise.all(Array.from({ length: Math.min(REVIEW_CONCURRENCY, placed.length) }, worker));
@@ -237,6 +239,7 @@ async function reviewTest(
   requirements: ReadonlyMap<string, Requirement>,
   jev: JevAccess,
   redact: Redactor,
+  surface: Surface,
   approve: boolean,
   signal: AbortSignal | undefined,
 ): Promise<PlanTest> {
@@ -245,7 +248,7 @@ async function reviewTest(
     return { file, covers, status: 'draft', review: { addressesRequirement: null, unrelatedSteps: null, needsClarification: null, issues: [jev.reason ?? 'jev_unavailable', ...test.warnings] } };
   }
   const requirement = { id: covers.join(', '), text: covers.map((c) => `[${c}] ${requirements.get(c)?.text ?? ''}`).join('\n\n') };
-  const decision = await reviewGenerated(jev.client, { requirement, test: { ...test.spec, id } }, { redact, calibration: jev.calibration, signal });
+  const decision = await reviewGenerated(jev.client, { requirement, test: { ...test.spec, id } }, { redact, calibration: jev.calibration, surface, signal });
   const issues = [...decision.review.issues, ...test.warnings];
   const status = approve && decision.verdict === 'approvable' && !test.warnings.length ? 'approved' : 'draft';
   return { file, covers, status, review: { ...decision.review, issues } };
