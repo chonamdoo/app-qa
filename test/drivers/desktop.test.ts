@@ -177,6 +177,31 @@ describe('real input', () => {
   });
 });
 
+describe('Safari input needs its window in front', () => {
+  it('an unfocused Safari page is raised before the input; one that stays behind is refused with nothing sent', async () => {
+    await withDriver({ front: false }, async (d, stub) => {
+      assert.equal((await d.tap(AT)).status, 'completed');
+      assert.equal(posted(stub, '/window').length, 1);
+      assert.equal(stub.sources().length, 1);
+    }, undefined, SAFARI);
+    await withDriver({ front: false, raises: false }, async (d, stub) => {
+      const tapped = await d.tap(AT);
+      assert.equal(tapped.status, 'rejected');
+      assert.match(tapped.error ?? '', /Safari 창이 앞으로 오지 않아 입력을 보내지 않았습니다/);
+      assert.equal((await d.typeText(AT, 'qa')).status, 'rejected');
+      assert.deepEqual(stub.sources(), []);
+    }, undefined, SAFARI);
+  });
+
+  it('Chrome takes input in a background window without being raised', async () => {
+    await withDriver({ front: false, raises: false }, async (d, stub) => {
+      assert.equal((await d.tap(AT)).status, 'completed');
+      assert.equal(posted(stub, '/window').length, 0);
+      assert.ok(!stub.scripts().includes('focused'));
+    });
+  });
+});
+
 describe('typeText / clearText', () => {
   it('clears with ⌘A + Backspace, types every character as a key, and reads the value back', async () => {
     await withDriver({ field: { value: '이전 값', password: false } }, async (d, stub) => {

@@ -31,6 +31,10 @@ export interface FakePage {
   extract: unknown;
   /** Browser console buffer; `/se/log` drains it. */
   console: { timestamp: number; level: string; message: string }[];
+  /** `document.hasFocus()`: the window is in front. */
+  front: boolean;
+  /** Switch To Window brings the window to the front (false: another app keeps it). */
+  raises: boolean;
 }
 
 export interface W3CStub extends AppiumStub {
@@ -76,6 +80,8 @@ export async function startW3CStub(init: Partial<FakePage> = {}, override?: (req
     hitBoxes: [],
     extract: sampleExtract(),
     console: [],
+    front: true,
+    raises: true,
     ...init,
   };
   const sources: Record<string, unknown>[] = [];
@@ -127,6 +133,8 @@ export async function startW3CStub(init: Partial<FakePage> = {}, override?: (req
       }
       case 'history':
         return ok(page.history);
+      case 'focused':
+        return ok(page.front);
       case 'hit':
         return ok(page.hitBoxes);
       case 'extract':
@@ -161,6 +169,10 @@ export async function startW3CStub(init: Partial<FakePage> = {}, override?: (req
     if (path === '/session/s1/url' && method === 'POST') {
       page.history = { length: page.history.length + 1, canGoBack: true };
       return ok(null);
+    }
+    if (path === '/session/s1/window') {
+      if (method === 'POST') page.front ||= page.raises;
+      return ok(method === 'GET' ? 'W1' : null);
     }
     if (path === '/session/s1/screenshot') return ok(PNG);
     if (path === '/session/s1/se/log') return ok(page.console.splice(0));

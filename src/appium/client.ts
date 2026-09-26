@@ -406,6 +406,12 @@ export class AppiumClient {
     return { x, y, width, height };
   }
 
+  /** W3C Switch To Window on the current handle; on macOS Safari this brings the window to the front (measured, Safari 26.6). */
+  async raiseWindow(): Promise<void> {
+    const handle = decode(z.string().min(1), await this.cmd('GET', '/window'), 'GET /window');
+    decode(Done, await this.cmd('POST', '/window', { handle }), 'POST /window');
+  }
+
   async performActions(actions: W3CInputSource[], timeoutMs?: number): Promise<void> {
     decode(Done, await this.cmd('POST', '/actions', { actions }, timeoutMs), 'POST /actions');
   }

@@ -37,6 +37,7 @@ const value = control ? el.value : el.innerText;
 const secure = wantSecure || (el.tagName === 'INPUT' && el.type === 'password');
 return { el, secure, length: Array.from(value).length, value: secure ? null : value };`,
   history: "return { length: history.length, canGoBack: typeof navigation === 'object' && navigation !== null ? navigation.canGoBack : null };",
+  focused: 'return document.hasFocus();',
   hit: `
 const [x, y] = arguments;
 let el = document.elementFromPoint(x, y);
@@ -81,6 +82,8 @@ const SPECIAL_KEY = /[\uE000-\uE05D]/;
 const PAGE_LOAD_MS = 30_000;
 const NAV_TIMEOUT_MS = 45_000;
 const LOG_POLL_MS = 1000;
+/** How long a raised Safari window may take to get focus (measured ≤ 350 ms). */
+const RAISE_MS = 1500;
 /** Chrome reports a crashed renderer on the next command. */
 const TAB_CRASH = /tab crashed|page crash/i;
 /** safaridriver refusing a session because remote automation is off (or it was never enabled). */
@@ -232,6 +235,31 @@ export class DesktopWebDriver implements Driver {
     }
   }
 
+  /**
+   * Real input (`fn` dispatches it). Safari drops WebDriver input while another app is in front (measured, Safari
+   * 26.6: the click reached nothing), so on Safari an unfocused page gets its window raised first and must gain focus
+   * within RAISE_MS, else the input is refused unsent. Chrome dispatches input to a background window.
+   */
+  #input(fn: () => Promise<void>): Promise<ActionOutcome> {
+    return this.#act(async () => {
+      if (this.platform === 'desktop-safari' && !(await this.#focused())) {
+        await this.#api.raiseWindow();
+        const deadline = performance.now() + RAISE_MS;
+        while (!(await this.#focused())) {
+          if (performance.now() >= deadline) throw new RefusedError('Safari 창이 앞으로 오지 않아 입력을 보내지 않았습니다 (다른 앱이 앞에 있음 — 실행 중에는 Safari 창을 가리지 마세요)');
+          await delay(100);
+        }
+      }
+      await fn();
+    });
+  }
+
+  async #focused(): Promise<boolean> {
+    const raw = await this.#api.executeScript(DESKTOP_SCRIPTS.focused);
+    if (typeof raw !== 'boolean') throw unexpectedResponse('focused', raw);
+    return raw;
+  }
+
   /** A new session for `app`; a session still open from an earlier target is ended first (its browser window would linger) — an unconfirmed end refuses to open a second one. */
   async open(app: AppTarget): Promise<void> {
     const target = this.#web(app);
@@ -283,11 +311,11 @@ export class DesktopWebDriver implements Driver {
   }
 
   tap(p: Point): Promise<ActionOutcome> {
-    return this.#act(() => this.#api.performActions(tapGesture(p, 60, 'mouse')));
+    return this.#input(() => this.#api.performActions(tapGesture(p, 60, 'mouse')));
   }
 
   longPress(p: Point, holdMs: number): Promise<ActionOutcome> {
-    return this.#act(() => this.#api.performActions(tapGesture(p, Math.max(0, Math.round(holdMs)), 'mouse'), 30_000 + holdMs));
+    return this.#input(() => this.#api.performActions(tapGesture(p, Math.max(0, Math.round(holdMs)), 'mouse'), 30_000 + holdMs));
   }
 
   /**
@@ -296,7 +324,7 @@ export class DesktopWebDriver implements Driver {
    */
   swipe(from: Point, to: Point, durationMs: number): Promise<ActionOutcome> {
     const id = `wheel-${++this.#wheels}`;
-    return this.#act(() => this.#api.performActions(wheelScroll(from, { x: from.x - to.x, y: from.y - to.y }, durationMs, id)));
+    return this.#input(() => this.#api.performActions(wheelScroll(from, { x: from.x - to.x, y: from.y - to.y }, durationMs, id)));
   }
 
   /** The text field `ref` (else the focused element), or null when it does not take typed text. Secure values stay masked. */
@@ -389,7 +417,7 @@ export class DesktopWebDriver implements Driver {
 
   press(key: Key): Promise<ActionOutcome> {
     if (key === 'back') return this.back();
-    return this.#act(() => this.#api.performActions(keyStrokes([[PRESS_KEYS[key]]])));
+    return this.#input(() => this.#api.performActions(keyStrokes([[PRESS_KEYS[key]]])));
   }
 
   /**
