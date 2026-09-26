@@ -6,17 +6,62 @@ export type Redactor = (text: string) => string;
 
 export const REDACTED = '[REDACTED]';
 
-/**
- * Always masked, whatever the app profile says: e-mail, KR mobile number, KR resident registration number, card number,
- * and the value of a sensitive URL query/fragment parameter (`?token=…`, `&code=…`, `#access_token=…`; the name stays).
- */
+/** Always masked, whatever the app profile says: e-mail, KR mobile number, KR resident registration number, card number. */
 const BUILTIN: readonly RegExp[] = [
   /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}/gu,
   /(?<!\d)01[016789][- ]?\d{3,4}[- ]?\d{4}(?!\d)/g,
   /(?<!\d)\d{6}-[1-8]\d{6}(?!\d)/g,
   /(?<!\d)\d{4}(?:[- ]\d{4}){3}(?!\d)/g,
-  /(?<=[?&#;](?:token|access_token|id_token|code|session|sid|auth|key|api_key|secret|password|sig|signature)=)[^&#\s"'<>]+/gi,
 ];
+
+/** URL query/fragment parameter names whose value is always masked (compared percent-decoded and lower-cased). */
+const SENSITIVE_PARAMS: Record<string, true> = {
+  token: true,
+  access_token: true,
+  id_token: true,
+  code: true,
+  session: true,
+  sid: true,
+  auth: true,
+  key: true,
+  api_key: true,
+  secret: true,
+  password: true,
+  sig: true,
+  signature: true,
+};
+/** A parameter name after `?`, `&`, `#` or `;`, up to its `=`. */
+const PARAM_NAME = /[?&#;]([^=&#?;\s"'<>]+)=/g;
+/** Where a parameter value ends. */
+const VALUE_END = /[&#\s"'<>]/g;
+const PERCENT_BYTE = /%([0-9a-f]{2})/gi;
+
+/**
+ * Masks the value of every sensitive URL query/fragment parameter (`?token=…`, `&code=…`, `#access_token=…`; the name
+ * stays). Names are percent-decoded like a URL parser does (`?%74oken=`, `access%5Ftoken=` are `token`, `access_token`),
+ * repeatedly so a doubly encoded name (`%2574oken`) is masked too; a value runs to the next `&`, `#`, whitespace, quote
+ * or angle bracket, so a `;name=` inside it is masked with it.
+ */
+function redactQueryValues(text: string): string {
+  let out = '';
+  let copied = 0;
+  for (const m of text.matchAll(PARAM_NAME)) {
+    const start = m.index + m[0].length;
+    if (start <= copied) continue;
+    let name = m[1]!;
+    for (let encoded = ''; encoded !== name; ) {
+      encoded = name;
+      name = name.replace(PERCENT_BYTE, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
+    }
+    if (!Object.hasOwn(SENSITIVE_PARAMS, name.toLowerCase())) continue;
+    VALUE_END.lastIndex = start;
+    const end = VALUE_END.exec(text)?.index ?? text.length;
+    if (end === start) continue;
+    out += text.slice(copied, start) + REDACTED;
+    copied = end;
+  }
+  return out + text.slice(copied);
+}
 
 /** Compiles app-profile `redact` regexes (plus the built-ins) into one redactor. Invalid patterns are a config error. */
 export function createRedactor(patterns: readonly string[] = []): Redactor {
@@ -32,8 +77,8 @@ export function createRedactor(patterns: readonly string[] = []): Redactor {
       }
     }
   });
-  const all = [...BUILTIN, ...compiled];
-  return (text) => all.reduce((out, re) => out.replace(re, (m) => (m.length === 0 ? m : REDACTED)), text.normalize('NFC'));
+  const mask = (out: string, re: RegExp) => out.replace(re, (m) => (m.length === 0 ? m : REDACTED));
+  return (text) => compiled.reduce(mask, redactQueryValues(BUILTIN.reduce(mask, text.normalize('NFC'))));
 }
 
 /** Deep-copies JSON-like data, redacting every string value (object keys are ids and stay as they are). */

@@ -234,6 +234,41 @@ describe('deterministic assertions', () => {
     ]);
   });
 
+  it('checkEach on a truncated observation: an observed violation FAILs, anything else is INCONCLUSIVE, never PASS', async () => {
+    const cut = (patch?: [string, string][]) => ({ ...screen('tab-departures', patch), depthCapped: true });
+    const run = async (steps: string, snap = cut()) => (await runYaml({ 'tests/check.e2e.yaml': spec(steps) }, new FakeDriver(snap))).result.tests[0]!;
+    // Every observed line satisfies the rule, but a violating line may lie past the cut.
+    const passing = await run(congestion);
+    assert.equal(passing.verdict, 'INCONCLUSIVE', passing.reason);
+    assert.equal(passing.code, 'observation_truncated');
+    // Fewer lines than `min`: the rest may lie past the cut.
+    const few = await run(congestion.replace('min: 3', 'min: 50'));
+    assert.equal(few.verdict, 'INCONCLUSIVE', few.reason);
+    assert.equal(few.code, 'observation_truncated');
+    // An observed violation is a real FAIL whatever the cut hides.
+    const violating = await run(congestion.replace('min: 3', 'min: 50'), cut([['대기 15분, 원활', '대기 27분, 원활']]));
+    assert.equal(violating.verdict, 'FAIL', violating.reason);
+    assert.equal(violating.code, 'check_failed');
+  });
+
+  it('checkEach never evaluates a line whose group the rule reads was not observed', async () => {
+    // The optional group does not match "대기, 원활": its wait was not observed (not 0, not null).
+    const check = (min: number) => `  - checkEach:\n      pattern: "대기(?: (?<wait>\\\\d+)분)?"\n      rule: { "<": [ { var: wait }, 100 ] }\n      min: ${min}\n`;
+    const blind = screen('tab-departures', [['대기 15분, 원활', '대기, 원활']]);
+    const t = (await runYaml({ 'tests/check.e2e.yaml': spec(check(1)) }, new FakeDriver(blind))).result.tests[0]!;
+    assert.equal(t.verdict, 'INCONCLUSIVE', t.reason);
+    assert.equal(t.code, 'check_unobserved');
+    assert.match(t.reason, /"출국장 3, 대기, 원활" \(wait 값 없음\)/);
+    // A line that violates the rule still FAILs next to the unobserved one.
+    const both = screen('tab-departures', [
+      ['대기 15분, 원활', '대기, 원활'],
+      ['대기 8분', '대기 150분'],
+    ]);
+    const f = (await runYaml({ 'tests/check.e2e.yaml': spec(check(1)) }, new FakeDriver(both))).result.tests[0]!;
+    assert.equal(f.verdict, 'FAIL', f.reason);
+    assert.equal(f.code, 'check_failed');
+  });
+
   it('remember stores a value that later steps expand with ${var}', async () => {
     const steps = `  - remember: { name: gate, from: { regex: "^J(?<value>\\\\d+)-" } }
   - assertText: "J\${gate}-J35"

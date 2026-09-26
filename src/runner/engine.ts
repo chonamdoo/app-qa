@@ -47,7 +47,7 @@ import { findTabs, screenSlug, writeInventory } from './inventory.ts';
 import { navigationProblem } from '../policy/navigation.ts';
 import { assessRisk, labelRisk, type RiskAssessment } from '../policy/risk.ts';
 import { qaStatus } from '../report/status.ts';
-import { ActionPreparer, type Approval, type Mutation, type Obs } from './prepare.ts';
+import { ActionPreparer, TRUNCATED_TARGET, type Approval, type Mutation, type Obs, type Refusal } from './prepare.ts';
 import { asSelector, notFoundDiagnostics, resolveDeterministic, stateMatches, targetText, type TargetQuery, type TargetSpec } from './resolve.ts';
 import { groupData, judgeLines, ruleProblem, type LineMatch } from './rule.ts';
 import { EvidenceSanitizer, maskValue, SanitizedStore } from './sanitize.ts';
@@ -157,11 +157,23 @@ interface StepCtx {
 
 type Resolved = { ok: true; candidate: Candidate; source: 'selector' | 'fast_path' | 'jev'; obs: Obs } | { ok: false; outcome: Outcome; obs: Obs };
 
-/** The approved preparation, or the step's verdict: stale / not editable → FAIL, blocked/unavailable → ERROR (nothing dispatched). */
+/** A refused preparation's step verdict (nothing dispatched). */
+const REFUSAL_VERDICT: Record<Refusal, Verdict> = {
+  blocked_by_policy: 'ERROR',
+  commit_check_unavailable: 'ERROR',
+  stale_target: 'FAIL',
+  not_editable: 'FAIL',
+  observation_truncated: 'INCONCLUSIVE',
+};
+
+/** The approved preparation, or the step's verdict (`REFUSAL_VERDICT`). */
 function approved<T extends object>(approval: Approval<T>): { status: 'approved' } & T {
   if (approval.status === 'approved') return approval;
-  throw new StepAbort(approval.status === 'stale_target' || approval.status === 'not_editable' ? 'FAIL' : 'ERROR', approval.status, approval.reason);
+  throw new StepAbort(REFUSAL_VERDICT[approval.status], approval.status, approval.reason);
 }
+
+/** A deterministic check's decision verdict (event + report). */
+const DECISION_VERDICT: Record<Verdict, string> = { PASS: 'pass', FAIL: 'fail', INCONCLUSIVE: 'inconclusive', ERROR: 'error', SKIPPED: 'skipped' };
 
 const PASS = (reason: string): Outcome => ({ verdict: 'PASS', code: null, reason });
 
@@ -258,7 +270,7 @@ export class TestSession {
     this.preparer = new ActionPreparer<StepCtx>({
       profile: test.profile,
       clock: env.clock,
-      observe: (ocr) => this.observe({ ocr }),
+      observe: (ocr, screenshot) => this.observe({ ocr, screenshot }),
       recentScroll: () => this.recentScroll,
       isHittable: async (p, target) => env.driver.isHittable?.(p, target),
       // The target decides the surface (gate availability and the threshold used): a web target stays web even if a
@@ -365,10 +377,10 @@ export class TestSession {
         const back = tabs[0]!;
         const i = index++;
         await this.execLeaf(i, `${i + 1} 첫 탭으로 복귀: ${back.name}`, 'main', async (ctx) => {
-          const obs = await this.observeBefore(ctx);
+          await this.observeBefore(ctx);
           const t = approved(await this.preparer.target(ctx, { candidate: back, source: 'selector' }, 'activate', false, null));
           await this.act(ctx, 'tap', { point: t.candidate.tapPoint }, () => this.env.driver.tap(t.candidate.tapPoint));
-          await this.settle(ctx, obs, true, DEFAULT_TIMEOUT_MS);
+          await this.settle(ctx, t.obs, true, DEFAULT_TIMEOUT_MS);
           return PASS(`"${back.name}" 탭으로 복귀`);
         });
       }
@@ -933,10 +945,21 @@ export class TestSession {
     }
   }
 
-  /** Mutating target: resolve (re-observing while not found) → preparation on the final fresh observation. */
+  /**
+   * Mutating target: resolve (re-observing while not found) → preparation on the final fresh observation. A target
+   * resolved (unique, or chosen by Jev) or missed on a truncated observation is INCONCLUSIVE: the cut part may hold
+   * another of the same name, or the target itself.
+   */
   private async approvedTarget(ctx: StepCtx, obs: Obs, query: TargetQuery, mutation: Mutation, allowRisky: boolean | undefined, timeout: number) {
     const q: TargetQuery = { ...query, purpose: mutation === 'edit' ? 'edit' : 'act' };
     const r = await this.resolveLoop(ctx, obs, q, { strict: false, deadline: this.deadline(timeout), ocr: true });
+    if (r.obs.model.snapshot.depthCapped) {
+      if (r.ok) throw new StepAbort('INCONCLUSIVE', 'observation_truncated', `"${r.candidate.name}": ${TRUNCATED_TARGET}`);
+      if (r.outcome.code === 'not_found') {
+        const out = truncatedAbsence(r.outcome.reason);
+        throw new StepAbort(out.verdict, out.code, out.reason);
+      }
+    }
     if (!r.ok) throw new StepAbort(r.outcome.verdict, r.outcome.code, r.outcome.reason);
     const reresolve = (fresh: Obs) => this.resolveLoop(ctx, fresh, q, { strict: false, deadline: this.env.clock.now(), ocr: false });
     return approved(await this.preparer.target(ctx, r, mutation, allowRisky ?? false, reresolve));
@@ -976,12 +999,13 @@ export class TestSession {
 
   /**
    * Presses Enter (`press: enter`, `type.submit`) approved on a fresh observation of the focused field. Returns the settle
-   * baseline: the observation after the commit check plus a screenshot taken then, so a change while Jev answered is not
-   * the Enter's effect (an Enter that changes nothing after it is no_effect unless expectNoChange).
+   * baseline: the observation after the commit check with its screenshot (one taken now without a commit check), so a
+   * change while Jev answered is not the Enter's effect (an Enter that changes nothing after it is no_effect unless
+   * expectNoChange).
    */
   private async pressEnter(ctx: StepCtx, allowRisky: boolean): Promise<Obs> {
     const enter = approved(await this.preparer.focused(ctx, allowRisky));
-    const baseline = { ...enter.obs, png: await this.env.driver.screenshot() };
+    const baseline = { ...enter.obs, png: enter.obs.png ?? (await this.env.driver.screenshot()) };
     await this.act(ctx, 'press', { text: 'enter' }, () => this.env.driver.press('enter'));
     return baseline;
   }
@@ -1247,9 +1271,11 @@ export class TestSession {
       obs = await this.observe();
     }
     await this.captureAfter(ctx, obs);
-    const outcome = judgeLines(check.rule, matches, check.min);
-    const verdict = outcome.verdict === 'PASS' ? 'pass' : outcome.verdict === 'ERROR' ? 'error' : 'fail';
-    this.decide(ctx, { kind: 'check', source: 'deterministic', verdict, intent: `/${check.pattern}/`, top: null, target: null, model: null, requestId: null, latencyMs: null, reason: outcome.reason });
+    const judged = judgeLines(check.rule, matches, check.min);
+    // On a truncated observation only an observed violation (or a broken rule) stands: the cut part may hold a
+    // violating line, or the lines `min` asks for.
+    const outcome = obs.model.snapshot.depthCapped && judged.verdict !== 'ERROR' && judged.code !== 'check_failed' ? truncatedAbsence(`규칙 위반 줄 /${check.pattern}/ (관찰된 부분: ${judged.reason})`) : judged;
+    this.decide(ctx, { kind: 'check', source: 'deterministic', verdict: DECISION_VERDICT[outcome.verdict], intent: `/${check.pattern}/`, top: null, target: null, model: null, requestId: null, latencyMs: null, reason: outcome.reason });
     return outcome;
   }
 

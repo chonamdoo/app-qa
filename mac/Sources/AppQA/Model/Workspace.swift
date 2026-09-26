@@ -397,24 +397,25 @@ final class Workspace {
     /// Website profile: device platforms run the browser app (labels say Android Chrome / iOS Safari).
     var isWebApp: Bool { selectedProfile?.web != nil }
 
-    /// Toolbar choices: app profiles keep `Android | iOS | 둘 다`; a website offers its own platforms plus `전체`.
+    /// Toolbar choices: the profile's server-derived `platforms` (app → configured android/ios, web → its browsers),
+    /// plus `all` (둘 다 / 전체) only when there is more than one. No profile loaded → nothing to choose.
     var platformChoices: [PlatformChoice] {
-        guard isWebApp, let profile = selectedProfile else { return [.android, .ios, .all] }
-        return profile.platforms.compactMap(PlatformChoice.init(rawValue:)) + [.all]
+        let choices = (selectedProfile?.platforms ?? []).compactMap(PlatformChoice.init(rawValue:))
+        return choices.count > 1 ? choices + [.all] : choices
     }
 
-    /// Platforms the current choice runs on (`all` = a website's platforms, as the engine expands it).
+    /// Platforms the current choice runs on (`all` = the profile's platforms, as the engine expands it).
     var activePlatforms: [String] {
         guard platform == .all else { return [platform.rawValue] }
-        guard isWebApp, let profile = selectedProfile else { return ["android", "ios"] }
-        return profile.platforms
+        return selectedProfile?.platforms ?? []
     }
 
     func label(platform: String) -> String { (isWebApp ? Palette.webPlatformLabel : Palette.platformLabel)[platform] ?? platform }
 
-    /// A choice the selected profile cannot run (e.g. desktop Chrome after switching to an app) falls back to `all`.
+    /// A choice the selected profile cannot run (desktop Chrome after switching to an app, iOS on an Android-only app)
+    /// falls back to `all`, or to the profile's only platform.
     private func normalizePlatform() {
-        if !platformChoices.contains(platform) { platform = .all }
+        if !platformChoices.contains(platform), let fallback = platformChoices.last { platform = fallback }
         if !activePlatforms.contains(devicePane) { devicePane = activePlatforms.first ?? "android" }
     }
 

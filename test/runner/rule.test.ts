@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ruleProblem } from '../../src/runner/rule.ts';
+import { groupData, judgeLines, ruleProblem } from '../../src/runner/rule.ts';
 
 const groups = new Set(['n', 's']);
 const n = { var: 'n' };
@@ -59,5 +59,27 @@ describe('checkEach rule operand counts', () => {
       '< between': { '<': [0, n, 100] },
     };
     for (const [name, rule] of Object.entries(cases)) assert.equal(ruleProblem(rule, groups), null, name);
+  });
+});
+
+describe('checkEach lines with unobserved groups', () => {
+  const re = /대기(?: (?<wait>\d+)분)?(?:, (?<level>\S+))?/u;
+  const lines = (...texts: string[]) => texts.map((line) => ({ line, data: groupData(re.exec(line)!.groups ?? {}) }));
+  const below100 = { '<': [{ var: 'wait' }, 100] };
+
+  it('a line missing a group the rule reads is INCONCLUSIVE, never a comparison with 0 or null', () => {
+    for (const matched of [lines('대기'), lines('대기 8분', '대기')]) {
+      const j = judgeLines(below100, matched, 1);
+      assert.equal(j.verdict, 'INCONCLUSIVE', j.reason);
+      assert.equal(j.code, 'check_unobserved');
+      assert.match(j.reason, /"대기" \(wait 값 없음\)/);
+    }
+  });
+
+  it('a violating line FAILs next to an unobserved one; a group the rule does not read may be missing', () => {
+    const j = judgeLines(below100, lines('대기', '대기 150분'), 1);
+    assert.equal(j.verdict, 'FAIL', j.reason);
+    assert.equal(j.code, 'check_failed');
+    assert.equal(judgeLines(below100, lines('대기 8분', '대기 9분, 원활'), 2).verdict, 'PASS');
   });
 });

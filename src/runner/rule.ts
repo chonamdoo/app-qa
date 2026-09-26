@@ -102,16 +102,28 @@ export function ruleProblem(rule: unknown, groups: ReadonlySet<string>): string 
 
 export interface LineMatch {
   line: string;
-  data: Record<string, string | number | null>;
+  /** The groups the line matched; an optional group that did not take part is absent (never null or 0). */
+  data: Record<string, string | number>;
 }
 
+type Judgement = { verdict: 'PASS' | 'FAIL' | 'ERROR' | 'INCONCLUSIVE'; code: string | null; reason: string };
+
 /**
- * Verdict of a rule that passed `ruleProblem` over the matched lines. A throw or a non-boolean result on any line is a
- * broken rule (ERROR, never a pass); then too few lines or any violating line is FAIL.
+ * Verdict of a rule that passed `ruleProblem` over the matched lines. A line missing a group the rule reads (an optional
+ * group that did not match) is not evaluated: its value was not observed. A throw or a non-boolean result on any
+ * evaluated line is a broken rule (ERROR, never a pass); then any violating line (it stands whatever else was seen) or
+ * too few lines is FAIL; then a line that could not be evaluated is INCONCLUSIVE `check_unobserved`.
  */
-export function judgeLines(rule: object, matches: readonly LineMatch[], min: number): { verdict: 'PASS' | 'FAIL' | 'ERROR'; code: string | null; reason: string } {
+export function judgeLines(rule: object, matches: readonly LineMatch[], min: number): Judgement {
+  const reads = jsonLogic.uses_data(rule);
   const violations: LineMatch[] = [];
+  const unobserved: string[] = [];
   for (const m of matches) {
+    const missing = reads.filter((name) => !Object.hasOwn(m.data, name));
+    if (missing.length) {
+      unobserved.push(`"${m.line}" (${missing.join(', ')} 값 없음)`);
+      continue;
+    }
     let value: unknown;
     try {
       value = jsonLogic.apply(rule, m.data);
@@ -121,14 +133,15 @@ export function judgeLines(rule: object, matches: readonly LineMatch[], min: num
     if (typeof value !== 'boolean') return { verdict: 'ERROR', code: 'invalid_rule', reason: `checkEach 규칙 결과가 참/거짓이 아님 ("${m.line}"): ${JSON.stringify(value)}` };
     if (!value) violations.push(m);
   }
-  if (matches.length < min) return { verdict: 'FAIL', code: 'check_min', reason: `패턴 일치 ${matches.length}줄 < 최소 ${min}줄` };
   if (violations.length) return { verdict: 'FAIL', code: 'check_failed', reason: `규칙 위반 ${violations.length}줄: ${violations.map((v) => `"${v.line}" ${JSON.stringify(v.data)}`).join('; ')}` };
+  if (matches.length < min) return { verdict: 'FAIL', code: 'check_min', reason: `패턴 일치 ${matches.length}줄 < 최소 ${min}줄` };
+  if (unobserved.length) return { verdict: 'INCONCLUSIVE', code: 'check_unobserved', reason: `규칙이 읽는 그룹이 관찰되지 않은 ${unobserved.length}줄은 판정할 수 없음: ${unobserved.join('; ')}` };
   return { verdict: 'PASS', code: null, reason: `${matches.length}줄 모두 규칙 만족` };
 }
 
-/** Numbers from digit-only groups ("27", "1,234", "-3.5"); other groups stay strings; missing groups are null. */
-export function groupData(groups: Record<string, string | undefined>): Record<string, string | number | null> {
-  const data: Record<string, string | number | null> = {};
-  for (const [k, v] of Object.entries(groups)) data[k] = v === undefined ? null : /^[+-]?\d[\d,]*(\.\d+)?$/.test(v) ? Number(v.replace(/,/g, '')) : v;
+/** Numbers from digit-only groups ("27", "1,234", "-3.5"); other groups stay strings; groups that did not match are left out. */
+export function groupData(groups: Record<string, string | undefined>): Record<string, string | number> {
+  const data: Record<string, string | number> = {};
+  for (const [k, v] of Object.entries(groups)) if (v !== undefined) data[k] = /^[+-]?\d[\d,]*(\.\d+)?$/.test(v) ? Number(v.replace(/,/g, '')) : v;
   return data;
 }

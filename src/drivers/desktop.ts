@@ -112,6 +112,12 @@ export class DesktopWebDriver implements Driver {
   #draining: Promise<void> | null = null;
   /** Wheel input sources used so far: Safari ignores every scroll after the first on a reused wheel source (measured). */
   #wheels = 0;
+  /**
+   * Why a browser window of this driver may still be on the shared display: a session start or end that was not
+   * confirmed. Sticky for the driver's life (the lost session is never retried): no new session opens and every
+   * session end — `terminate`, `reset`, `open`, `close()` — fails `uncertain` so the desktop lane stops.
+   */
+  #displayUnknown: string | null = null;
 
   constructor(platform: DesktopPlatform, deviceId: string, opts: DriverOptions = {}) {
     this.platform = platform;
@@ -122,6 +128,10 @@ export class DesktopWebDriver implements Driver {
   get #api(): AppiumClient {
     if (!this.#client?.sessionId) throw new Error('브라우저 세션이 열려 있지 않습니다. open() 또는 launch()를 먼저 호출하세요.');
     return this.#client;
+  }
+
+  #displayUnknownError(): StepError {
+    return new StepError({ status: 'uncertain', ms: 0, error: `브라우저 창이 화면에 남았을 수 있어 세션을 열거나 닫지 않습니다 (${this.#displayUnknown})` });
   }
 
   /** The target as a web profile for this browser, validated like every driver's (`targetProblem`: http(s) start URL without credentials, inside its origins); anything else is refused. */
@@ -155,9 +165,10 @@ export class DesktopWebDriver implements Driver {
    * window can remain: Appium did not start (no session request was sent), safaridriver refused remote automation, or
    * the viewport could not be fitted and the session end was confirmed. A failed or timed-out session request is
    * `uncertain`: the browser may have opened a window on the shared display (Appium also answers `session not created`
-   * for driver failures after the browser started).
+   * for driver failures after the browser started). Refused `uncertain` while an earlier window may remain.
    */
   async #startSession(target: WebTarget): Promise<void> {
+    if (this.#displayUnknown !== null) throw this.#displayUnknownError();
     const t0 = performance.now();
     let url: string;
     try {
@@ -174,7 +185,8 @@ export class DesktopWebDriver implements Driver {
       if (this.platform === 'desktop-safari' && SAFARI_AUTOMATION_OFF.test(message)) {
         throw new RefusedError(`Safari 원격 자동화가 허용되지 않아 세션을 만들 수 없습니다. ${SAFARI_AUTOMATION_HINT}. (safaridriver: ${message.slice(0, 300)})`);
       }
-      throw new StepError({ status: 'uncertain', ms: elapsed(t0), error: `브라우저 세션을 만들지 못했습니다(창이 남았을 수 있음): ${message}` });
+      this.#displayUnknown = `브라우저 세션을 만들지 못했습니다(창이 남았을 수 있음): ${message}`;
+      throw new StepError({ status: 'uncertain', ms: elapsed(t0), error: this.#displayUnknown });
     }
     this.#client = client;
     this.#target = target;
@@ -203,7 +215,8 @@ export class DesktopWebDriver implements Driver {
 
   /**
    * Drops the session. A DELETE that fails, times out or answers anything but W3C `null` leaves the browser (and its
-   * window on the shared display) in an unknown state: it throws an `uncertain` StepError instead of reporting an end.
+   * window on the shared display) in an unknown state: it is remembered and thrown as an `uncertain` StepError
+   * instead of reporting an end — and so is every later end while that state lasts.
    */
   async #endSession(): Promise<void> {
     if (this.#logTimer) clearInterval(this.#logTimer);
@@ -211,10 +224,15 @@ export class DesktopWebDriver implements Driver {
     await this.#drainLogs().catch(() => undefined);
     const client = this.#client;
     this.#client = null;
+    if (!client) {
+      if (this.#displayUnknown !== null) throw this.#displayUnknownError();
+      return;
+    }
     try {
-      await client?.deleteSession();
+      await client.deleteSession();
     } catch (err) {
-      throw new StepError({ status: 'uncertain', ms: 0, error: `브라우저 세션 종료를 확인하지 못했습니다: ${(err as Error).message}` });
+      this.#displayUnknown = `브라우저 세션 종료를 확인하지 못했습니다: ${(err as Error).message}`;
+      throw new StepError({ status: 'uncertain', ms: 0, error: this.#displayUnknown });
     }
   }
 
@@ -260,7 +278,7 @@ export class DesktopWebDriver implements Driver {
     return raw;
   }
 
-  /** A new session for `app`; a session still open from an earlier target is ended first (its browser window would linger) — an unconfirmed end refuses to open a second one. */
+  /** A new session for `app`; a session still open from an earlier target is ended first (its browser window would linger) — an unconfirmed end, now or earlier, refuses to open a second one. */
   async open(app: AppTarget): Promise<void> {
     const target = this.#web(app);
     await this.#endSession();
@@ -269,7 +287,8 @@ export class DesktopWebDriver implements Driver {
 
   /**
    * Ends the session and drops local state (log file, sanitizers, log timer) whatever the outcome; an unconfirmed
-   * DELETE is rethrown as the `uncertain` StepError: the window may still be on the shared display.
+   * DELETE — this one or any earlier one — is thrown as the `uncertain` StepError: the window may still be on the
+   * shared display.
    */
   async close(): Promise<void> {
     try {

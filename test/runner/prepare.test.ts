@@ -405,3 +405,74 @@ describe('post-scroll stabilisation', () => {
     assert.equal(driver.called('tap').length, 0);
   });
 });
+
+describe('a truncated observation approves no target-based mutation', () => {
+  // depthCapped: the web node cap / the iOS depth cap — the cut part may hold a same-name target or destructive text.
+  const launch = () => fixtureSnapshot('android', 'tteonam', 'launch', { foreground: APP });
+  const search = () => fixtureSnapshot('android', 'tteonam', 'search-empty-keyboard', { foreground: APP, keyboardShown: true });
+  const cut = (s: Snapshot): Snapshot => ({ ...s, depthCapped: true });
+  const field = '{ intent: 편명·도시·항공사, state: { focused: true } }';
+  const MUTATIONS = ['tap', 'longPress', 'typeText', 'clearText', 'press'];
+  const refused = async (name: string, driver: FakeDriver, steps: string, jev = commitSafe().setup) => {
+    const t = (await runYaml({ 'tests/c.e2e.yaml': spec(steps) }, driver, { jev })).result.tests[0]!;
+    assert.equal(t.verdict, 'INCONCLUSIVE', `${name}: ${t.reason}`);
+    assert.equal(t.code, 'observation_truncated', `${name}: ${t.reason}`);
+    for (const method of MUTATIONS) assert.equal(driver.called(method).length, 0, `${name}: ${method}`);
+    return t;
+  };
+
+  it('tap, longPress, type, clear and Enter on a truncated screen are INCONCLUSIVE, allowRisky included', async () => {
+    const cases: Record<string, [() => Snapshot, string]> = {
+      tap: [launch, '  - tap: 설정\n    expectNoChange: true\n'],
+      tapAllowRisky: [launch, '  - tap: 설정\n    allowRisky: true\n    expectNoChange: true\n'],
+      longPress: [launch, '  - longPress: 설정\n    expectNoChange: true\n'],
+      type: [search, `  - type: 인천\n    into: ${field}\n`],
+      clear: [search, `  - clear: ${field}\n`],
+      enter: [search, '  - press: enter\n    expectNoChange: true\n'],
+      enterAllowRisky: [search, '  - press: enter\n    allowRisky: true\n    expectNoChange: true\n'],
+    };
+    for (const [name, [screen, steps]] of Object.entries(cases)) await refused(name, new FakeDriver(cut(screen())), steps);
+  });
+
+  it('the final fresh observation decides: truncated only at freshness or only after the commit check is refused too', async () => {
+    // Step start (2nd snapshot) is complete; the freshness re-observation (3rd) is cut.
+    const fresh = new FakeDriver(launch());
+    fresh.onSnapshot = (d) => {
+      if (d.called('snapshot').length >= 3) d.screen = cut(launch());
+    };
+    await refused('freshness', fresh, '  - tap: 설정\n    expectNoChange: true\n');
+
+    // The screen is cut while Jev answers the commit check: the post-commit observation decides.
+    for (const [name, screen, steps] of [
+      ['tap', launch, '  - tap: 설정\n    expectNoChange: true\n'],
+      ['enter', search, '  - press: enter\n    expectNoChange: true\n'],
+    ] as const) {
+      const driver = new FakeDriver(screen());
+      const jev = jevStub(() => {
+        driver.screen = cut(screen());
+        return noul(0.02);
+      });
+      const t = await refused(`post-commit ${name}`, driver, steps, jev.setup);
+      assert.match(t.reason, /Jev commit 확인 후/, name);
+    }
+  });
+});
+
+describe('the effect of a commit-checked action is measured from the screen after the check', () => {
+  it('a tap or long press that changes nothing is no_effect even when the image changed while Jev answered', async () => {
+    const launch = fixtureSnapshot('android', 'tteonam', 'launch', { foreground: APP });
+    // Same tree (same fingerprints), another image: an animation or canvas that changed during the commit check.
+    const otherImage = fixtureSnapshot('android', 'tteonam', 'tab-departures').screenshotPng;
+    for (const step of ['tap', 'longPress'] as const) {
+      const driver = new FakeDriver(launch);
+      const jev = jevStub(() => {
+        driver.screen = { ...launch, screenshotPng: otherImage };
+        return noul(0.02);
+      });
+      const t = (await runYaml({ 'tests/e.e2e.yaml': spec(`  - ${step}: 설정\n`) }, driver, { jev: jev.setup })).result.tests[0]!;
+      assert.equal(driver.called(step).length, 1, step);
+      assert.equal(t.verdict, 'INCONCLUSIVE', `${step}: ${t.reason}`);
+      assert.equal(t.code, 'no_effect', step);
+    }
+  });
+});

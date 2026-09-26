@@ -65,6 +65,8 @@ describe('open', () => {
         const driver = new DesktopWebDriver('desktop-chrome', 'desktop-chrome', { serverUrl: stub.url });
         await assert.rejects(driver.open(CHROME), (err: Error) => failureStatus(err) === 'uncertain', name);
         assert.equal((await driver.launch(CHROME)).status, 'uncertain', name);
+        await assert.rejects(driver.close(), (err: Error) => failureStatus(err) === 'uncertain', name);
+        assert.equal(stub.requests.filter((r) => r.method === 'POST' && r.path === '/session').length, 1, `${name}: no second session`);
       } finally {
         stub.close();
       }
@@ -382,37 +384,51 @@ describe('ending the browser session', () => {
     'W3C error': { status: 500, body: { value: { error: 'unknown error', message: 'quit failed' } } },
   };
   const deletes = (stub: W3CStub) => stub.requests.filter((r) => r.method === 'DELETE' && r.path === '/session/s1').length;
+  const sessionRequests = (stub: W3CStub) => stub.requests.filter((r) => r.method === 'POST' && r.path === '/session').length;
+  /** Every driver call that would start or end a session, as its outcome status (`open`/`close` throw). */
+  const SESSION_CALLS: Record<string, (d: DesktopWebDriver) => Promise<string>> = {
+    terminate: async (d) => (await d.terminate(CHROME)).status,
+    'reset clear': async (d) => (await d.reset(CHROME, 'clear')).status,
+    'reset relaunch': async (d) => (await d.reset(CHROME, 'relaunch')).status,
+    launch: async (d) => (await d.launch(CHROME)).status,
+    open: (d) => d.open(CHROME).then(() => 'completed', failureStatus),
+    close: (d) => d.close().then(() => 'completed', failureStatus),
+  };
 
-  it('terminate and reset clear are uncertain when the DELETE is not confirmed; clear then opens no new session', async () => {
+  it('an unconfirmed end inside a test (terminate, reset clear, open replacing the session) is not forgotten: no new session, every later start or end is uncertain', async () => {
+    const ends: Record<string, (d: DesktopWebDriver) => Promise<string>> = { terminate: SESSION_CALLS.terminate!, 'reset clear': SESSION_CALLS['reset clear']!, open: SESSION_CALLS.open! };
     for (const [name, reply] of Object.entries(DELETE_FAILURES)) {
-      await withDriver({}, async (d, stub) => {
-        const o = await d.terminate(CHROME);
-        assert.equal(o.status, 'uncertain', name);
-        assert.match(o.error ?? '', /세션 종료를 확인하지 못했습니다/, name);
-        assert.equal(deletes(stub), 1, name);
-      }, (req) => (req.method === 'DELETE' ? reply : undefined));
-      await withDriver({}, async (d, stub) => {
-        const o = await d.reset(CHROME, 'clear');
-        assert.equal(o.status, 'uncertain', name);
-        assert.equal(stub.requests.filter((r) => r.method === 'POST' && r.path === '/session').length, 1, `${name}: no second session`);
-        assert.equal(posted(stub, '/url').length, 0, name);
-      }, (req) => (req.method === 'DELETE' ? reply : undefined));
+      for (const [first, end] of Object.entries(ends)) {
+        const label = `${name}, ${first}`;
+        const stub = await startW3CStub({}, (req) => (req.method === 'DELETE' ? reply : undefined));
+        try {
+          const driver = new DesktopWebDriver('desktop-chrome', 'desktop-chrome', { serverUrl: stub.url });
+          await driver.open(CHROME);
+          assert.equal(await end(driver), 'uncertain', label);
+          for (const [call, run] of Object.entries(SESSION_CALLS)) assert.equal(await run(driver), 'uncertain', `${label} → ${call}`);
+          await assert.rejects(driver.close(), (err: Error) => failureStatus(err) === 'uncertain' && /세션 종료를 확인하지 못했습니다/.test(err.message), label);
+          assert.equal(sessionRequests(stub), 1, `${label}: no second session`);
+          assert.equal(deletes(stub), 1, `${label}: the lost session is not ended again`);
+          assert.equal(posted(stub, '/url').length, 0, `${label}: nothing navigated`);
+        } finally {
+          stub.close();
+        }
+      }
     }
   });
 
-  it('close reports an unconfirmed DELETE as uncertain after dropping the session locally', async () => {
-    for (const [name, reply] of Object.entries(DELETE_FAILURES)) {
-      const stub = await startW3CStub({}, (req) => (req.method === 'DELETE' ? reply : undefined));
-      try {
-        const driver = new DesktopWebDriver('desktop-chrome', 'desktop-chrome', { serverUrl: stub.url });
-        await driver.open(CHROME);
-        await assert.rejects(driver.close(), (err: Error) => failureStatus(err) === 'uncertain' && /세션 종료를 확인하지 못했습니다/.test(err.message), name);
-        // The session is dropped locally: a second close sends nothing and reports nothing.
-        await driver.close();
-        assert.equal(deletes(stub), 1, name);
-      } finally {
-        stub.close();
-      }
+  it('a session request lost inside a test (launch after a confirmed end) keeps the window unknown: close is uncertain', async () => {
+    const stub = await startW3CStub({}, (req) => (req.method === 'POST' && req.path === '/session' && sessionRequests(stub) === 2 ? 'destroy' : undefined));
+    try {
+      const driver = new DesktopWebDriver('desktop-chrome', 'desktop-chrome', { serverUrl: stub.url });
+      await driver.open(CHROME);
+      assert.equal((await driver.terminate(CHROME)).status, 'completed');
+      assert.equal((await driver.launch(CHROME)).status, 'uncertain');
+      assert.equal((await driver.launch(CHROME)).status, 'uncertain');
+      await assert.rejects(driver.close(), (err: Error) => failureStatus(err) === 'uncertain' && /창이 남았을 수 있음/.test(err.message));
+      assert.equal(sessionRequests(stub), 2);
+    } finally {
+      stub.close();
     }
   });
 

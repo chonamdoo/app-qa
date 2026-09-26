@@ -1,9 +1,9 @@
 // Action preparation (architecture §5 위험 정책, §11, invariants 4–5): a mutation is approved only on the final fresh
-// observation — refind + hit-test (after scroll/swipe/back: the target must hold still) → deterministic policy on the
-// fresh target and screen → mandatory Jev commit check for deterministically safe targets without `allowRisky` → after
-// that wait, a new observation must show the same screen and target, hit-tested again at its tap point on that
-// observation → one explicit approval result carrying that target. Nothing here dispatches; the session acts only on
-// `approved`.
+// observation, never a truncated one — refind + hit-test (after scroll/swipe/back: the target must hold still) →
+// deterministic policy on the fresh target and screen → mandatory Jev commit check for deterministically safe targets
+// without `allowRisky` → after that wait, a new observation must show the same screen and target, hit-tested again at
+// its tap point on that observation → one explicit approval result carrying that target. Nothing here dispatches; the
+// session acts only on `approved`.
 import type { Candidate, ClaimDecision, Point, Rect, ScreenModel } from '../core/types.ts';
 import { isUnoccludedAt, refind } from '../observe/index.ts';
 import { assessRisk, DESTRUCTIVE_CONTEXT, type RiskAssessment } from '../policy/risk.ts';
@@ -28,9 +28,16 @@ export type TargetSource = 'selector' | 'fast_path' | 'jev';
  */
 export type Mutation = 'activate' | 'edit' | 'submit';
 
-export type Approval<T extends object> =
-  | ({ status: 'approved' } & T)
-  | { status: 'blocked_by_policy' | 'commit_check_unavailable' | 'stale_target' | 'not_editable'; reason: string };
+/** Why nothing is dispatched: see `Approval`. */
+export type Refusal = 'blocked_by_policy' | 'commit_check_unavailable' | 'stale_target' | 'not_editable' | 'observation_truncated';
+
+export type Approval<T extends object> = ({ status: 'approved' } & T) | { status: Refusal; reason: string };
+
+/**
+ * A target-based mutation is never approved on a truncated observation (`depthCapped`: the web node cap, the iOS depth
+ * cap): the cut part may hold a target of the same name (uniqueness) or destructive text (the policy).
+ */
+export const TRUNCATED_TARGET = '화면 구조가 잘려 관찰됨(노드·깊이 상한) — 잘린 부분에 같은 이름의 대상이나 위험 문구가 있을 수 있어 실행하지 않음';
 
 /** A resolution result (the session's resolver); only the reason of a failure is used here. */
 export type Resolution = { ok: true; candidate: Candidate; source: TargetSource; obs: Obs } | { ok: false; outcome: { reason: string } };
@@ -39,7 +46,8 @@ export type Resolution = { ok: true; candidate: Candidate; source: TargetSource;
 export interface PrepareHost<Ctx> {
   readonly profile: AppProfile;
   readonly clock: { now(): number; sleep(ms: number): Promise<void> };
-  observe(ocr: 'force' | 'never'): Promise<Obs>;
+  /** A fresh observation; `screenshot` takes the screen image with it (the settle baseline after a commit check). */
+  observe(ocr: 'force' | 'never', screenshot: boolean): Promise<Obs>;
   /** The previous mutation was a scroll/swipe/back (`back` or `press: back`)/hideKeyboard: content may still be moving. */
   recentScroll(): boolean;
   /** The driver's hit-test of a tap at `p` on the element box `target` (iOS WDA, desktop `elementFromPoint`); undefined = cannot tell. */
@@ -112,11 +120,15 @@ export class ActionPreparer<Ctx> {
   ): Promise<Approval<{ candidate: Candidate; obs: Obs }>> {
     let source = resolved.source;
     let fresh = await this.freshen(resolved.candidate);
+    const cut = this.truncated(ctx, fresh.obs, '');
+    if (cut) return cut;
     if (!fresh.ok) {
       if (fresh.moving || !reresolve) return { status: 'stale_target', reason: `대상이 바뀜: ${fresh.reason}` };
       const again = await reresolve(fresh.obs);
       if (!again.ok) return { status: 'stale_target', reason: `대상이 바뀜: ${fresh.reason}; 재해석 실패: ${again.outcome.reason}` };
       const second = await this.freshen(again.candidate);
+      const cutAgain = this.truncated(ctx, second.obs, '');
+      if (cutAgain) return cutAgain;
       if (!second.ok) return { status: 'stale_target', reason: `대상이 바뀜: ${fresh.reason}; 재해석 후에도 ${second.reason}` };
       source = again.source;
       fresh = second;
@@ -133,7 +145,9 @@ export class ActionPreparer<Ctx> {
    * The approved `obs` is the last observation before Enter.
    */
   async focused(ctx: Ctx, allowRisky: boolean): Promise<Approval<{ obs: Obs }>> {
-    const obs = await this.host.observe('never');
+    const obs = await this.host.observe('never', false);
+    const cut = this.truncated(ctx, obs, '');
+    if (cut) return cut;
     const field = obs.model.candidates.find((c) => c.state.includes('focused')) ?? null;
     return this.judge(ctx, field, false, obs, 'submit', allowRisky);
   }
@@ -154,7 +168,8 @@ export class ActionPreparer<Ctx> {
 
   /**
    * Policy, then the commit check. An approval carries the observation and target to act on: after a commit check, a
-   * newer observation and the target as it shows it (its tap point recomputed around anything that appeared meanwhile).
+   * newer observation with its screenshot (what the action's effect is measured from: a change while Jev answered is
+   * not the action's) and the target as it shows it (its tap point recomputed around anything that appeared meanwhile).
    */
   private judge(ctx: Ctx, target: Candidate, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean): Promise<Approval<{ obs: Obs; target: Candidate }>>;
   private judge(ctx: Ctx, target: Candidate | null, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean): Promise<Approval<{ obs: Obs; target: Candidate | null }>>;
@@ -178,7 +193,9 @@ export class ActionPreparer<Ctx> {
       // The screen may change while Jev answers: the approval holds only if a new observation still shows the same
       // target and the deterministic policy still passes on it (a destructive dialog that appeared meanwhile blocks).
       // A tapped target is hit-tested again at its new tap point: something drawn over part of it moves the point.
-      const now = await this.host.observe(target.source === 'ocr' ? 'force' : 'never');
+      const now = await this.host.observe(target.source === 'ocr' ? 'force' : 'never', true);
+      const cut = this.truncated(ctx, now, 'Jev commit 확인 후 ');
+      if (cut) return cut;
       const same = targetNow(target, now.model);
       if ('reason' in same) return { status: 'stale_target', reason: `Jev commit 확인 중 ${same.reason} — 실행하지 않음` };
       const riskNow = mutation === 'submit' ? submitRisk(same.candidate, now.model, this.host.profile) : assessRisk(same.candidate, now.model, this.host.profile);
@@ -217,11 +234,19 @@ export class ActionPreparer<Ctx> {
     return { status: 'blocked_by_policy', reason: `위험 동작 차단: ${reasons.join(', ')}${allowRisky ? '' : ' (allowRisky 필요)'}` };
   }
 
+  /** The refusal of a target-based mutation on a truncated observation (see `TRUNCATED_TARGET`), or null. */
+  private truncated(ctx: Ctx, obs: Obs, when: string): Approval<never> | null {
+    if (!obs.model.snapshot.depthCapped) return null;
+    const reason = `${when}${TRUNCATED_TARGET}`;
+    this.host.policy(ctx, false, true, [reason]);
+    return { status: 'observation_truncated', reason };
+  }
+
   /** Fresh observation → refind → hit-test; after scroll/swipe/back the rect must repeat in two consecutive observations. */
   private async freshen(c: Candidate): Promise<Fresh> {
     const { host } = this;
     const ocr = c.source === 'ocr' ? 'force' : 'never';
-    let obs = await host.observe(ocr);
+    let obs = await host.observe(ocr, false);
     let cur = refind(c, obs.model);
     if (host.recentScroll()) {
       const until = host.clock.now() + STABILIZE_CAP_MS;
@@ -229,7 +254,7 @@ export class ActionPreparer<Ctx> {
         if (host.clock.now() >= until) return { ok: false, moving: true, obs, reason: `스크롤 후 "${c.name}" 위치가 ${STABILIZE_CAP_MS}ms 안에 안정되지 않음` };
         await host.clock.sleep(STABILIZE_POLL_MS);
         const prev = cur?.rect ?? null;
-        obs = await host.observe(ocr);
+        obs = await host.observe(ocr, false);
         cur = refind(c, obs.model);
         if (cur && prev && cur.rect.x === prev.x && cur.rect.y === prev.y && cur.rect.width === prev.width && cur.rect.height === prev.height) break;
       }

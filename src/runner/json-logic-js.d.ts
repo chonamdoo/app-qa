@@ -2,6 +2,8 @@
 declare module 'json-logic-js' {
   const jsonLogic: {
     apply(rule: unknown, data?: unknown): unknown;
+    /** The distinct names every `var` in `rule` reads. */
+    uses_data(rule: unknown): string[];
   };
   export default jsonLogic;
 }
