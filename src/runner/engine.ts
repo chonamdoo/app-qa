@@ -921,7 +921,7 @@ export class TestSession {
     this.out.journal({ phase: 'outcome', ...base, status: out.status, ms: out.ms, error: out.error ?? null });
     this.emitRef(ctx, { type: 'action', kind, point: detail.point ?? null, to: detail.to ?? null, text, status: out.status, ms: out.ms });
     this.lastActionAt = this.env.clock.now();
-    this.recentScroll = kind === 'swipe' || kind === 'scroll' || kind === 'back' || kind === 'hideKeyboard';
+    this.recentScroll = kind === 'swipe' || kind === 'scroll' || kind === 'back' || kind === 'hideKeyboard' || (kind === 'press' && text === 'back');
     if (out.status === 'uncertain') {
       throw new StepAbort('ERROR', 'uncertain_action', `행동 결과 불확실(${kind}): ${out.error ?? '알 수 없음'} — 자동 재시도하지 않음`);
     }

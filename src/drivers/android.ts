@@ -127,11 +127,14 @@ export class AndroidDriver extends AppiumDriver {
 
   /**
    * Runs a permission-changing device command and fails unless it exited 0 (or, when `skippable`, reported an
-   * unchangeable permission). A requested permission state that was not applied is never ignored.
+   * unchangeable permission). A requested permission state that was not applied is never ignored; output without the
+   * trailing exit status means the stream was cut after the command may have run (`uncertain`, not a refusal).
    */
   private async permissionCommand(argv: string[], skippable: boolean): Promise<void> {
     const out = await adb(this.deviceId, ['shell', `${argv.map(shq).join(' ')} 2>&1; echo "exit=$?"`]);
-    if (/^exit=0$/m.test(out) || (skippable && UNCHANGEABLE_PERMISSION.test(out))) return;
+    const exit = [...out.matchAll(/^exit=(\d+)$/gm)].at(-1)?.[1];
+    if (exit === undefined) throw new Error(`${argv.slice(0, 3).join(' ')}: 종료 상태를 받지 못했습니다 (기기 연결 끊김 가능)`);
+    if (exit === '0' || (skippable && UNCHANGEABLE_PERMISSION.test(out))) return;
     throw new RefusedError(`${argv.slice(0, 3).join(' ')} 실패: ${out.trim().split('\n').slice(-2).join(' ')}`);
   }
 
@@ -198,7 +201,7 @@ export class AndroidDriver extends AppiumDriver {
   }
 
   async foregroundApp(): Promise<string | null> {
-    const pkg = await this.api.execute('mobile: getCurrentPackage');
+    const pkg = await this.api.query('mobile: getCurrentPackage');
     if (pkg !== null && typeof pkg !== 'string') throw unexpectedResponse('mobile: getCurrentPackage', pkg);
     return pkg || null;
   }

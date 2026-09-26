@@ -166,4 +166,27 @@ describe('post-scroll stabilisation', () => {
     assert.match(t.reason, /안정되지 않음/);
     assert.equal(driver.called('tap').length, 0);
   });
+
+  it('press: back stabilises like back: a target that keeps moving afterwards is FAIL stale_target and is never tapped', async () => {
+    const base = fixtureSnapshot('android', 'tteonam', 'launch', { foreground: APP });
+    const driver = new FakeDriver(base);
+    let pressed = false;
+    driver.onAction = (method) => {
+      if (method === 'press') pressed = true;
+    };
+    driver.onSnapshot = (d) => {
+      if (!pressed) return;
+      const dy = d.called('snapshot').length % 2 === 0 ? 0 : 2;
+      d.screen = { ...base, nodes: base.nodes.map((n) => (n.desc === '설정' ? { ...n, rect: { ...n.rect, y: n.rect.y + dy } } : n)) };
+    };
+    const steps = '  - press: back\n    expectNoChange: true\n  - tap: 설정\n';
+    const { result } = await runYaml({ 'tests/m.e2e.yaml': spec(steps) }, driver, { jev: commitSafe().setup });
+    const t = result.tests[0]!;
+    assert.equal(t.steps[1]!.verdict, 'PASS', t.steps[1]!.reason);
+    assert.deepEqual(driver.called('press').map((c) => c.args[0]), ['back']);
+    assert.equal(t.verdict, 'FAIL');
+    assert.equal(t.code, 'stale_target', t.reason);
+    assert.match(t.reason, /안정되지 않음/);
+    assert.equal(driver.called('tap').length, 0);
+  });
 });

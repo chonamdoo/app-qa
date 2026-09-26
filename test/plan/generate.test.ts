@@ -294,6 +294,44 @@ describe('generatePlan', () => {
     assert.deepEqual(JSON.parse(readFileSync(join(planDir, 'plan.json'), 'utf8')), plan);
   });
 
+  test('a second generation of the same app while one runs fails fast; the files are exactly the first generation', async () => {
+    const root = tempDir();
+    const planDir = join(root, 'tests', 'generated', 'tteonam');
+    const late = fakeLlm('claude', [JSON.stringify({ tests: [termsTest], untestable: [] })]);
+    const lateEvents: QaEventBody[] = [];
+    let second: Promise<unknown> | null = null;
+    // The second generation starts while the first holds the plan lock (between its LLM step and its commit).
+    const onEvent = (e: QaEventBody) => {
+      if (second || e.type !== 'plan.progress' || e.phase !== 'review') return;
+      second = generatePlan({
+        app: 'tteonam',
+        docs: [],
+        text: SCENARIO,
+        llm: 'claude-cli',
+        env: late.env,
+        root,
+        events: { emit: (event) => lateEvents.push(event) },
+        contextDirs: { inventory: tempDir(), envExample: join(tempDir(), 'none') },
+        jev: { client: null, calibration: null, reason: 'jev_unavailable: test' },
+      });
+    };
+    const first = await run({ root, text: SCENARIO, replies: [JSON.stringify({ tests: [goodTest], untestable: [] })], onEvent });
+    const pending = second as Promise<unknown> | null;
+    assert.ok(pending);
+    await assert.rejects(pending, /^FileLockedError: 앱 tteonam의 계획 생성: 다른 qa 프로세스\(pid \d+, .+부터\)가 잠금을 갖고 있습니다\.$/);
+    assert.deepEqual(late.calls(), [], 'the second generation never reached the LLM');
+    const last = lateEvents.at(-1)!;
+    assert.ok(last.type === 'plan.finished' && !last.ok);
+
+    assert.deepEqual([...snapshot(planDir).keys()].sort(), ['inline', join('inline', 'departures-wait.e2e.yaml'), 'plan.json']);
+    assert.deepEqual(JSON.parse(readFileSync(join(planDir, 'plan.json'), 'utf8')), first.result.plan);
+    assert.match(readFileSync(first.result.testFiles[0]!, 'utf8'), /name: 출국장 탭 대기시간 표시/);
+
+    // The lock is released with the first generation: the next one runs and orders after it.
+    const next = await run({ root, text: SCENARIO, replies: [JSON.stringify({ tests: [goodTest, termsTest], untestable: [] })] });
+    assert.ok(Date.parse(next.result.plan.createdAt) > Date.parse(first.result.plan.createdAt));
+  });
+
   test('cancelling after the new generation is staged leaves the previous tests and plan.json byte-identical', async () => {
     const root = tempDir();
     const { planDir, doc } = await firstGeneration(root);

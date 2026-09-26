@@ -1,8 +1,9 @@
 // `qa plan` programmatic API (architecture §6, §10): documents → requirements → LLM tests → deterministic validation →
 // Jev review → tests/generated/<app>/<doc-slug>/<test-id>.e2e.yaml + tests/generated/<app>/plan.json.
 // plan.json is merged per document: re-planning a document replaces only that document's requirements, tests and
-// untestable entries (the inline scenario is the document `inline.md`). The new generation is swapped in atomically
-// (`commit.ts`): the previous one stays intact until the new one is complete.
+// untestable entries (the inline scenario is the document `inline.md`). One generation per app at a time: the plan lock
+// is held from reading the previous plan to the commit, and a concurrent generation fails fast. The new generation is
+// swapped in atomically (`commit.ts`): the previous one stays intact until the new one is complete.
 import { existsSync, readFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
@@ -15,7 +16,7 @@ import { reviewGenerated } from '../jev/decide.ts';
 import { loadCalibration, type Calibration } from '../jev/gates.ts';
 import { createRedactor, type Redactor } from '../jev/redact.ts';
 import { PlanFile, type Requirement } from '../spec/schema.ts';
-import { commitGeneration, recoverStaging } from './commit.ts';
+import { acquirePlanLock, commitGeneration, nextCreatedAt, recoverStaging, type PlanLock } from './commit.ts';
 import { DEFAULT_CONTEXT_DIRS, loadAppContext, type ContextDirs } from './context.ts';
 import { generateTests, type DroppedTest, type GeneratedTest } from './generate.ts';
 import { ingestDocuments, INLINE_DOC } from './ingest.ts';
@@ -92,6 +93,7 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
   const model = opts.model ?? (envModel || DEFAULT_LLM_MODELS[provider]);
 
   const hasText = Boolean(opts.text?.trim());
+  let lock: PlanLock | null = null;
   try {
     if (opts.signal?.aborted) throw new Error('계획 생성이 취소되었습니다');
     const context = loadAppContext(opts.app, { ...DEFAULT_CONTEXT_DIRS, ...opts.contextDirs });
@@ -100,7 +102,8 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
     context.warnings.forEach(warn);
     if (!sources.length && !hasText) throw new Error(`문서가 없습니다: 문서 경로나 --text를 주거나 apps/${opts.app}.yaml에 docs를 적으세요`);
 
-    for (const note of recoverStaging(planDir)) warn(note);
+    lock = acquirePlanLock(planDir, opts.app);
+    for (const note of recoverStaging(lock)) warn(note);
     const previous = readPlan(planPath);
     const reservedSlugs = new Map<string, string>();
     for (const r of previous?.requirements ?? []) reservedSlugs.set(r.doc, r.id.slice(0, r.id.indexOf('#')));
@@ -166,7 +169,7 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
     const plan = PlanFile.parse({
       version: 1,
       app: opts.app,
-      createdAt: new Date().toISOString(),
+      createdAt: nextCreatedAt(previous?.createdAt),
       llm: { provider, model },
       docs: [...(previous?.docs.filter((d) => !newPaths.has(d.path)) ?? []), ...docs.map((d) => ({ path: d.path, sha256: d.sha256, kind: d.kind }))],
       requirements: [...keptReqs, ...requirements],
@@ -185,7 +188,7 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
         return [relative(planDir, file), `# qa plan으로 생성됨 · 상태 ${status} · 계획 ${rel(planPath)}\n${stringifyYaml(body, { lineWidth: 0 })}`];
       }),
     );
-    commitGeneration(planDir, planId, { tests, plan, stale: stale.map((file) => relative(planDir, file)) }, () => {
+    commitGeneration(lock, planId, { tests, plan, stale: stale.map((file) => relative(planDir, file)) }, () => {
       progress('write', `새 계획 준비 완료 (테스트 ${placed.length}개) — 기존 계획과 교체`);
       if (opts.signal?.aborted) throw new Error('계획 생성이 취소되었습니다');
     });
@@ -196,6 +199,8 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
   } catch (err) {
     events?.emit({ type: 'plan.finished', planId, planPath, requirements: 0, tests: 0, untestable: 0, ok: false, message: (err as Error).message });
     throw err;
+  } finally {
+    lock?.release();
   }
 }
 

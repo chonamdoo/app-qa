@@ -135,3 +135,68 @@ describe('mutating commands succeed only with W3C value null', () => {
     }
   });
 });
+
+describe('mutating mobile: scripts succeed only with their documented answer', () => {
+  const AT = { x: 10, y: 10 };
+  const IOS_APP = { platform: 'ios' as const, appId: 'kr.tteonam.app' };
+  const NOT_NULL = [{ done: true }, false, true, ''];
+  /** Driver actions and the script whose answer is scripted; `documented` = the pinned drivers' success answers. */
+  const SCRIPTS: Record<string, { platform: 'android' | 'ios'; script: string; documented: unknown[]; malformed: unknown[]; act: (d: AndroidDriver | IosDriver) => Promise<ActionOutcome> }> = {
+    'Android press enter': { platform: 'android', script: 'mobile: pressKey', documented: [null], malformed: NOT_NULL, act: (d) => d.press('enter') },
+    'Android typeText clipboard fallback': { platform: 'android', script: 'mobile: setClipboard', documented: [null], malformed: NOT_NULL, act: (d) => d.typeText(AT, '대한항공') },
+    'iOS launch': { platform: 'ios', script: 'mobile: launchApp', documented: [null], malformed: NOT_NULL, act: (d) => d.launch(IOS_APP) },
+    'iOS terminate': { platform: 'ios', script: 'mobile: terminateApp', documented: [true, false], malformed: [null, { terminated: true }, 'true', 1], act: (d) => d.terminate(IOS_APP) },
+    'iOS hideKeyboard': { platform: 'ios', script: 'mobile: hideKeyboard', documented: [null], malformed: NOT_NULL, act: (d) => d.hideKeyboard() },
+  };
+
+  /**
+   * Runs one action with `value` as its script's answer. The device performs every script it receives (the paste fills the
+   * field, the keyboard hides), so only the answer decides the outcome. Screen: a focused Android field that setValue
+   * leaves untouched (forcing the clipboard fallback) and a shown iOS keyboard.
+   */
+  async function outcome(name: string, value: unknown): Promise<ActionOutcome> {
+    const { platform, script, act } = SCRIPTS[name]!;
+    let field = '';
+    let clipboard = '';
+    let keyboard = true;
+    const stub = await startAppiumStub((req) => {
+      const s = scriptOf(req);
+      const args = (req.body?.args as Record<string, unknown>[] | undefined)?.[0] ?? {};
+      if (s === 'mobile: setClipboard') clipboard = Buffer.from(String(args.content), 'base64').toString('utf8');
+      if (s === 'mobile: pressKey' && args.keycode === 279) field = clipboard;
+      if (s === 'mobile: hideKeyboard') keyboard = false;
+      if (s === script) return { body: { value } };
+      if (s === 'mobile: isKeyboardShown') return { body: { value: keyboard } };
+      if (req.path === '/session/s1/element/active') return { body: { value: { [W3C_ELEMENT_KEY]: 'E1' } } };
+      if (req.path === '/session/s1/element/E1/text') return { body: { value: field } };
+      return undefined;
+    });
+    const driver = platform === 'android' ? new AndroidDriver('emulator-5554', { serverUrl: stub.url }) : new IosDriver('SIM-UDID', { serverUrl: stub.url });
+    try {
+      await driver.open({ platform, appId: 'kr.tteonam.app' });
+      return await act(driver);
+    } finally {
+      await driver.close();
+      stub.close();
+    }
+  }
+
+  it('any other 200 value is uncertain, never completed', async () => {
+    for (const [name, { script, malformed }] of Object.entries(SCRIPTS)) {
+      for (const value of malformed) {
+        const o = await outcome(name, value);
+        assert.equal(o.status, 'uncertain', `${name} (${script}) → ${JSON.stringify(value)}: ${o.error}`);
+      }
+    }
+  });
+
+  it('the documented answer is completed', async () => {
+    for (const [name, { script, documented }] of Object.entries(SCRIPTS)) {
+      for (const value of documented) {
+        const o = await outcome(name, value);
+        assert.equal(o.status, 'completed', `${name} (${script}) → ${JSON.stringify(value)}: ${o.error}`);
+        assert.equal(o.error, undefined, name);
+      }
+    }
+  });
+});

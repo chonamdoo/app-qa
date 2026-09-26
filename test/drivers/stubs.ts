@@ -61,13 +61,26 @@ export function scriptOf(req: StubRequest): string | null {
   return req.path.endsWith('/execute/sync') && typeof req.body?.script === 'string' ? req.body.script : null;
 }
 
+// FAKE_ADB_DROP: once the device shell ran that command (see DEVICE_TOOL), adb loses the stream: its stdout is dropped,
+// FAKE_ADB_DROP_STDERR is printed and it exits FAKE_ADB_DROP_EXIT.
 const ADB = `#!/bin/sh
 root="$FAKE_ADB_ROOT"
 { for a in "$@"; do printf '%s\\037' "$a"; done; printf '\\n'; } >> "$root/host.log"
 if [ "$1" = "-s" ]; then shift 2; fi
 cmd="$1"; shift
+for last; do :; done
 case "$cmd" in
-  shell) PATH="$root/device:$PATH"; export PATH; exec /bin/sh -c "$*" ;;
+  shell)
+    PATH="$root/device:$PATH"; export PATH
+    [ -z "$FAKE_ADB_DROP" ] && exec /bin/sh -c "$*"
+    out=$(/bin/sh -c "$*"); rc=$?
+    if [ -e "$root/dropped" ]; then
+      [ -n "$FAKE_ADB_DROP_STDERR" ] && printf '%s\\n' "$FAKE_ADB_DROP_STDERR" >&2
+      exit "$FAKE_ADB_DROP_EXIT"
+    fi
+    [ -n "$out" ] && printf '%s\\n' "$out"
+    exit $rc ;;
+  install|install-multiple) if [ -n "$FAKE_INSTALL_FAILURE" ]; then echo "adb: failed to install $last: $FAKE_INSTALL_FAILURE" >&2; exit 1; fi ;;
   pull) cp "$root/sdcard/$(basename "$1")" "$2" ;;
   logcat) cat "$root/logcat.txt" ;;
 esac
@@ -78,6 +91,7 @@ const DEVICE_TOOL = `#!/bin/sh
 root="$FAKE_ADB_ROOT"
 name=$(basename "$0")
 { printf '%s\\037' "$name"; for a in "$@"; do printf '%s\\037' "$a"; done; printf '\\n'; } >> "$root/device.log"
+[ "$name $1" = "$FAKE_ADB_DROP" ] && : > "$root/dropped"
 for last; do :; done
 case "$name $1" in
   "pm clear") echo Success ;;
@@ -98,6 +112,13 @@ export interface FakeAdb {
   hostCalls(): string[][];
   /** argv (tool name first) of every fake device tool the device shell ran. */
   deviceCalls(): string[][];
+  /**
+   * Transport loss right after the device ran `command` (tool + first argument, e.g. `am start`): adb drops that shell's
+   * output, prints `stderr` and exits `exit` — for every later shell too, until the next `dropAfter`.
+   */
+  dropAfter(command: string, stderr: string, exit: number): void;
+  /** `adb install` / `install-multiple` fail with the package manager's `failure` text on stderr (exit 1). */
+  failInstall(failure: string): void;
   restore(): void;
 }
 
@@ -133,11 +154,19 @@ export function installFakeAdb(): FakeAdb {
     root,
     hostCalls: () => calls(join(root, 'host.log')),
     deviceCalls: () => calls(join(root, 'device.log')),
+    dropAfter(command, stderr, exit) {
+      rmSync(join(root, 'dropped'), { force: true });
+      Object.assign(process.env, { FAKE_ADB_DROP: command, FAKE_ADB_DROP_STDERR: stderr, FAKE_ADB_DROP_EXIT: String(exit) });
+    },
+    failInstall(failure) {
+      process.env.FAKE_INSTALL_FAILURE = failure;
+    },
     restore() {
       if (saved.home === undefined) delete process.env.ANDROID_HOME;
       else process.env.ANDROID_HOME = saved.home;
       if (saved.root === undefined) delete process.env.FAKE_ADB_ROOT;
       else process.env.FAKE_ADB_ROOT = saved.root;
+      for (const key of ['FAKE_ADB_DROP', 'FAKE_ADB_DROP_STDERR', 'FAKE_ADB_DROP_EXIT', 'FAKE_INSTALL_FAILURE']) delete process.env[key];
       rmSync(root, { recursive: true, force: true });
     },
   };

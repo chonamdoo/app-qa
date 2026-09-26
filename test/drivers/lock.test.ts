@@ -3,8 +3,9 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import type { ProcessProbe } from '../../src/appium/exec.ts';
-import { acquireDeviceLock, DeviceLockedError, isStale, type DeviceLock } from '../../src/drivers/lock.ts';
+import { isStale } from '../../src/core/lock.ts';
+import type { ProcessProbe } from '../../src/core/process.ts';
+import { acquireDeviceLock, DeviceLockedError, type DeviceLock } from '../../src/drivers/lock.ts';
 
 const START = '2026-09-26T00:00:00.000Z';
 const alive = (startedAt: string | null): ProcessProbe => () => ({ alive: true, startedAtMs: startedAt === null ? null : Date.parse(startedAt) });

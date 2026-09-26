@@ -1,4 +1,5 @@
-// Job queue: validated requests, per-device serialization (FIFO per device), cancellation via AbortController.
+// Job queue: validated requests, per-resource serialization (FIFO per device, and per app for plan generation),
+// cancellation via AbortController.
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { EventSink, JobKind } from '../core/events.ts';
@@ -110,6 +111,8 @@ export interface JobView {
 
 interface Job extends JobView {
   request: JobRequest;
+  /** Resources held while running: the device claims plus `plan:<app>` for plan jobs (one generation per app). */
+  claims: string[];
   controller: AbortController | null;
 }
 
@@ -188,6 +191,7 @@ export class JobQueue {
       state: 'queued',
       params: request.params,
       devices: deviceClaims(request),
+      claims: [...deviceClaims(request), ...(request.kind === 'plan' ? [`plan:${request.params.app}`] : [])],
       parentId,
       cancelRequested: false,
       createdAt: new Date().toISOString(),
@@ -242,18 +246,18 @@ export class JobQueue {
   }
 
   private view(job: Job): JobView {
-    const { request: _request, controller: _controller, ...view } = job;
+    const { request: _request, claims: _claims, controller: _controller, ...view } = job;
     return { ...view, devices: [...view.devices] };
   }
 
   private pump(): void {
     const claimed: string[] = [];
-    for (const job of this.jobs.values()) if (job.state === 'running') claimed.push(...job.devices);
+    for (const job of this.jobs.values()) if (job.state === 'running') claimed.push(...job.claims);
     for (const job of this.jobs.values()) {
       if (job.state !== 'queued') continue;
-      const blocked = job.devices.some((claim) => claimed.some((other) => claimsConflict(claim, other)));
-      // Blocked jobs still claim their devices so later jobs cannot overtake them (FIFO per device).
-      claimed.push(...job.devices);
+      const blocked = job.claims.some((claim) => claimed.some((other) => claimsConflict(claim, other)));
+      // Blocked jobs still claim their resources so later jobs cannot overtake them (FIFO per resource).
+      claimed.push(...job.claims);
       if (!blocked) this.start(job);
     }
   }

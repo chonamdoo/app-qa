@@ -39,7 +39,7 @@ export interface PrepareHost<Ctx> {
   readonly profile: AppProfile;
   readonly clock: { now(): number; sleep(ms: number): Promise<void> };
   observe(ocr: 'force' | 'never'): Promise<Obs>;
-  /** The previous mutation was a scroll/swipe/back/hideKeyboard: content may still be moving. */
+  /** The previous mutation was a scroll/swipe/back (`back` or `press: back`)/hideKeyboard: content may still be moving. */
   recentScroll(): boolean;
   /** iOS `isHittable`; undefined when the driver cannot tell. */
   isHittable(p: Point): Promise<boolean | undefined>;

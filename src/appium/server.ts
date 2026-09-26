@@ -8,8 +8,9 @@ import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
 import { loadEnv, PATHS } from '../core/config.ts';
 import { ensureDir, sha256, writeJsonAtomic } from '../core/fsx.ts';
+import { START_SLACK_MS, systemProbe } from '../core/process.ts';
 import { AppiumClient } from './client.ts';
-import { childEnv, run, START_SLACK_MS, systemProbe } from './exec.ts';
+import { childEnv, run } from './exec.ts';
 
 export const APPIUM_MAIN = join(PATHS.root, 'node_modules', 'appium', 'index.js');
 export const APPIUM_LOG = join(PATHS.logs, 'appium.log');

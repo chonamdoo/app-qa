@@ -172,12 +172,31 @@ describe('evidence sanitizer: run evidence', () => {
       assert.ok(!text.includes('tok-7f3a9c'), `${name} leaks the typed \${ENV} value`);
     }
     const started = events.flatMap((e) => (e.type === 'step.started' ? [e.label] : []));
-    assert.match(started[1]!, /^2 입력: "\[REDACTED\]" → /);
-    assert.match(started[2]!, /^3 입력: •••• → /);
+    assert.match(started[1]!, /^2 입력\(7자\) → /);
+    assert.match(started[2]!, /^3 입력\(변수\) → /);
     assert.match(started[3]!, /^4 텍스트.*\[REDACTED\]/);
     const announced = events.find((e) => e.type === 'run.started');
     assert.ok(announced && announced.type === 'run.started');
-    assert.match(announced.tests[0]!.steps[2]!, /^입력: •••• → /);
+    assert.deepEqual(announced.tests[0]!.steps.slice(1, 3), ['입력(7자) → intent=편명·도시·항공사, state=focused=true', '입력(변수) → intent=편명·도시·항공사, state=focused=true']);
+  });
+
+  it('a literal typed into an observed password field without `secure` is in no event, SSE message or report, from the first event on', async () => {
+    const driver = new FakeDriver(search([PASSWORD_FIELD]));
+    driver.onAction = (method, d) => {
+      if (method === 'typeText') d.screen = search([PASSWORD_FIELD, shows('hunter2-pw')]);
+    };
+    const steps = '  - type: hunter2-pw\n    into: { intent: 편명·도시·항공사, state: { focused: true } }\n  - wait: 50\n';
+    const { result, events } = await runYaml({ 'tests/p.e2e.yaml': spec(steps) }, driver);
+    assert.equal(result.tests[0]!.verdict, 'PASS', result.tests[0]!.reason);
+    assert.equal(driver.called('typeText')[0]!.args[1], 'hunter2-pw');
+    const lines = readFileSync(join(result.runDir, 'events.jsonl'), 'utf8').split('\n');
+    lines.forEach((line, i) => assert.ok(!line.includes('hunter2-pw'), `events.jsonl line ${i + 1} leaks the typed value: ${line}`));
+    events.forEach((e, i) => assert.ok(!JSON.stringify(e).includes('hunter2-pw'), `SSE message ${i + 1} (${e.type}) leaks the typed value`));
+    assert.ok(!readFileSync(join(result.runDir, 'report.html'), 'utf8').includes('hunter2-pw'), 'report.html leaks the typed value');
+    assert.ok(!evidenceText(result.runDir).includes('hunter2-pw'));
+    const announced = events.find((e) => e.type === 'run.started');
+    assert.ok(announced && announced.type === 'run.started');
+    assert.equal(announced.tests[0]!.steps[1], '입력(10자) → intent=편명·도시·항공사, state=focused=true');
   });
 
   it('a secret equal to ERROR / tap / android masks free text only: verdicts, counts, kinds and platforms stay intact', async () => {

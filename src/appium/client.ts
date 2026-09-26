@@ -143,6 +143,33 @@ const PNG_MAGIC = 0x89504e47;
  */
 const Done = z.null();
 
+/**
+ * Documented success answer of every mutating `mobile:` script the drivers run; anything else is `malformed`.
+ * `/execute/sync` is served by the driver itself (UiAutomator2 8.7.0 no-proxy list `lib/driver.ts:190` → appium-android-driver
+ * 14.2.0 `lib/commands/execute.ts:21-25`; XCUITest 12.13.2 `lib/commands/execute.ts:20-23`), base-driver 10.8.0
+ * `executeMethod` returns the command's own result (`lib/basedriver/commands/execute.ts:43-44`), and a `void` command
+ * answers null (see `Done`).
+ */
+const MOBILE_RESULTS = {
+  // UiAutomator2 8.7.0 `mobilePressKey`: Promise<void> (`lib/execute-method-map.ts:151`, `lib/commands/keyboard.ts:53-67`).
+  'mobile: pressKey': Done,
+  // UiAutomator2 8.7.0 `setClipboard`: Promise<void> (`lib/execute-method-map.ts:186`, `lib/commands/clipboard.ts:21-32`).
+  'mobile: setClipboard': Done,
+  // XCUITest 12.13.2 `mobileLaunchApp`: Promise<void> (`lib/execute-method-map.ts:182`, `lib/commands/app-management.ts:109-127`).
+  'mobile: launchApp': Done,
+  // XCUITest 12.13.2 `mobileTerminateApp` returns WDA's answer (`lib/execute-method-map.ts:189`, `lib/commands/app-management.ts:136-138`):
+  // WDA 16.12.10 `FBSessionCommands.m:144-147` `@(result)`, true = terminated, false = was not running (`FBSession.m:417-428`).
+  'mobile: terminateApp': z.boolean(),
+  // XCUITest 12.13.2 `mobileHideKeyboard`: Promise<void> (`lib/execute-method-map.ts:591`, `lib/commands/keyboard.ts:28-32`);
+  // WDA answers a keyboard it could not dismiss with `invalid element state` (`FBCustomCommands.m:140-148`).
+  'mobile: hideKeyboard': Done,
+} satisfies Record<string, z.ZodType>;
+
+/** `mobile:` scripts that change the device; their answer is always validated (`AppiumClient.execute`). */
+export type MutatingScript = keyof typeof MOBILE_RESULTS;
+/** Read-only `mobile:` scripts; callers check the shape they use (`AppiumClient.query`). */
+export type QueryScript = 'mobile: getCurrentPackage' | 'mobile: isKeyboardShown' | 'mobile: activeAppInfo';
+
 export interface W3CPointerAction {
   type: 'pointer';
   id: string;
@@ -284,8 +311,14 @@ export class AppiumClient {
     decode(Done, await this.cmd('POST', '/actions', { actions }, timeoutMs), 'POST /actions');
   }
 
-  /** `mobile:` extension result, undecoded: callers check the shape they use. */
-  execute(script: string, args: Record<string, unknown> = {}, timeoutMs?: number): Promise<unknown> {
+  /** Mutating `mobile:` script; completes only with that script's documented answer (`MOBILE_RESULTS`), else `malformed`. */
+  async execute(script: MutatingScript, args: Record<string, unknown> = {}, timeoutMs?: number): Promise<void> {
+    const schema: z.ZodType = MOBILE_RESULTS[script];
+    decode(schema, await this.cmd('POST', '/execute/sync', { script, args: [args] }, timeoutMs), script);
+  }
+
+  /** Read-only `mobile:` script result, undecoded: callers check the shape they use. */
+  query(script: QueryScript, args: Record<string, unknown> = {}, timeoutMs?: number): Promise<unknown> {
     return this.cmd('POST', '/execute/sync', { script, args: [args] }, timeoutMs);
   }
 

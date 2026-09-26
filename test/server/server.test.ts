@@ -22,6 +22,13 @@ let port: number;
 let runImpl: (params: RunParams, ctx: JobContext) => Promise<JobOutcome>;
 /** Params every plan job handler received, in order. */
 const planCalls: PlanParams[] = [];
+const ok = async (): Promise<JobOutcome> => ({ ok: true, message: 'ok', resultPath: null });
+const recordPlan = async (params: PlanParams): Promise<JobOutcome> => {
+  planCalls.push(params);
+  return ok();
+};
+/** Plan-handler behaviour per test; defaults to recording the params in `planCalls` and succeeding. */
+let planImpl: (params: PlanParams, ctx: JobContext) => Promise<JobOutcome> = recordPlan;
 
 /** Raw HTTP (no URL normalization, so `..` reaches the server as sent). */
 function call(path: string, opts: { method?: string; headers?: Record<string, string>; body?: string | Buffer; auth?: boolean } = {}): Promise<Reply> {
@@ -79,14 +86,10 @@ before(async () => {
   writeFileSync(join(root, 'runs', 'run-1', 'step-01', 'before.png'), 'png-bytes');
   writeFileSync(join(root, 'secret.txt'), 'outside');
   symlinkSync(join(root, 'secret.txt'), join(root, 'runs', 'run-1', 'escape.txt'));
-  const ok = async (): Promise<JobOutcome> => ({ ok: true, message: 'ok', resultPath: null });
   const handlers: ServerHandlers = {
     run: (params, ctx) => runImpl(params, ctx),
     smoke: ok,
-    plan: async (params) => {
-      planCalls.push(params);
-      return ok();
-    },
+    plan: (params, ctx) => planImpl(params, ctx),
     calibrate: ok,
     capture: ok,
     devices: async () => [],
@@ -208,6 +211,39 @@ describe('jobs', { timeout: 10_000 }, () => {
     const specificFinished = waitForEvent((e) => e.type === 'job.finished' && e.jobId === specific.id);
     gates[1]!.resolve({ ok: true, message: 'ok', resultPath: null });
     await specificFinished;
+  });
+
+  test('plan jobs for the same app run one after another; other apps run concurrently', async () => {
+    const gates = new Map<string, PromiseWithResolvers<JobOutcome>>();
+    const started: string[] = [];
+    planImpl = (params) => {
+      const label = `${params.app}#${started.filter((s) => s.startsWith(`${params.app}#`)).length + 1}`;
+      started.push(label);
+      const gate = Promise.withResolvers<JobOutcome>();
+      gates.set(label, gate);
+      return gate.promise;
+    };
+    try {
+      const a1 = await postJob({ kind: 'plan', params: { app: 'alpha' } });
+      const a2 = await postJob({ kind: 'plan', params: { app: 'alpha' } });
+      const b1 = await postJob({ kind: 'plan', params: { app: 'beta' } });
+      assert.deepEqual([a1.state, a2.state, b1.state], ['running', 'queued', 'running']);
+      assert.deepEqual(started, ['alpha#1', 'beta#1']);
+
+      const a2Started = waitForEvent((e) => e.type === 'job.started' && e.jobId === a2.id);
+      gates.get('alpha#1')!.resolve({ ok: true, message: 'plan 1', resultPath: null });
+      await a2Started;
+      assert.deepEqual(started, ['alpha#1', 'beta#1', 'alpha#2']);
+
+      const finished = Promise.all([a2.id, b1.id].map((id) => waitForEvent((e) => e.type === 'job.finished' && e.jobId === id)));
+      gates.get('alpha#2')!.resolve({ ok: true, message: 'plan 2', resultPath: null });
+      gates.get('beta#1')!.resolve({ ok: true, message: 'plan 1', resultPath: null });
+      await finished;
+    } finally {
+      // A failed assertion must not leave handlers pending: the server's shutdown waits for them.
+      for (const gate of gates.values()) gate.resolve({ ok: false, message: 'test cleanup', resultPath: null });
+      planImpl = recordPlan;
+    }
   });
 
   test('cancel aborts the running handler signal and the job ends cancelled', async () => {

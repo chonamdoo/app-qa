@@ -380,12 +380,39 @@ export class StepError extends Error {
 }
 
 /**
- * Failure → action status. `rejected` only when nothing reached the device (refused precondition, W3C refusal code,
- * host command that exited non-zero or could not start); transport loss, timeouts and unknown driver errors → `uncertain`.
+ * adb / simctl stderr meaning the host lost the device or its service; the command may already have run.
+ * adb: `error: closed`, `device offline`, `device '<serial>' not found`, `no devices/emulators found`, `protocol fault`,
+ * a refused/reset connection to the adb server or emulator console. simctl: the CoreSimulatorService connection became
+ * invalid, was interrupted, or its server died.
+ */
+const TRANSPORT_LOSS =
+  /error: closed|device offline|device (?:'[^']*' )?not found|no devices\/emulators found|protocol fault|connection (?:reset|refused|interrupted|invalid)|(?:cannot|could not|failed to) connect|broken pipe|CoreSimulatorService connection|server died/i;
+
+/** errno names from a binary that could not be started; node's own `ERR_*` codes (e.g. maxBuffer) come after it ran. */
+const SPAWN_FAILURE = /^E[A-Z0-9]+$/;
+
+/**
+ * Host command failure → action status. `rejected` only when the binary never started, or the command itself answered
+ * with its own error text while the transport stayed up (e.g. `Failure [INSTALL_FAILED_…]`, simctl `Invalid device`).
+ * Everything else may have run on the device and is `uncertain`: killed (signal, timeout), transport-loss text, a
+ * failure without error text, and adb exit ≥ 128 (shell v2: 255 = stream lost, 128+n = device command killed by signal n).
+ */
+function commandStatus(err: CommandError): Exclude<ActionStatus, 'completed'> {
+  if (err.spawnCode !== null) return SPAWN_FAILURE.test(err.spawnCode) ? 'rejected' : 'uncertain';
+  if (err.exitCode === null) return 'uncertain';
+  if (err.exitCode >= 128 && err.file.split('/').pop() === 'adb') return 'uncertain';
+  const stderr = err.stderr.trim();
+  return stderr !== '' && !TRANSPORT_LOSS.test(stderr) ? 'rejected' : 'uncertain';
+}
+
+/**
+ * Failure → action status. `rejected` only when the device provably did not act (refused precondition, W3C refusal code,
+ * a host command refused by the command itself, see `commandStatus`); transport loss, timeouts and unknown driver errors
+ * → `uncertain`.
  */
 export function failureStatus(err: unknown): Exclude<ActionStatus, 'completed'> {
   if (err instanceof StepError) return err.outcome.status === 'completed' ? 'uncertain' : err.outcome.status;
   if (err instanceof RefusedError) return 'rejected';
-  if (err instanceof CommandError) return err.exitCode !== null || err.spawnCode ? 'rejected' : 'uncertain';
+  if (err instanceof CommandError) return commandStatus(err);
   return actionStatusOf(err);
 }

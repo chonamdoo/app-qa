@@ -26,10 +26,36 @@ describe('W3C error classification', () => {
     assert.match(e.message, /Bad Gateway/);
   });
 
-  it('host commands: non-zero exit / missing binary → rejected, killed (timeout) → uncertain; sub-step outcomes propagate', () => {
-    assert.equal(failureStatus(new CommandError('adb', [], 1, '', null, 'exit 1')), 'rejected');
-    assert.equal(failureStatus(new CommandError('adb', [], null, '', 'ENOENT', 'ENOENT')), 'rejected');
-    assert.equal(failureStatus(new CommandError('adb', [], null, '', null, 'killed')), 'uncertain');
+  it('host commands: rejected only when the binary never started or the command itself refused; transport loss, signals, timeouts, text-less failures → uncertain', () => {
+    const ADB = '/sdk/platform-tools/adb';
+    const SHELL = ['-s', 'emulator-5554', 'shell', "'am' 'start' '-W' '-n' 'kr.tteonam.app/.MainActivity'"];
+    const SIMCTL = ['simctl', 'openurl', 'SIM-UDID', 'tteonam://home'];
+    const rejected = [
+      new CommandError(ADB, ['-s', 'emulator-5554', 'install', '-r', '-d', 'app.apk'], 1, 'adb: failed to install app.apk: Failure [INSTALL_FAILED_VERSION_DOWNGRADE]', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'Error: Activity class {kr.tteonam.app/.MainActivity} does not exist.', null, 'exit 1'),
+      new CommandError(ADB, SHELL, null, '', 'ENOENT', 'ENOENT'),
+      new CommandError('xcrun', SIMCTL, 149, 'An error was encountered processing the command (domain=com.apple.CoreSimulator.SimError, code=405):\nUnable to lookup in current state: Shutdown', null, 'exit 149'),
+    ];
+    const uncertain = [
+      new CommandError(ADB, SHELL, 1, 'error: closed', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'adb: device offline', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, "adb: device 'emulator-5554' not found", null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'adb: no devices/emulators found', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, "error: protocol fault (couldn't read status): Connection reset by peer", null, 'exit 1'),
+      new CommandError(ADB, SHELL, 255, '', null, 'exit 255'),
+      new CommandError(ADB, SHELL, 255, 'Starting: Intent { cmp=kr.tteonam.app/.MainActivity }', null, 'exit 255'),
+      new CommandError(ADB, SHELL, 137, 'Killed', null, 'exit 137'),
+      new CommandError(ADB, SHELL, 1, '', null, 'exit 1'),
+      new CommandError(ADB, SHELL, null, '', null, 'killed (SIGTERM)'),
+      new CommandError(ADB, SHELL, null, '', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'),
+      new CommandError('xcrun', SIMCTL, 1, 'CoreSimulatorService connection became invalid. Simulator services will no longer be available.', null, 'exit 1'),
+      new CommandError('xcrun', SIMCTL, 1, 'Connection interrupted', null, 'exit 1'),
+    ];
+    for (const err of rejected) assert.equal(failureStatus(err), 'rejected', `${err.exitCode ?? err.spawnCode}: ${err.stderr}`);
+    for (const err of uncertain) assert.equal(failureStatus(err), 'uncertain', `${err.exitCode ?? err.spawnCode}: ${err.stderr}`);
+  });
+
+  it('refusals and sub-step outcomes propagate', () => {
     assert.equal(failureStatus(new RefusedError('no focus')), 'rejected');
     assert.equal(failureStatus(new StepError({ status: 'uncertain', ms: 1 })), 'uncertain');
     assert.equal(failureStatus(new StepError({ status: 'rejected', ms: 1 })), 'rejected');

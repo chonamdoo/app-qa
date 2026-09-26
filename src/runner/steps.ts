@@ -16,15 +16,16 @@ function describe(value: unknown): string {
 }
 
 /**
- * "탭: 출국장", "입력: "인천" → 검색창", "반복: 3회" … Labels are built before the step runs (no resolved values), so
- * typed text shows only as a plain literal: `secure` text and text with a `${…}` placeholder appear as `••••`. The
- * evidence sanitizer masks profile `redact` matches and known secrets in the rest.
+ * "탭: 출국장", "입력(2자) → 검색창", "반복: 3회" … Labels are built before the step runs, before the target is
+ * observed, so a `type` label never carries the typed text (the field may turn out to be secure): only its length, or
+ * `변수` when the text has a `${…}` placeholder. The evidence sanitizer masks profile `redact` matches and known
+ * secrets in the rest.
  */
 export function stepLabel(step: StepSpec): string {
   const kind = stepKind(step);
+  if ('type' in step) return `${STEP_KIND_LABEL[kind]}(${step.type.includes('${') ? '변수' : `${[...step.type].length}자`}) → ${describe(step.into)}`;
   let detail: string;
-  if ('type' in step) detail = `${step.secure || step.type.includes('${') ? '••••' : `"${step.type}"`} → ${describe(step.into)}`;
-  else if ('which' in step) detail = Object.keys(step.which).join(' | ');
+  if ('which' in step) detail = Object.keys(step.which).join(' | ');
   else if ('repeat' in step) detail = step.repeat.times !== undefined ? `${step.repeat.times}회` : `조건 ${describe(step.repeat.while)}`;
   else if ('wait' in step) detail = typeof step.wait === 'number' ? `${step.wait}ms` : `${describe(step.wait.until)}까지`;
   else if ('checkEach' in step) detail = `/${step.checkEach.pattern}/`;

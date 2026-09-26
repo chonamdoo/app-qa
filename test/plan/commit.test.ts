@@ -4,7 +4,9 @@ import fs, { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSyn
 import { syncBuiltinESMExports } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import { describe, test } from 'node:test';
-import { commitGeneration, recoverStaging, type Generation } from '../../src/plan/commit.ts';
+import { FileLockedError } from '../../src/core/lock.ts';
+import { PROCESS_STARTED_AT_MS, type ProcessProbe } from '../../src/core/process.ts';
+import { acquirePlanLock, commitGeneration, nextCreatedAt, recoverStaging, type Generation } from '../../src/plan/commit.ts';
 import { tempDir } from './helpers.ts';
 
 /** Writes `files` (path relative to `dir` → text). */
@@ -30,85 +32,174 @@ function inodes(dir: string): Map<string, bigint> {
 }
 
 const deadPid = () => spawnSync(process.execPath, ['-e', '']).pid!;
-const manifest = JSON.stringify({ files: ['inline/a.e2e.yaml', 'inline/b.e2e.yaml', 'plan.json'], stale: ['inline/c.e2e.yaml'] });
+/** Staging directory of owner `pid` started at `startMs` (any start: a dead pid is dead whatever it recorded). */
+const staging = (pid: number, startMs = 0, planId = 'x') => `.qa/staging-${pid}-${startMs}-${planId}`;
+
+/** Recovery as `generatePlan` runs it: under the plan lock, released afterwards. */
+function recover(planDir: string, probe?: ProcessProbe): string[] {
+  const lock = acquirePlanLock(planDir, 'tteonam');
+  try {
+    return recoverStaging(lock, probe);
+  } finally {
+    lock.release();
+  }
+}
+
+/** plan.json text of the generation created at `createdAt`. */
+const planJson = (createdAt: string, label: string) => JSON.stringify({ createdAt, label });
+const T1 = '2026-09-26T01:00:00.000Z';
+const T2 = '2026-09-26T02:00:00.000Z';
+const T3 = '2026-09-26T03:00:00.000Z';
+const plan1 = planJson(T1, 'plan1');
+const plan2 = planJson(T2, 'plan2');
+/** Generation 2 (created T2) replaced generation 1 (created T1). */
+const manifest = JSON.stringify({ base: T1, createdAt: T2, files: ['inline/a.e2e.yaml', 'inline/b.e2e.yaml', 'plan.json'], stale: ['inline/c.e2e.yaml'] });
 /** Generation 1: plan1, a1, c1. Generation 2: plan2, a2, b2 (c is stale). */
-const previous = { 'plan.json': 'plan1', 'inline/a.e2e.yaml': 'a1', 'inline/c.e2e.yaml': 'c1' };
+const previous = { 'plan.json': plan1, 'inline/a.e2e.yaml': 'a1', 'inline/c.e2e.yaml': 'c1' };
 
 describe('plan generation crash recovery', () => {
   test('a process that died mid-swap (before the plan.json commit) is rolled back to the previous generation', () => {
     const planDir = tempDir();
-    const stage = `.qa/staging-${deadPid()}-x`;
+    const stage = staging(deadPid());
     put(planDir, {
-      'plan.json': 'plan1',
+      'plan.json': plan1,
       'inline/a.e2e.yaml': 'a2',
       'inline/b.e2e.yaml': 'b2',
       'inline/c.e2e.yaml': 'c1',
       [`${stage}/old/inline/a.e2e.yaml`]: 'a1',
-      [`${stage}/old/plan.json`]: 'plan1',
-      [`${stage}/new/plan.json`]: 'plan2',
+      [`${stage}/old/plan.json`]: plan1,
+      [`${stage}/new/plan.json`]: plan2,
       [`${stage}/manifest.json`]: manifest,
     });
-    const notes = recoverStaging(planDir);
+    const notes = recover(planDir);
     assert.equal(notes.length, 1);
     assert.match(notes[0]!, /되돌려 이전 계획을 복구했습니다/);
     assert.deepEqual(files(planDir), previous);
-    assert.deepEqual(readdirSync(planDir).sort(), ['inline', 'plan.json'], 'staging directory removed');
+    assert.deepEqual(readdirSync(planDir).sort(), ['inline', 'plan.json'], 'staging directory and lock removed');
   });
 
   test('a rollback interrupted halfway finishes on the next recovery', () => {
     const planDir = tempDir();
-    const stage = `.qa/staging-${deadPid()}-x`;
+    const stage = staging(deadPid());
     // plan.json and b already undone; a linked back to staging but its backup not yet renamed over it.
     put(planDir, {
-      'plan.json': 'plan1',
+      'plan.json': plan1,
       'inline/a.e2e.yaml': 'a2',
       'inline/c.e2e.yaml': 'c1',
       [`${stage}/old/inline/a.e2e.yaml`]: 'a1',
       [`${stage}/new/inline/a.e2e.yaml`]: 'a2',
       [`${stage}/new/inline/b.e2e.yaml`]: 'b2',
-      [`${stage}/new/plan.json`]: 'plan2',
+      [`${stage}/new/plan.json`]: plan2,
       [`${stage}/manifest.json`]: manifest,
     });
-    recoverStaging(planDir);
+    recover(planDir);
     assert.deepEqual(files(planDir), previous);
   });
 
   test('a process that died after the commit gets its stale files pruned; the new generation stays', () => {
     const planDir = tempDir();
-    const stage = `.qa/staging-${deadPid()}-x`;
+    const stage = staging(deadPid());
     put(planDir, {
-      'plan.json': 'plan2',
+      'plan.json': plan2,
       'inline/a.e2e.yaml': 'a2',
       'inline/b.e2e.yaml': 'b2',
       'inline/c.e2e.yaml': 'c1',
       [`${stage}/old/inline/a.e2e.yaml`]: 'a1',
-      [`${stage}/old/plan.json`]: 'plan1',
+      [`${stage}/old/plan.json`]: plan1,
       [`${stage}/manifest.json`]: manifest,
     });
-    assert.match(recoverStaging(planDir)[0]!, /정리를 마쳤습니다/);
-    assert.deepEqual(files(planDir), { 'plan.json': 'plan2', 'inline/a.e2e.yaml': 'a2', 'inline/b.e2e.yaml': 'b2' });
+    assert.match(recover(planDir)[0]!, /정리를 마쳤습니다/);
+    assert.deepEqual(files(planDir), { 'plan.json': plan2, 'inline/a.e2e.yaml': 'a2', 'inline/b.e2e.yaml': 'b2' });
   });
 
-  test('incomplete staging (no manifest) is deleted; live processes and corrupt manifests are never touched', () => {
+  test('stagings of dead owners older than the committed plan are discarded without touching the newer files', () => {
     const planDir = tempDir();
-    put(planDir, { ...previous, [`.qa/staging-${deadPid()}-x/new/inline/a.e2e.yaml`]: 'a2' });
-    recoverStaging(planDir);
-    assert.deepEqual(files(planDir), previous);
+    // Generation 3 (created T3) is committed and re-created c. Two dead generation-2 stagings remain: one died mid-swap
+    // (its rollback would put a1/plan1 back), one after its commit (its prune would delete c).
+    const newer = { 'plan.json': planJson(T3, 'plan3'), 'inline/a.e2e.yaml': 'a3', 'inline/b.e2e.yaml': 'b3', 'inline/c.e2e.yaml': 'c3' };
+    const midSwap = staging(deadPid(), 0, 'mid');
+    const committed = staging(deadPid(), 0, 'done');
+    put(planDir, {
+      ...newer,
+      [`${midSwap}/old/inline/a.e2e.yaml`]: 'a1',
+      [`${midSwap}/old/plan.json`]: plan1,
+      [`${midSwap}/new/inline/b.e2e.yaml`]: 'b2',
+      [`${midSwap}/new/plan.json`]: plan2,
+      [`${midSwap}/manifest.json`]: manifest,
+      [`${committed}/old/inline/a.e2e.yaml`]: 'a1',
+      [`${committed}/manifest.json`]: manifest,
+    });
+    const before = inodes(planDir);
+    const notes = recover(planDir);
+    assert.equal(notes.length, 2);
+    for (const note of notes) assert.match(note, /더 새 계획이 커밋되어 파일은 그대로 둡니다/);
+    assert.deepEqual(files(planDir), newer);
+    for (const rel of Object.keys(newer)) assert.equal(statSync(join(planDir, rel), { bigint: true }).ino, before.get(rel), rel);
+  });
 
-    const live = { [`.qa/staging-${process.pid}-y/new/plan.json`]: 'plan2', [`.qa/staging-${process.pid}-y/manifest.json`]: manifest };
-    put(planDir, live);
-    assert.deepEqual(recoverStaging(planDir), []);
+  test('owner liveness is pid + start time: a live owner is skipped, a reused pid and this process are recovered', () => {
+    const planDir = tempDir();
+    const liveStart = Date.parse('2026-09-26T00:00:00.000Z');
+    const probe: ProcessProbe = (pid) => (pid === 4242 ? { alive: true, startedAtMs: liveStart } : { alive: false, startedAtMs: null });
+    const live = { [`${staging(4242, liveStart, 'live')}/new/plan.json`]: plan2, [`${staging(4242, liveStart, 'live')}/manifest.json`]: manifest };
+    put(planDir, { ...previous, ...live, [`${staging(4242, liveStart - 3_600_000, 'reused')}/new/inline/a.e2e.yaml`]: 'a2' });
+    assert.deepEqual(recover(planDir, probe), [`중단된 계획 준비 파일을 지웠습니다 (교체 전): ${staging(4242, liveStart - 3_600_000, 'reused').slice(4)}`]);
     assert.deepEqual(files(planDir), { ...previous, ...live });
 
+    // Under the plan lock a staging of this very process cannot be in progress: it is abandoned and rolled back.
+    const own = tempDir();
+    const stage = staging(process.pid, PROCESS_STARTED_AT_MS, 'own');
+    put(own, { ...previous, 'inline/a.e2e.yaml': 'a2', [`${stage}/old/inline/a.e2e.yaml`]: 'a1', [`${stage}/new/plan.json`]: plan2, [`${stage}/manifest.json`]: manifest });
+    assert.match(recover(own, () => ({ alive: true, startedAtMs: PROCESS_STARTED_AT_MS }))[0]!, /되돌려 이전 계획을 복구했습니다/);
+    assert.deepEqual(files(own), previous);
+  });
+
+  test('incomplete staging (no manifest) is deleted; corrupt manifests are never touched', () => {
+    const planDir = tempDir();
+    put(planDir, { ...previous, [`${staging(deadPid())}/new/inline/a.e2e.yaml`]: 'a2' });
+    recover(planDir);
+    assert.deepEqual(files(planDir), previous);
+
     const corrupt = tempDir();
-    put(corrupt, { ...previous, [`.qa/staging-${deadPid()}-z/manifest.json`]: JSON.stringify({ files: ['../../etc/passwd', 'plan.json'], stale: [] }) });
-    assert.throws(() => recoverStaging(corrupt), /계획 교체 기록이 손상되었습니다/);
+    put(corrupt, { ...previous, [`${staging(deadPid(), 0, 'z')}/manifest.json`]: JSON.stringify({ base: T1, createdAt: T2, files: ['../../etc/passwd', 'plan.json'], stale: [] }) });
+    assert.throws(() => recover(corrupt), /계획 교체 기록이 손상되었습니다/);
     assert.equal(files(corrupt)['inline/a.e2e.yaml'], 'a1');
   });
 });
 
+describe('plan lock', () => {
+  test('a second holder fails fast while the first holds it; release frees it and removes the directories it created', () => {
+    const root = tempDir();
+    const planDir = join(root, 'tests', 'generated', 'tteonam');
+    const first = acquirePlanLock(planDir, 'tteonam');
+    assert.throws(
+      () => acquirePlanLock(planDir, 'tteonam'),
+      (err) => err instanceof FileLockedError && err.reason === 'held' && /^앱 tteonam의 계획 생성: 다른 qa 프로세스\(pid \d+, .+부터\)가 잠금을 갖고 있습니다\.$/.test(err.message),
+    );
+    first.release();
+    assert.deepEqual(readdirSync(root), []);
+    acquirePlanLock(planDir, 'tteonam').release();
+  });
+
+  test('generation createdAt strictly increases: a plan not newer than the committed one is refused before staging', () => {
+    assert.equal(nextCreatedAt('2099-01-01T00:00:00.000Z', Date.parse(T1)), '2099-01-01T00:00:00.001Z');
+    assert.equal(nextCreatedAt(T1, Date.parse(T2)), T2);
+    const planDir = tempDir();
+    put(planDir, previous);
+    const before = inodes(planDir);
+    const lock = acquirePlanLock(planDir, 'tteonam');
+    try {
+      assert.throws(() => commitGeneration(lock, 'p2', { tests: new Map([['inline/a.e2e.yaml', 'a2']]), plan: { createdAt: T1 }, stale: [] }, () => {}), /\(기존 계획은 그대로\): 새 계획의 createdAt/);
+    } finally {
+      lock.release();
+    }
+    assert.deepEqual(inodes(planDir), before);
+    assert.deepEqual(files(planDir), previous);
+  });
+});
+
 /** Generation 1 on disk; generation 2 replaces a and p, adds b and t (in a new directory), drops c. */
-const gen1 = { 'plan.json': 'plan1', 'inline/a.e2e.yaml': 'a1', 'inline/c.e2e.yaml': 'c1', 'parking/p.e2e.yaml': 'p1' };
+const gen1 = { 'plan.json': plan1, 'inline/a.e2e.yaml': 'a1', 'inline/c.e2e.yaml': 'c1', 'parking/p.e2e.yaml': 'p1' };
 const gen2: Generation = {
   tests: new Map([
     ['inline/a.e2e.yaml', 'a2'],
@@ -116,7 +207,7 @@ const gen2: Generation = {
     ['parking/p.e2e.yaml', 'p2'],
     ['terms/t.e2e.yaml', 't2'],
   ]),
-  plan: { generation: 2 },
+  plan: { createdAt: T2 },
   stale: ['inline/c.e2e.yaml'],
 };
 const gen2Files: Record<string, string> = { ...Object.fromEntries(gen2.tests), 'plan.json': `${JSON.stringify(gen2.plan, null, 2)}\n` };
@@ -173,32 +264,36 @@ describe('plan generation swap', () => {
   test('every previous file stays readable (old or new version) after every call, and a kill after any call recovers to exactly one generation', () => {
     const planDir = tempDir();
     put(planDir, gen1);
-    const stageName = `staging-${process.pid}-p2`;
+    const stageName = `staging-${process.pid}-${PROCESS_STARTED_AT_MS}-p2`;
     const dead = deadPid();
     const gaps: string[] = [];
     const kills: { step: string; committed: boolean; dir: string }[] = [];
     let committed = false;
+    const lock = acquirePlanLock(planDir, 'tteonam');
     interceptFs(
       (op, args, call) => {
         const result = call();
         committed ||= isCommit(planDir, op, args);
         const step = `#${kills.length + 1} ${describeCall(planDir, op, args)}`;
         for (const gap of unreadable(planDir, committed)) gaps.push(`${step}: ${gap}`);
-        // Freeze the tree as a process killed right after this call leaves it; its staging now belongs to a dead pid.
+        // Freeze the tree as a process killed right after this call leaves it: its staging and its plan lock now
+        // belong to a dead pid.
         const dir = tempDir();
         cpSync(planDir, dir, { recursive: true });
-        if (existsSync(join(dir, '.qa', stageName))) renameSync(join(dir, '.qa', stageName), join(dir, '.qa', `staging-${dead}-p2`));
+        if (existsSync(join(dir, '.qa', stageName))) renameSync(join(dir, '.qa', stageName), join(dir, '.qa', `staging-${dead}-${PROCESS_STARTED_AT_MS}-p2`));
+        writeFileSync(join(dir, '.qa', 'plan.lock'), JSON.stringify({ pid: dead, startedAt: new Date(PROCESS_STARTED_AT_MS).toISOString(), acquiredAt: T1, token: 'killed' }));
         kills.push({ step, committed, dir });
         return result;
       },
-      () => commitGeneration(planDir, 'p2', gen2, () => {}),
+      () => commitGeneration(lock, 'p2', gen2, () => {}),
     );
+    lock.release();
     assert.deepEqual(gaps, []);
     assert.deepEqual(files(planDir), gen2Files);
     assert.ok(!existsSync(join(planDir, '.qa')));
     assert.ok(kills.some((k) => !k.committed) && kills.some((k) => k.committed));
     for (const { step, committed, dir } of kills) {
-      recoverStaging(dir);
+      recover(dir);
       assert.deepEqual(files(dir), committed ? gen2Files : gen1, `killed after ${step}`);
     }
   });
@@ -208,42 +303,49 @@ describe('plan generation swap', () => {
     put(counting, gen1);
     let calls = 0;
     let commitCall = 0;
+    const lock = acquirePlanLock(counting, 'tteonam');
     interceptFs(
       (op, args, call) => {
         calls++;
         if (isCommit(counting, op, args)) commitCall = calls;
         return call();
       },
-      () => commitGeneration(counting, 'p2', gen2, () => {}),
+      () => commitGeneration(lock, 'p2', gen2, () => {}),
     );
+    lock.release();
     assert.ok(commitCall > 0);
 
     for (let fail = 1; fail <= commitCall; fail++) {
       const planDir = tempDir();
       put(planDir, gen1);
+      const held = acquirePlanLock(planDir, 'tteonam');
       const before = inodes(planDir);
       const gaps: string[] = [];
       let call = 0;
       let failed = '';
-      assert.throws(
-        () =>
-          interceptFs(
-            (op, args, invoke) => {
-              if (++call === fail) {
-                failed = `#${fail} ${describeCall(planDir, op, args)}`;
-                throw new Error('주입된 실패');
-              }
-              const result = invoke();
-              for (const gap of unreadable(planDir, false)) gaps.push(`#${call} ${describeCall(planDir, op, args)}: ${gap}`);
-              return result;
-            },
-            () => commitGeneration(planDir, 'p2', gen2, () => {}),
-          ),
-        /(\(기존 계획은 그대로\)|이전 계획으로 되돌렸습니다): 주입된 실패$/,
-      );
-      assert.deepEqual(gaps, [], `failed at ${failed}`);
+      try {
+        assert.throws(
+          () =>
+            interceptFs(
+              (op, args, invoke) => {
+                if (++call === fail) {
+                  failed = `#${fail} ${describeCall(planDir, op, args)}`;
+                  throw new Error('주입된 실패');
+                }
+                const result = invoke();
+                for (const gap of unreadable(planDir, false)) gaps.push(`#${call} ${describeCall(planDir, op, args)}: ${gap}`);
+                return result;
+              },
+              () => commitGeneration(held, 'p2', gen2, () => {}),
+            ),
+          /(\(기존 계획은 그대로\)|이전 계획으로 되돌렸습니다): 주입된 실패$/,
+        );
+        assert.deepEqual(gaps, [], `failed at ${failed}`);
+        assert.deepEqual(inodes(planDir), before, `failed at ${failed}`);
+      } finally {
+        held.release();
+      }
       assert.deepEqual(files(planDir), gen1, `failed at ${failed}`);
-      assert.deepEqual(inodes(planDir), before, `failed at ${failed}`);
     }
   });
 });

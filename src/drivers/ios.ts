@@ -57,7 +57,7 @@ export class IosDriver extends AppiumDriver {
   }
 
   protected async keyboardShown(): Promise<boolean> {
-    const shown = await this.api.execute('mobile: isKeyboardShown');
+    const shown = await this.api.query('mobile: isKeyboardShown');
     if (typeof shown !== 'boolean') throw unexpectedResponse('mobile: isKeyboardShown', shown);
     return shown;
   }
@@ -177,7 +177,7 @@ export class IosDriver extends AppiumDriver {
   }
 
   async foregroundApp(): Promise<string | null> {
-    const info = await this.api.execute('mobile: activeAppInfo');
+    const info = await this.api.query('mobile: activeAppInfo');
     if (typeof info !== 'object' || info === null || !('bundleId' in info)) throw unexpectedResponse('mobile: activeAppInfo', info);
     const { bundleId } = info;
     if (bundleId !== null && typeof bundleId !== 'string') throw unexpectedResponse('mobile: activeAppInfo', info);
