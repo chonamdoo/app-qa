@@ -1,4 +1,4 @@
-// Appium server lifecycle: reuse a server on QA_APPIUM_PORT only when .qa/appium.json proves this project started it
+// Appium server lifecycle: reuse a server on QA_APPIUM_PORT only when .qa/appium-<port>.json proves this project started it
 // with the current log configuration; otherwise spawn the project-local one.
 import { spawn } from 'node:child_process';
 import { closeSync, existsSync, openSync, readFileSync, rmSync } from 'node:fs';
@@ -15,7 +15,8 @@ import { childEnv, run } from './exec.ts';
 
 export const APPIUM_MAIN = join(PATHS.root, 'node_modules', 'appium', 'index.js');
 export const APPIUM_LOG = join(PATHS.logs, 'appium.log');
-const STATE_FILE = join(PATHS.state, 'appium.json');
+/** One record per port: a server started on another port never overwrites the proof for this one. */
+const stateFileFor = (port: number): string => join(PATHS.state, `appium-${port}.json`);
 
 /** Appium splits array CLI values on commas, so the filter rules travel as a JSON file path, not inline JSON. */
 const LOG_FILTERS_FILE = join(PATHS.state, 'appium-log-filters.json');
@@ -60,13 +61,13 @@ export function appiumLaunchConfig(port: number): { argv: string[]; logFilters: 
 export interface AppiumServer {
   url: string;
   port: number;
-  /** Pid of the server: spawned now, or proven by `.qa/appium.json` to be the one this project started. */
+  /** Pid of the server: spawned now, or proven by `.qa/appium-<port>.json` to be the one this project started. */
   pid: number;
   reused: boolean;
   version: string | null;
 }
 
-/** `.qa/appium.json`: the server this project spawned. */
+/** `.qa/appium-<port>.json`: the server this project spawned on that port. */
 const ServerState = z.object({
   pid: z.number().int().positive(),
   port: z.number().int(),
@@ -128,7 +129,7 @@ function processProblem(state: ServerState): string | null {
  * alive, same start time — is the only listener on the port.
  */
 async function reuseProblem(state: ServerState | null, port: number): Promise<string | null> {
-  if (!state) return '이 프로젝트가 시작한 서버라는 기록(.qa/appium.json)이 없거나 형식이 올바르지 않습니다';
+  if (!state) return `이 프로젝트가 시작한 서버라는 기록(.qa/appium-${port}.json)이 없거나 형식이 올바르지 않습니다`;
   if (state.port !== port) return `기록된 서버의 포트(${state.port})가 다릅니다`;
   const expected = appiumLaunchConfig(port);
   if (!isDeepStrictEqual(state.argv, expected.argv) || state.logFilters !== expected.logFilters) {
@@ -155,12 +156,13 @@ const starting = new Map<string, Promise<AppiumServer>>();
 /**
  * Returns a ready Appium server. A server already answering on the port is reused only when `reuseProblem` finds
  * nothing — it is never killed; otherwise this spawns `node node_modules/appium/index.js server` detached (survives
- * this CLI, logs to .qa/logs/appium.log) and records it in `stateFile` (default `.qa/appium.json`).
+ * this CLI, logs to .qa/logs/appium.log) and records it in `stateFile` (default `.qa/appium-<port>.json`).
  * Concurrent callers (device slots of one run, or two `qa` processes) never race to spawn: calls in this process share
  * one startup, and across processes `.qa/locks/appium-<port>.lock` admits one starter while the others wait for it.
  */
 export function ensureAppium(opts: { port?: number; timeoutMs?: number; stateFile?: string } = {}): Promise<AppiumServer> {
-  const key = `${opts.port ?? appiumPort()}|${opts.stateFile ?? STATE_FILE}`;
+  const port = opts.port ?? appiumPort();
+  const key = `${port}|${opts.stateFile ?? stateFileFor(port)}`;
   let pending = starting.get(key);
   if (!pending) {
     pending = startupLocked(opts).finally(() => starting.delete(key));
@@ -191,7 +193,7 @@ async function startupLocked(opts: { port?: number; timeoutMs?: number; stateFil
 }
 
 async function startOrReuse(opts: { stateFile?: string }, port: number, deadline: number): Promise<AppiumServer> {
-  const stateFile = opts.stateFile ?? STATE_FILE;
+  const stateFile = opts.stateFile ?? stateFileFor(port);
   const url = `http://127.0.0.1:${port}`;
   const existing = await probe(url);
   if (existing.ready) {
@@ -238,17 +240,18 @@ async function startOrReuse(opts: { stateFile?: string }, port: number, deadline
   throw new Error(`Appium 서버가 제한 시간 안에 준비되지 않았습니다. 로그: ${APPIUM_LOG}\n${logExcerpt(readLog())}`);
 }
 
-/** Stops the server this project spawned (recorded in .qa/appium.json); a pid now held by another process is never signalled. Returns false when none was running. */
+/** Stops the server this project spawned on QA_APPIUM_PORT (recorded in .qa/appium-<port>.json); a pid now held by another process is never signalled. Returns false when none was running. */
 export async function stopAppium(): Promise<boolean> {
-  const state = readState(STATE_FILE);
+  const stateFile = stateFileFor(appiumPort());
+  const state = readState(stateFile);
   if (!state || processProblem(state)) {
-    rmSync(STATE_FILE, { force: true });
+    rmSync(stateFile, { force: true });
     return false;
   }
   process.kill(state.pid, 'SIGTERM');
   for (let i = 0; i < 40 && alive(state.pid); i++) await delay(250);
   if (alive(state.pid)) process.kill(state.pid, 'SIGKILL');
-  rmSync(STATE_FILE, { force: true });
+  rmSync(stateFile, { force: true });
   return true;
 }
 
