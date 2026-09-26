@@ -1,0 +1,14 @@
+id: web-demo
+name: QA 데모 상점 (웹)
+# Local demo site: `node scripts/serve-static.ts examples/web-demo 4173`.
+web:
+  url: http://localhost:4173/
+  viewport:
+    width: 1280
+    height: 800
+risk:
+  deny: []
+  allow: []
+redact: []
+volatile: []
+docs: []

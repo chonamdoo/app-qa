@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>QA 데모 상점</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>QA 데모 상점</h1>
+    <nav>
+      <a href="login.html" id="login-link">로그인</a>
+      <button type="button" id="help-open">도움말</button>
+    </nav>
+  </header>
+
+  <main>
+    <section aria-label="상품 검색" class="search">
+      <label for="query">상품 검색</label>
+      <input id="query" type="search" placeholder="상품 이름 입력" autocomplete="off">
+      <button type="button" id="search">검색</button>
+    </section>
+
+    <p id="result-count" role="status">상품 3개</p>
+
+    <ul id="products" class="products">
+      <li data-name="사과"><span class="name">사과</span> <span class="price">1,200원</span> <button type="button" class="add">장바구니 담기</button></li>
+      <li data-name="바나나"><span class="name">바나나</span> <span class="price">2,500원</span> <button type="button" class="add">장바구니 담기</button></li>
+      <li data-name="체리"><span class="name">체리</span> <span class="price">9,800원</span> <button type="button" class="add">장바구니 담기</button></li>
+    </ul>
+
+    <p id="cart" aria-live="polite">장바구니 0개</p>
+
+    <section class="long" aria-label="안내">
+      <h2>배송 안내</h2>
+      <p>평일 오후 2시 전 주문은 당일 출고됩니다.</p>
+      <p>제주·도서 지역은 1~2일 더 걸립니다.</p>
+      <p>교환·반품은 수령 후 7일 안에 신청하세요.</p>
+      <p id="bottom-note">여기까지 스크롤하면 안내 끝입니다.</p>
+    </section>
+  </main>
+
+  <footer class="cta">
+    <button type="button" id="order">주문하기</button>
+  </footer>
+
+  <div id="help" class="modal" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
+    <div class="scrim"></div>
+    <div class="sheet">
+      <h2 id="help-title">도움말</h2>
+      <p>검색창에 상품 이름을 입력하고 검색을 누르세요.</p>
+      <button type="button" id="help-close">닫기</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

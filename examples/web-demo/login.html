@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>로그인 · QA 데모 상점</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>로그인</h1>
+    <nav><a href="index.html" id="home-link">상점으로</a></nav>
+  </header>
+  <main>
+    <form id="login-form" class="form" novalidate>
+      <label for="email">이메일</label>
+      <input id="email" type="email" autocomplete="off" placeholder="name@example.com">
+      <label for="password">비밀번호</label>
+      <input id="password" type="password" autocomplete="off">
+      <button type="submit" id="login">로그인</button>
+    </form>
+    <p id="login-status" role="status">로그인하지 않음</p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
