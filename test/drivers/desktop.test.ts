@@ -404,7 +404,10 @@ describe('ending the browser session', () => {
         try {
           const driver = new DesktopWebDriver('desktop-chrome', 'desktop-chrome', { serverUrl: stub.url });
           await driver.open(CHROME);
+          assert.equal(driver.displayProblem(), null, label);
           assert.equal(await end(driver), 'uncertain', label);
+          // Known as soon as the end fails, before any close(): the runner stops the desktop lane on it.
+          assert.match(driver.displayProblem() ?? '', /^브라우저 세션 종료를 확인하지 못했습니다: /, label);
           for (const [call, run] of Object.entries(SESSION_CALLS)) assert.equal(await run(driver), 'uncertain', `${label} → ${call}`);
           await assert.rejects(driver.close(), (err: Error) => failureStatus(err) === 'uncertain' && /세션 종료를 확인하지 못했습니다/.test(err.message), label);
           assert.equal(sessionRequests(stub), 1, `${label}: no second session`);
@@ -424,8 +427,10 @@ describe('ending the browser session', () => {
       await driver.open(CHROME);
       assert.equal((await driver.terminate(CHROME)).status, 'completed');
       assert.equal((await driver.launch(CHROME)).status, 'uncertain');
+      assert.match(driver.displayProblem() ?? '', /^브라우저 세션을 만들지 못했습니다\(창이 남았을 수 있음\): /);
       assert.equal((await driver.launch(CHROME)).status, 'uncertain');
       await assert.rejects(driver.close(), (err: Error) => failureStatus(err) === 'uncertain' && /창이 남았을 수 있음/.test(err.message));
+      assert.match(driver.displayProblem() ?? '', /^브라우저 세션을 만들지 못했습니다/, 'sticky: close() does not forget it');
       assert.equal(sessionRequests(stub), 2);
     } finally {
       stub.close();
@@ -435,10 +440,12 @@ describe('ending the browser session', () => {
   it('a confirmed DELETE completes terminate; reset clear opens a fresh session at the start URL', async () => {
     await withDriver({}, async (d, stub) => {
       assert.equal((await d.reset(CHROME, 'clear')).status, 'completed');
+      assert.equal(d.displayProblem(), null, 'a confirmed end leaves the display known');
       assert.equal(deletes(stub), 1);
       assert.equal(stub.requests.filter((r) => r.method === 'POST' && r.path === '/session').length, 2);
       assert.deepEqual(posted(stub, '/url').map((r) => r.body), [{ url: CHROME.url }]);
       assert.equal((await d.terminate(CHROME)).status, 'completed');
+      assert.equal(d.displayProblem(), null);
     });
   });
 });

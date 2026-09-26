@@ -351,6 +351,66 @@ describe('the desktop lane (every desktop browser on one display)', () => {
     assert.ok(went.rows.includes('site desktop-safari PASS -'), went.rows.join('\n'));
   });
 
+  it('a session end left unconfirmed inside a test stops the lane when that test ends: the rest of its app and every later browser are display_unknown, never started', async () => {
+    const LOST = '브라우저 세션 종료를 확인하지 못했습니다: socket hang up';
+    const cause = `Chrome (macOS) 테스트 s1 중 세션 시작 또는 종료를 확인하지 못함 (${LOST})`;
+    for (const closes of ['fails', 'confirms'] as const) {
+      const shared = join(tempRoot(), 'app-qa-display');
+      const d = drivers();
+      const chrome = d['desktop-chrome'];
+      chrome.endError = LOST;
+      // close() fails on the lost session (the desktop driver's behaviour); even one that reports an end changes nothing.
+      const close = chrome.close.bind(chrome);
+      if (closes === 'confirms') chrome.close = () => close().catch(() => undefined);
+      const root = tempRoot({
+        'tests/s1.e2e.yaml': web('  - assertText: 상품 3개\n', 'launch\nreset: clear'),
+        'tests/s2.e2e.yaml': web('  - assertText: 상품 3개\n'),
+        'tests/s3.e2e.yaml': web('  - assertText: 상품 3개\n'),
+      });
+      const events: QaEventBody[] = [];
+      const result = await runTests(
+        { paths: [join(root, 'tests')], platform: 'all', events: { emit: (e) => events.push(e) } },
+        {
+          ...fakeDeps(root, chrome),
+          ...displayDeps(shared),
+          clock: d.android.clock,
+          createDriver: (platform) => d[platform],
+          pickDevice: async (platform) => ({ platform, id: `${platform}-1`, name: platform, osVersion: '1', state: 'booted', kind: platform.startsWith('desktop') ? 'browser' : 'emulator' }),
+        },
+      );
+      const rows = result.tests.map((t) => `${t.id} ${t.platform} ${t.verdict} ${t.code ?? '-'}`).sort();
+      assert.deepEqual(rows, [
+        's1 android PASS -',
+        's1 desktop-chrome ERROR uncertain_action',
+        's1 desktop-safari ERROR display_unknown',
+        's1 ios PASS -',
+        's2 android PASS -',
+        's2 desktop-chrome ERROR display_unknown',
+        's2 desktop-safari ERROR display_unknown',
+        's2 ios PASS -',
+        's3 android PASS -',
+        's3 desktop-chrome ERROR display_unknown',
+        's3 desktop-safari ERROR display_unknown',
+        's3 ios PASS -',
+      ], closes);
+      const first = result.tests.find((t) => t.id === 's1' && t.platform === 'desktop-chrome')!;
+      assert.match(first.reason, /행동 결과 불확실\(reset\): 브라우저 세션 종료를 확인하지 못했습니다: socket hang up/, `${closes}: the test that lost the session keeps its own result`);
+      for (const t of result.tests.filter((t) => t.code === 'display_unknown')) {
+        assert.equal(t.qaStatus, 'BLOCKED');
+        assert.equal(t.reason, `데스크톱 화면 상태를 알 수 없어 남은 브라우저 테스트를 실행하지 않음: ${cause}`, closes);
+      }
+      // Never started (no test.started); the lost Chrome session is closed once, as before; Safari never opens.
+      const started = events.flatMap((e) => (e.type === 'test.started' && e.platform.startsWith('desktop') ? [`${e.testId} ${e.platform}`] : []));
+      assert.deepEqual(started, ['s1 desktop-chrome'], closes);
+      assert.equal(chrome.called('close').length, 1, closes);
+      assert.equal(d['desktop-safari'].called('open').length, 0, closes);
+      // Recorded once, from the driver's own reason; it stays after the display lock goes, whatever close() said.
+      assert.equal(events.filter((e) => e.type === 'log' && e.level === 'error' && /데스크톱 화면 상태를 알 수 없어/.test(e.message)).length, 1, closes);
+      const record = readDisplayUnknown({ dir: shared });
+      assert.deepEqual([record?.runId, record?.reason], [result.runId, cause], closes);
+    }
+  });
+
   it('releases every claimed lock once when a desktop slot throws, each only after its own lane finished', async () => {
     const d = drivers();
     const boom = new Error('증거 쓰기 실패');
@@ -533,6 +593,23 @@ describe('smoke, capture and inspect on a desktop browser', () => {
     const device = new FakeDriver(fixtureSnapshot('android', 'tteonam', 'launch', { foreground: 'kr.tteonam.app' }));
     device.closeError = new Error('device offline');
     assert.equal((await smoke(device, 'android', lockLog([]))).t.verdict, 'PASS');
+  });
+
+  it('a smoke whose relaunch leaves the session end unconfirmed is ERROR display_unknown from the driver’s own reason, recorded once, even when close() then reports an end', async () => {
+    const LOST = '브라우저 세션 종료를 확인하지 못했습니다: socket hang up';
+    for (const closes of ['fails', 'confirms'] as const) {
+      const shared = join(tempRoot(), 'app-qa-display');
+      const chrome = new FakeDriver(index());
+      chrome.endError = LOST;
+      if (closes === 'confirms') chrome.close = async () => undefined;
+      const lost = await smoke(chrome, 'desktop-chrome', displayDeps(shared));
+      assert.deepEqual([lost.t.verdict, lost.t.code, lost.t.qaStatus], ['ERROR', 'display_unknown', 'BLOCKED'], `${closes}: ${lost.t.reason}`);
+      const cause = `Chrome (macOS) 스모크 중 세션 시작 또는 종료를 확인하지 못함 (${LOST})`;
+      assert.ok(lost.t.reason.startsWith(`데스크톱 화면 상태를 알 수 없음: ${cause}; 스모크 결과 ERROR uncertain_action: `), `${closes}: ${lost.t.reason}`);
+      assert.equal(lost.events.filter((e) => e.type === 'log' && e.level === 'error' && /데스크톱 화면 상태를 알 수 없음/.test(e.message)).length, 1, closes);
+      // The record stays (the window may be on screen), whatever close() said.
+      assert.equal(readDisplayUnknown({ dir: shared })?.reason, cause, closes);
+    }
   });
 
   it('the smoke’s one test.finished carries the final verdict, after the session end: the event stream agrees with summary.json', async () => {

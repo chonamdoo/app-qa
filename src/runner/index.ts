@@ -487,8 +487,21 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
           }
           continue;
         }
+        // An unconfirmed session start or end inside the group (a test's launch, terminate or `reset: clear`; the
+        // driver's sticky `displayProblem`) stops the lane as soon as the step that caused it ends — its test keeps its
+        // own result; nothing more starts — not only at the group's close().
+        const clean = new EvidenceSanitizer(profile.redact);
+        const checkDisplay = (what: string) => {
+          const problem = lane.desktop ? (driver.displayProblem?.() ?? null) : null;
+          if (problem !== null) loseDisplay(clean, what, problem);
+        };
         try {
+          checkDisplay('세션 시작 뒤 창 상태를 확인하지 못함');
           for (const { test } of group) {
+            if (lane.displayUnknown !== null) {
+              skip(test, 'ERROR', 'display_unknown', lane.displayUnknown);
+              continue;
+            }
             if (opts.signal?.aborted) {
               skip(test, 'SKIPPED', 'cancelled', '실행이 취소되어 건너뜀');
               continue;
@@ -500,14 +513,19 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
               target,
             );
             out.push(await session.run());
+            checkDisplay(`테스트 ${test.id} 중 세션 시작 또는 종료를 확인하지 못함`);
           }
         } finally {
+          // A test that threw is checked here. Lost in this group (the lane entered it with a known display): recorded
+          // once, and never counted as ended, whatever close() says.
+          if (lane.displayUnknown === null) checkDisplay('세션 시작 또는 종료를 확인하지 못함');
+          const lost = lane.displayUnknown !== null;
           try {
             await driver.close();
-            if (lane.desktop) display.unconfirmed--;
+            if (lane.desktop && !lost) display.unconfirmed--;
           } catch (err) {
             // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
-            if (lane.desktop) loseDisplay(new EvidenceSanitizer(profile.redact), '세션 종료를 확인하지 못함', err);
+            if (lane.desktop && !lost) loseDisplay(clean, '세션 종료를 확인하지 못함', err);
           }
         }
       }
@@ -622,13 +640,17 @@ export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): 
           );
           result = await session.runSmoke({ crawl: opts.crawl === 'tabs', inventoryDir: d.inventoryDir });
         } finally {
+          // A session start or end the smoke's relaunch could not confirm (the driver's sticky `displayProblem`) is the
+          // cause, recorded once; close() then fails on it too, and the session is never counted as ended.
+          const problem = desktop ? (driver.displayProblem?.() ?? null) : null;
+          if (problem !== null) lost = `스모크 중 세션 시작 또는 종료를 확인하지 못함 (${problem})`;
           await driver.close().then(
             () => {
-              if (desktop) display.unconfirmed--;
+              if (desktop && lost === null) display.unconfirmed--;
             },
             (err: unknown) => {
               // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
-              if (desktop) lost = `세션 종료를 확인하지 못함 (${message(err)})`;
+              if (desktop) lost ??= `세션 종료를 확인하지 못함 (${message(err)})`;
             },
           );
         }

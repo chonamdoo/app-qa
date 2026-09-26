@@ -324,6 +324,11 @@ export class DesktopWebDriver implements Driver {
     }
   }
 
+  /** The sticky reason a window may still be on the display (`#displayUnknown`), as soon as it is known. */
+  displayProblem(): string | null {
+    return this.#displayUnknown;
+  }
+
   async snapshot(opts: { screenshot?: boolean } = {}): Promise<Snapshot> {
     const api = this.#api;
     const takenAt = new Date().toISOString();

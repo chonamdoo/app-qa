@@ -98,8 +98,15 @@ describe('generated test validation', () => {
     assert.deepEqual(errorsOf({ ...valid, steps: [check({ '>=': [{ var: 'min' }, 0] })] }), []);
     assert.match(errorsOf({ ...valid, steps: [check({ '>=': [{ var: 'minutes' }, 0] })] }).join('\n'), /"minutes"는 pattern의 이름 그룹이 아님/);
     // Rules the runner refuses (ERROR invalid_rule) never reach a saved test: a group read inside a collection's logic,
-    // a missing operand, a rule that reads no group.
-    for (const rule of [{ none: [{ merge: [{ var: 'min' }] }, { '>': [{ var: 'min' }, 0] }] }, { '%': [{ var: 'min' }] }, { '==': [1, 1] }]) {
+    // a missing operand (an `if` without its else, a `var` default), a rule that reads no group.
+    const refused = [
+      { none: [{ merge: [{ var: 'min' }] }, { '>': [{ var: 'min' }, 0] }] },
+      { '%': [{ var: 'min' }] },
+      { '!': { if: [{ '>': [{ var: 'min' }, 0] }, false, { '<': [{ var: 'min' }, 0] }, false] } },
+      { '>=': [{ var: ['min', 0] }, 0] },
+      { '==': [1, 1] },
+    ];
+    for (const rule of refused) {
       assert.match(errorsOf({ ...valid, steps: [check(rule)] }).join('\n'), /checkEach\.rule/, JSON.stringify(rule));
     }
   });

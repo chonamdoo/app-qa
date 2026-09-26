@@ -29,6 +29,21 @@ describe('checkEach lines with unobserved groups', () => {
   });
 });
 
+describe('checkEach if without an else', () => {
+  it('is refused before evaluation; with the else, n = 0 violates "neither positive nor negative is false"', () => {
+    const zero = [{ line: '값 0', data: { n: 0 } }];
+    const negative = { '<': [n, 0] };
+    // json-logic-js reads the missing else as null, and `!` makes that true: evaluated, n = 0 would PASS.
+    const noElse = { '!': { if: [{ '>': [n, 0] }, false, negative, false] } };
+    assert.match(ruleProblem(noElse, groups) ?? 'accepted', /^rule\.!\.if: 피연산자 4개 \(필요: 3개 이상의 홀수\)$/);
+    const withElse = { '!': { if: [{ '>': [n, 0] }, false, negative, false, true] } };
+    assert.equal(ruleProblem(withElse, groups), null);
+    const j = judgeLines(withElse, zero, 1);
+    assert.deepEqual([j.verdict, j.code], ['FAIL', 'check_failed'], j.reason);
+    assert.equal(judgeLines(withElse, [{ line: '값 3', data: { n: 3 } }], 1).verdict, 'PASS');
+  });
+});
+
 describe('checkEach collection operands', () => {
   const at = (value: number | string) => [{ line: `값 ${value}`, data: { n: value, s: String(value) } }];
   const item = { var: '' };

@@ -445,7 +445,8 @@ const RULE_OPERATORS: Record<string, readonly [number, number]> = {
   merge: [1, Infinity],
   // No default: a missing group must not turn into a value the rule accepts.
   var: [1, 1],
-  // condition, then, else; more pairs chain else-ifs.
+  // condition, then, else; each further condition-then pair goes before the else, so the count is odd (checked in
+  // `operatorProblem`): without an else json-logic-js answers null when no condition holds (`!` makes that true).
   if: [3, Infinity],
   '?:': [3, 3],
   and: [1, Infinity],
@@ -507,8 +508,10 @@ function operatorProblem(rule: unknown, groups: ReadonlySet<string>, read: Set<s
   const operands: unknown[] = Array.isArray(operand) ? operand : [operand];
   // Inside a collection's logic `{"var": []}` reads the item itself, like `{"var": ""}`.
   const [min, max] = item && op === 'var' ? ([0, 1] as const) : RULE_OPERATORS[op]!;
-  if (operands.length < min || operands.length > max) {
-    const need = min === max ? `${min}개` : max === Infinity ? `${min}개 이상` : `${min}~${max}개`;
+  // `if` needs an else after its condition-then pairs.
+  const odd = op === 'if';
+  if (operands.length < min || operands.length > max || (odd && operands.length % 2 === 0)) {
+    const need = (min === max ? `${min}개` : max === Infinity ? `${min}개 이상` : `${min}~${max}개`) + (odd ? '의 홀수' : '');
     return `${path}.${op}: 피연산자 ${operands.length}개 (필요: ${need})`;
   }
   if (op === 'var') {

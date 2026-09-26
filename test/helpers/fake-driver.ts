@@ -86,6 +86,12 @@ export class FakeDriver implements Driver {
   openError: string | Error | null = null;
   /** Makes `close` fail (e.g. a session end the driver could not confirm). */
   closeError: Error | null = null;
+  /**
+   * Makes session ends inside a test (`terminate`, `reset` clear) unconfirmed, as a failed DELETE in the desktop driver:
+   * the call is `uncertain`, and from then on `displayProblem()` reports this reason and `close()` fails with it.
+   */
+  endError: string | null = null;
+  private displayLost: string | null = null;
   logText = '09-26 08:21:00.000  1234  1234 E ReactNativeJS: boom\n';
   crashes: { name: string; content: string }[] = [];
   /** The sanitizer the runner handed to `startLogs`; captured lines pass it, as in the real drivers. */
@@ -122,6 +128,16 @@ export class FakeDriver implements Driver {
   async close(): Promise<void> {
     this.record('close');
     if (this.closeError !== null) throw this.closeError;
+    if (this.displayLost !== null) throw new Error(this.displayLost);
+  }
+  displayProblem(): string | null {
+    return this.displayLost;
+  }
+  /** A session end inside a test: unconfirmed (and remembered) while `endError` is set. */
+  private endSession(): ActionOutcome {
+    if (this.endError === null) return this.done();
+    this.displayLost = this.endError;
+    return { status: 'uncertain', ms: 5, error: this.endError };
   }
   async snapshot(opts: { screenshot?: boolean } = {}): Promise<Snapshot> {
     this.record('snapshot', opts.screenshot ?? false);
@@ -182,10 +198,11 @@ export class FakeDriver implements Driver {
   }
   async terminate(app: AppTarget): Promise<ActionOutcome> {
     this.record('terminate', app);
-    return this.done();
+    return this.endSession();
   }
   async reset(app: AppTarget, mode: ResetMode): Promise<ActionOutcome> {
     this.record('reset', app, mode);
+    if (mode === 'clear' && this.endError !== null) return this.endSession();
     this.onAction('reset', this);
     return this.done();
   }

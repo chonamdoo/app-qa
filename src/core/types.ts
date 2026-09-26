@@ -203,6 +203,13 @@ export interface Driver {
   /** Opens the automation session (does not launch the app unless asked). */
   open(app: AppTarget): Promise<void>;
   close(): Promise<void>;
+  /**
+   * Why a window of this driver may still be on the shared display — a session start or end it could not confirm,
+   * inside a test (`launch`, `terminate`, `reset`) or not — or null. Read-only and sticky: once set, every later session
+   * start or end (and `close()`) fails `uncertain`. Desktop browsers only; absent on device drivers, whose session ends
+   * with their device.
+   */
+  displayProblem?(): string | null;
   snapshot(opts?: { screenshot?: boolean }): Promise<Snapshot>;
   screenshot(): Promise<Uint8Array>;
   tap(p: Point): Promise<ActionOutcome>;
