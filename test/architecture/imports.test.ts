@@ -40,7 +40,7 @@ function allowed(from: string, to: string): boolean {
     case 'jev':
       return from === 'src/jev/calibrate.ts' && (b === 'observe' || b === 'policy');
     case 'drivers':
-      return to === 'src/observe/android.ts' || to === 'src/observe/ios.ts';
+      return to === 'src/observe/android.ts' || to === 'src/observe/ios.ts' || to === 'src/observe/web.ts';
     case 'runner':
       return b === 'observe' || b === 'policy' || b === 'jev' || (b === 'drivers' && from === 'src/runner/index.ts');
     case 'plan':

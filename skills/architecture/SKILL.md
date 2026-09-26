@@ -24,7 +24,7 @@ requires_docs:
 | observe | `src/observe/*`, `src/ocr/*` | contracts |
 | policy | `src/policy/*` (deterministic risk policy) | contracts, `src/observe/text.ts` |
 | jev | `src/jev/*` | contracts; `observe` and `policy` only from calibration code (`src/jev/calibrate.ts`) |
-| drivers | `src/appium/*`, `src/drivers/*` | contracts, observe parsers (`src/observe/{android,ios}.ts`) |
+| drivers | `src/appium/*`, `src/drivers/*` | contracts, observe parsers (`src/observe/{android,ios,web}.ts`) |
 | runner | `src/runner/*`, `src/report/*` | contracts, observe, ocr, policy, jev; `src/drivers` only from the runner entry (`src/runner/index.ts`) — execution code consumes the `Driver` interface |
 | plan | `src/plan/*` | contracts, observe, policy, jev; the runner entry only for `--run` |
 | server | `src/server/*` | contracts; runner/plan/drivers only through injected handlers |
