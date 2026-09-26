@@ -10,6 +10,7 @@ function cand(key: string, name: string, role: Candidate['role'] = 'button', val
   return {
     key,
     nodeId: key,
+    resourceId: null,
     role,
     name,
     value,

@@ -3,7 +3,8 @@ import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { startEngine } from '../../src/cli/commands/serve.ts';
+import { smokeJob, startEngine } from '../../src/cli/commands/serve.ts';
+import type { Platform } from '../../src/core/types.ts';
 import type { JobOutcome } from '../../src/server/jobs.ts';
 import type { ServerHandlers } from '../../src/server/server.ts';
 
@@ -48,4 +49,28 @@ test('server.json is swapped in atomically as a fresh 0600 file and removed on c
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('smoke over several platforms never opens another browser after a desktop smoke leaves the display unknown', async () => {
+  const zero = { PASS: 0, FAIL: 0, INCONCLUSIVE: 0, ERROR: 0, SKIPPED: 0 };
+  const smoke = (lost: Platform | null) => {
+    const opened: Platform[] = [];
+    const runSmoke = async ({ platform }: { platform: Platform }) => {
+      opened.push(platform);
+      const code = platform === lost ? 'display_unknown' : null;
+      return { runId: platform, counts: { ...zero, ...(code ? { ERROR: 1 } : { PASS: 1 }) }, tests: [{ code }], reportPath: `${platform}.html` };
+    };
+    const ctx = { jobId: 'j', events: { emit: () => {} }, signal: new AbortController().signal };
+    return { opened, outcome: smokeJob(runSmoke, ['desktop-chrome', 'android', 'desktop-safari'], { app: 'shop', platform: 'all', deviceIds: {} }, ctx) };
+  };
+
+  const lost = smoke('desktop-chrome');
+  const outcome = await lost.outcome;
+  assert.deepEqual(lost.opened, ['desktop-chrome', 'android']);
+  assert.equal(outcome.ok, false);
+  assert.match(outcome.message, /^PASS 1 · ERROR 2 · Safari \(macOS\): Chrome \(macOS\) 스모크 뒤 데스크톱 화면 상태를 알 수 없어 실행하지 않음$/);
+
+  const fine = smoke(null);
+  assert.deepEqual(await fine.outcome, { ok: true, message: 'PASS 3', resultPath: 'desktop-safari.html' });
+  assert.deepEqual(fine.opened, ['desktop-chrome', 'android', 'desktop-safari']);
 });

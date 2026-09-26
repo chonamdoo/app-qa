@@ -273,6 +273,7 @@ export class TestSession {
       observe: (ocr, screenshot) => this.observe({ ocr, screenshot }),
       recentScroll: () => this.recentScroll,
       isHittable: async (p, target) => env.driver.isHittable?.(p, target),
+      elementIdAt: async (p) => env.driver.elementIdAt?.(p),
       // The target decides the surface (gate availability and the threshold used): a web target stays web even if a
       // driver mislabels a snapshot (fail-closed). Every Jev decision names it (`jevProblem`, `judgeOpts`).
       commitProblem: () => this.jevProblem('commit', app.kind),

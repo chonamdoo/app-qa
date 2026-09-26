@@ -279,7 +279,10 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
   // field), except alerts (JavaScript alert/confirm dialogs are drawn natively). Browser UI is never a candidate or a
   // text line, but it still occludes the page.
   const browserUi = new Uint8Array(count);
-  if (snapshot.surface === 'web' && (platform === 'android' || platform === 'ios')) {
+  const deviceBrowser = snapshot.surface === 'web' && (platform === 'android' || platform === 'ios');
+  /** Outermost page content hosts (device browsers only); OCR lines outside them are browser or system UI. */
+  const pageHosts: number[] = [];
+  if (deviceBrowser) {
     const hostClass = WEB_CONTENT_CLASS[platform];
     const chromeId = `${PLATFORM_INFO[platform].browser}:id/`;
     const inWeb = new Uint8Array(count);
@@ -288,6 +291,7 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
     for (let i = 0; i < count; i++) {
       const p = parent[i]!;
       inWeb[i] = nodes[i]!.className === hostClass || (p >= 0 && inWeb[p]) ? 1 : 0;
+      if (nodes[i]!.className === hostClass && !(p >= 0 && inWeb[p])) pageHosts.push(i);
       inAlert[i] = nodes[i]!.className === 'Alert' || (p >= 0 && inAlert[p]) ? 1 : 0;
     }
     for (let i = count - 1; i >= 0; i--) if ((inWeb[i] || hasWeb[i]) && parent[i]! >= 0) hasWeb[parent[i]!] = 1;
@@ -561,6 +565,7 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
     return {
       key: `e${k + 1}`,
       nodeId: n.id,
+      resourceId: n.resourceId,
       role: d.role,
       name: d.name,
       value,
@@ -622,16 +627,26 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
     layout.push([r.x, r.y, r.width, r.height].map((v) => Math.round(v / LAYOUT_GRID)).join(','));
   }
 
-  // ── OCR lines: pixels have no occlusion, but keyboard/system areas and tree duplicates are skipped ──
+  // ── OCR lines: pixels have no occlusion, but keyboard/system areas, browser UI and tree duplicates are skipped ──
   if (opts.ocr?.length) {
     const blocked = nodes.flatMap((n, i) => (excluded[i] && clip[i] && isTouchable(n) ? [clip[i]!] : []));
+    // Device browsers: only the page is read. Pixels outside the page hosts (status bar clock, Chrome's toolbar), under
+    // the iOS status-bar strip, or on browser UI drawn over the page (Safari's toolbar) are browser/system UI, dropped
+    // like browser-UI nodes. A browser-UI node spanning a whole page host is a container around the page, not chrome.
+    const pages = pageHosts.flatMap((i) => (clip[i] ? [clip[i]!] : []));
+    if (deviceBrowser) {
+      const spansPage = (r: Rect): boolean =>
+        pages.some((h) => r.x <= h.x && r.y <= h.y && r.x + r.width >= h.x + h.width && r.y + r.height >= h.y + h.height);
+      for (let i = 0; i < count; i++) if (browserUi[i] && clip[i] && !spansPage(clip[i]!)) blocked.push(clip[i]!);
+      if (tapStrip) blocked.push(tapStrip);
+    }
     let k = 0;
     for (const line of opts.ocr) {
       const text = cleanText(line.text);
       const rect = intersect(line.rect, screen);
       if (!text || !rect) continue;
       const center = { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) };
-      if (blocked.some((b) => containsPoint(b, center))) continue;
+      if (blocked.some((b) => containsPoint(b, center)) || (deviceBrowser && !pages.some((h) => containsPoint(h, center)))) continue;
       const key = normLabel(text);
       const duplicate =
         candidates.some((c) => c.source === 'tree' && normLabel(c.name) === key && containsPoint(c.rect, center)) ||
@@ -640,6 +655,7 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
       candidates.push({
         key: '',
         nodeId: `ocr:${k++}`,
+        resourceId: null,
         role: 'text',
         name: text,
         value: null,

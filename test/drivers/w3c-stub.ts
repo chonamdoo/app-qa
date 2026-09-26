@@ -27,6 +27,8 @@ export interface FakePage {
   history: { length: number; canGoBack: boolean | null };
   /** What `elementFromPoint` + ancestors report: [x, y, width, height] per box. */
   hitBoxes: unknown;
+  /** What `elementFromPoint` returns at any point: a W3C element reference (identity while that element lives), null = nothing. Replace it to swap the element. */
+  element: unknown;
   /** Answer to WEB_EXTRACT_SCRIPT. */
   extract: unknown;
   /** Browser console buffer; `/se/log` drains it. */
@@ -82,6 +84,7 @@ export async function startW3CStub(init: Partial<FakePage> = {}, override?: (req
     console: [],
     front: true,
     raises: true,
+    element: null,
     ...init,
   };
   const sources: Record<string, unknown>[] = [];
@@ -137,6 +140,8 @@ export async function startW3CStub(init: Partial<FakePage> = {}, override?: (req
         return ok(page.front);
       case 'hit':
         return ok(page.hitBoxes);
+      case 'element':
+        return ok(page.element);
       case 'extract':
         return ok(page.extract);
       default:

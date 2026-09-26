@@ -1,8 +1,9 @@
 // `checkEach` rules (invariant 1): a JSONLogic rule is evaluated only after every object in it was checked to be exactly
 // one known operator with the operands it needs, every `var` names a group of the pattern, and at least one `var` is
 // read; only a boolean result counts. json-logic-js treats `{}` or a multi-key object as a truthy data literal and
-// compares a missing operand as `undefined` (`{"==":[]}` is true), so an unchecked rule could PASS without testing
-// anything; every such case is an ERROR instead.
+// compares a missing operand as `undefined` (`{"==":[]}` is true), and reads a collection operand that is not a list as
+// an empty one (`none` of a number is true), so an unchecked rule could PASS without testing anything; every such case
+// is an ERROR instead.
 import jsonLogic from 'json-logic-js';
 
 /**
@@ -54,6 +55,47 @@ const OPERATORS: Record<string, readonly [number, number]> = {
   none: [2, 2],
   some: [2, 2],
 };
+
+/**
+ * Operators whose operand at this index must be a list when evaluated, and whether a string counts: json-logic-js reads
+ * any other value as an empty collection (`all`/`some`/`none` then answer without evaluating their logic, `filter`/`map`
+ * give `[]`, `reduce` its initial value) and `in` of a non-list as false. `merge` takes any values (a non-list is one
+ * item), so it needs no check.
+ */
+const LIST_OPERAND: Record<string, { at: number; strings: boolean }> = {
+  all: { at: 0, strings: false },
+  none: { at: 0, strings: false },
+  some: { at: 0, strings: false },
+  filter: { at: 0, strings: false },
+  map: { at: 0, strings: false },
+  reduce: { at: 0, strings: false },
+  in: { at: 1, strings: true },
+};
+
+/**
+ * The evaluation-time list check (`listChecked`), registered as an operation outside the `OPERATORS` allow list so no
+ * rule can name it: wrapped around the operand, it sees the value in the operator's own scope (inside a collection's
+ * logic, the item) and throws for anything else, which `judgeLines` reports as a broken rule.
+ */
+const LIST_CHECK = 'qa_list_operand';
+jsonLogic.add_operation(LIST_CHECK, (value: unknown, op: string) => {
+  if (Array.isArray(value) || (LIST_OPERAND[op]!.strings && typeof value === 'string')) return value;
+  throw new Error(`${op}의 대상이 ${LIST_OPERAND[op]!.strings ? '배열이나 문자열' : '배열'}이 아님: ${JSON.stringify(value) ?? String(value)}`);
+});
+
+/** `rule` (which passed `ruleProblem`) with every `LIST_OPERAND` operand wrapped in the `LIST_CHECK` operation. */
+function listChecked(rule: unknown): unknown {
+  if (Array.isArray(rule)) return rule.map(listChecked);
+  if (rule === null || typeof rule !== 'object') return rule;
+  const entries = Object.entries(rule);
+  // Not an operator: json-logic-js returns it as data (`ruleProblem` refuses it anyway).
+  if (entries.length !== 1) return rule;
+  const [op, operand] = entries[0]!;
+  const operands = (Array.isArray(operand) ? operand : [operand]).map(listChecked);
+  const list = Object.hasOwn(LIST_OPERAND, op) ? LIST_OPERAND[op]! : null;
+  if (list) operands[list.at] = { [LIST_CHECK]: [operands[list.at], op] };
+  return { [op]: operands };
+}
 
 function operandProblem(value: unknown, groups: ReadonlySet<string>, read: Set<string>, path: string): string | null {
   if (Array.isArray(value)) {
@@ -110,12 +152,14 @@ type Judgement = { verdict: 'PASS' | 'FAIL' | 'ERROR' | 'INCONCLUSIVE'; code: st
 
 /**
  * Verdict of a rule that passed `ruleProblem` over the matched lines. A line missing a group the rule reads (an optional
- * group that did not match) is not evaluated: its value was not observed. A throw or a non-boolean result on any
- * evaluated line is a broken rule (ERROR, never a pass); then any violating line (it stands whatever else was seen) or
- * too few lines is FAIL; then a line that could not be evaluated is INCONCLUSIVE `check_unobserved`.
+ * group that did not match) is not evaluated: its value was not observed. A throw (a collection operand that is not a
+ * list included, see `LIST_OPERAND`) or a non-boolean result on any evaluated line is a broken rule (ERROR, never a
+ * pass); then any violating line (it stands whatever else was seen) or too few lines is FAIL; then a line that could
+ * not be evaluated is INCONCLUSIVE `check_unobserved`.
  */
 export function judgeLines(rule: object, matches: readonly LineMatch[], min: number): Judgement {
   const reads = jsonLogic.uses_data(rule);
+  const logic = listChecked(rule);
   const violations: LineMatch[] = [];
   const unobserved: string[] = [];
   for (const m of matches) {
@@ -126,7 +170,7 @@ export function judgeLines(rule: object, matches: readonly LineMatch[], min: num
     }
     let value: unknown;
     try {
-      value = jsonLogic.apply(rule, m.data);
+      value = jsonLogic.apply(logic, m.data);
     } catch (err) {
       return { verdict: 'ERROR', code: 'invalid_rule', reason: `checkEach 규칙 평가 오류 ("${m.line}"): ${err instanceof Error ? err.message : String(err)}` };
     }

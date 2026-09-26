@@ -3,11 +3,12 @@ import { parseArgs } from 'node:util';
 import { PLATFORM_INFO } from '../../core/platform.ts';
 import type { Platform, Verdict } from '../../core/types.ts';
 import { consoleSink, exitCodeFor, formatCounts, formatQaCounts } from '../../report/console.ts';
-import { QA_STATUSES, type QaStatus } from '../../report/status.ts';
+import { QA_STATUSES, qaStatus, type QaStatus } from '../../report/status.ts';
 import { runSmoke } from '../../runner/index.ts';
 import { loadAppProfile } from '../../spec/load.ts';
 import { profilePlatforms } from '../../spec/schema.ts';
 import { parseDevices, parsePlatform, PLATFORM_CHOICE_LIST } from '../platforms.ts';
+import { smokeEach } from '../smoke-each.ts';
 
 const USAGE = `사용법: qa smoke --app <id> [--platform ${PLATFORM_CHOICE_LIST}] [--device <id>] [--crawl tabs]
   기본: 앱(웹 프로필은 시작 URL) 실행 → 안정화 → 상태 점검(크래시·RedBox·LogBox·빈 화면·페이지 오류) → 스크린샷·인벤토리 (관찰만)
@@ -55,13 +56,23 @@ export async function cmdSmoke(argv: string[]): Promise<number> {
   const total: Record<Verdict, number> = { PASS: 0, FAIL: 0, INCONCLUSIVE: 0, ERROR: 0, SKIPPED: 0 };
   const qa = Object.fromEntries(QA_STATUSES.map((s) => [s, 0])) as Record<QaStatus, number>;
   try {
-    const profile = loadAppProfile(values.app);
+    const app = values.app;
+    const profile = loadAppProfile(app);
     const platforms: Platform[] = choice === 'all' ? profilePlatforms(profile) : [choice];
-    for (const platform of platforms) {
-      const r = await runSmoke({ app: values.app, platform, deviceId: deviceIds[platform], crawl: values.crawl === 'tabs' ? 'tabs' : undefined, events: consoleSink() });
+    const each = smokeEach(platforms, (platform) =>
+      runSmoke({ app, platform, deviceId: deviceIds[platform], crawl: values.crawl === 'tabs' ? 'tabs' : undefined, events: consoleSink() }),
+    );
+    for await (const { platform, result: r, notRun } of each) {
+      const label = profile.web ? PLATFORM_INFO[platform].webLabel : PLATFORM_INFO[platform].label;
+      if (r === null) {
+        total.ERROR++;
+        qa[qaStatus({ verdict: 'ERROR', code: 'display_unknown' })]++;
+        console.log(`[${label}] ERROR: ${notRun}`);
+        continue;
+      }
       for (const v of Object.keys(total) as Verdict[]) total[v] += r.counts[v];
       for (const s of QA_STATUSES) qa[s] += r.qaCounts[s];
-      console.log(`[${profile.web ? PLATFORM_INFO[platform].webLabel : PLATFORM_INFO[platform].label}] 리포트: ${r.reportPath}`);
+      console.log(`[${label}] 리포트: ${r.reportPath}`);
     }
   } catch (err) {
     console.error(`스모크를 실행할 수 없습니다: ${err instanceof Error ? err.message : String(err)}`);

@@ -287,6 +287,17 @@ describe('Android Chrome fixtures (web-demo)', () => {
     for (const name of ['검색', '도움말', '로그인', '장바구니 담기']) assert.equal(named(m, name).filter((c) => c.actionable).length, 0, name);
     assert.equal(m.candidates.find((c) => c.role === 'input'), undefined);
   });
+
+  it('OCR lines on the status bar or Chrome toolbar are never candidates or texts; page lines are', () => {
+    const ocr = [
+      { text: '9:41', confidence: 1, rect: { x: 60, y: 15, width: 60, height: 30 } }, // status bar clock (outside the WebView)
+      { text: 'localhost:4173', confidence: 1, rect: { x: 220, y: 100, width: 300, height: 60 } }, // address bar
+      { text: '오늘의 특가', confidence: 1, rect: { x: 60, y: 1700, width: 300, height: 60 } }, // page pixels only
+    ];
+    const m = loadModel('android/web-demo/index', { ocr });
+    assert.deepEqual(m.candidates.filter((c) => c.source === 'ocr').map((c) => c.name), ['오늘의 특가']);
+    assert.ok(!m.texts.includes('9:41') && !m.texts.includes('localhost:4173'));
+  });
 });
 
 describe('iOS Safari fixtures (web-demo)', () => {
@@ -339,10 +350,29 @@ describe('iOS Safari fixtures (web-demo)', () => {
     const asApp = buildScreenModel({ ...loadSnapshot(name, (xml) => shiftWebContent(xml, -40)), surface: 'app' });
     assert.ok(asApp.candidates.some((c) => c.name === '상점으로' && c.actionable));
   });
+
+  const SAFARI_OCR = [
+    { text: '9:41', confidence: 1, rect: { x: 30, y: 18, width: 40, height: 14 } }, // status bar clock, center (50,25)
+    { text: 'localhost', confidence: 1, rect: { x: 160, y: 806, width: 80, height: 21 } }, // address capsule
+    { text: 'AA', confidence: 1, rect: { x: 6, y: 846, width: 22, height: 18 } }, // toolbar backdrop over the page, beside the buttons
+  ];
+
+  it('OCR lines on the status bar or Safari toolbar are never candidates or texts; page lines are', () => {
+    const page = { text: '오늘의 특가', confidence: 1, rect: { x: 40, y: 640, width: 120, height: 20 } };
+    const m = loadModel('ios/web-demo/index', { ocr: [...SAFARI_OCR, page] });
+    assert.deepEqual(m.candidates.filter((c) => c.source === 'ocr').map((c) => c.name), ['오늘의 특가']);
+    for (const { text } of SAFARI_OCR) assert.ok(!m.texts.includes(text), text);
+  });
+
+  it('a page not rendered yet (WebView kept, its content gone) stays empty despite OCR of the browser UI', () => {
+    const blank = loadModel('ios/web-demo/index', { ocr: SAFARI_OCR }, emptyWebContent);
+    assert.deepEqual(blank.candidates, []);
+    assert.deepEqual(blank.texts, []);
+  });
 });
 
-/** Moves the page inside the first WebView by `dy` points (the page scrolled; WebViews and browser UI stay put). */
-function shiftWebContent(xml: string, dy: number): string {
+/** Start and end offsets of the first WebView element (with its subtree) in an XCUITest source. */
+function webViewSpan(xml: string): [number, number] {
   const start = xml.indexOf('<XCUIElementTypeWebView');
   const tag = /<(\/?)XCUIElementType\w+[^>]*?(\/?)>/g;
   tag.lastIndex = start;
@@ -353,8 +383,21 @@ function shiftWebContent(xml: string, dy: number): string {
     end = tag.lastIndex;
     if (depth === 0) break;
   }
+  return [start, end];
+}
+
+/** Moves the page inside the first WebView by `dy` points (the page scrolled; WebViews and browser UI stay put). */
+function shiftWebContent(xml: string, dy: number): string {
+  const [start, end] = webViewSpan(xml);
   const inner = xml
     .slice(start, end)
     .replace(/<XCUIElementType(\w+)[^>]*>/g, (el, type: string) => (type === 'WebView' ? el : el.replace(/ y="(-?[\d.]+)"/, (_, y: string) => ` y="${Number(y) + dy}"`)));
   return xml.slice(0, start) + inner + xml.slice(end);
+}
+
+/** Keeps the first WebView element but removes everything inside it (the page's own nodes). */
+function emptyWebContent(xml: string): string {
+  const [start, end] = webViewSpan(xml);
+  const open = xml.slice(start, end).match(/^<XCUIElementTypeWebView[^>]*?>/)![0];
+  return xml.slice(0, start) + open.replace(/>$/, '/>') + xml.slice(end);
 }

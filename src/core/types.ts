@@ -106,6 +106,8 @@ export interface Candidate {
   /** Choice key sent to Jev: e1..eN. */
   key: string;
   nodeId: string;
+  /** The node's `RawNode.resourceId` (part of its identity: `refind` never matches another one); null for OCR lines. */
+  resourceId: string | null;
   role: Role;
   /** Human-visible name (NFC). */
   name: string;
@@ -230,6 +232,12 @@ export interface Driver {
    * lands in an element whose box is `target`). undefined = the driver cannot tell (geometry is authoritative).
    */
   isHittable?(p: Point, target: Rect | null): Promise<boolean | undefined>;
+  /**
+   * Identity of the element that receives input at `p`, stable while that element lives (desktop: the W3C element
+   * reference of the deepest `elementFromPoint` element, through open shadow roots); null = nothing there. Absent on
+   * native and mobile-web drivers, whose element identity is tree path + resource id + box + state.
+   */
+  elementIdAt?(p: Point): Promise<string | null>;
   /**
    * Start collecting device logs for the app; slice returns text between two ISO timestamps. Every line passes
    * `sanitize` before it touches disk (the runner's evidence sanitizer) — raw device output is never stored.

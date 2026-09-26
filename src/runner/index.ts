@@ -170,18 +170,31 @@ function unrunResult(
   });
 }
 
-interface Slot {
+/** A lock released at most once: after its work, and again in the run's cleanup for work that never ran. */
+interface Held {
+  lock: { release(): void } | null;
+}
+
+interface Slot extends Held {
   platform: Platform;
   device: DeviceInfo | null;
-  lock: { release(): void } | null;
   problem: { code: string; reason: string } | null;
 }
 
-/** Releases the slot's device lock at most once: after the slot ran, and again in the run's cleanup for slots that never did. */
-function releaseSlot(slot: Slot): void {
-  const lock = slot.lock;
-  slot.lock = null;
+function releaseHeld(held: Held): void {
+  const lock = held.lock;
+  held.lock = null;
   lock?.release();
+}
+
+/**
+ * The lock on this Mac's display, pointer and keyboard focus, taken through `acquireLock` by every qa process whose
+ * work opens a desktop browser: two browsers on one display take each other's input and focus.
+ */
+const DISPLAY_LOCK = 'desktop-display';
+
+function isDesktop(platform: Platform): boolean {
+  return PLATFORM_INFO[platform].host === 'desktop';
 }
 
 /**
@@ -194,9 +207,22 @@ interface Lane {
   displayUnknown: string | null;
 }
 
-/** Picks and locks one device per platform; failures become a per-platform problem (tests there ERROR). */
-async function claimDevices(d: RunnerDeps, platforms: readonly Platform[], ids: Partial<Record<Platform, string>> | undefined): Promise<Map<Platform, Slot>> {
+/**
+ * Picks and locks one device per platform, and the display (`DISPLAY_LOCK`) when any platform is a desktop browser;
+ * failures become a per-platform problem (tests there ERROR): a display held elsewhere refuses every desktop platform
+ * like a device in use.
+ */
+async function claimDevices(d: RunnerDeps, platforms: readonly Platform[], ids: Partial<Record<Platform, string>> | undefined): Promise<{ slots: Map<Platform, Slot>; display: Held }> {
   const slots = new Map<Platform, Slot>();
+  const display: Held = { lock: null };
+  let displayBusy: string | null = null;
+  if (platforms.some(isDesktop)) {
+    try {
+      display.lock = d.acquireLock(DISPLAY_LOCK);
+    } catch (err) {
+      displayBusy = `데스크톱 화면 사용 중: ${message(err)}`;
+    }
+  }
   for (const platform of platforms) {
     const slot: Slot = { platform, device: null, lock: null, problem: null };
     slots.set(platform, slot);
@@ -206,13 +232,17 @@ async function claimDevices(d: RunnerDeps, platforms: readonly Platform[], ids: 
       slot.problem = { code: 'no_device', reason: `${platform} 기기 없음: ${message(err)}` };
       continue;
     }
+    if (displayBusy !== null && isDesktop(platform)) {
+      slot.problem = { code: 'device_locked', reason: displayBusy };
+      continue;
+    }
     try {
       slot.lock = d.acquireLock(slot.device.id);
     } catch (err) {
       slot.problem = { code: 'device_locked', reason: `기기 ${slot.device.id} 사용 중: ${message(err)}` };
     }
   }
-  return slots;
+  return { slots, display };
 }
 
 /** Identifies the tested website configuration for the web-qa export: a digest of every web profile in the run. */
@@ -263,8 +293,9 @@ function finishRun(
 
 /**
  * Runs tests (`*.e2e.yaml` files/dirs; default `tests/`) on the requested platforms (`all`: every platform each test's
- * profile runs on). One device (or desktop browser) per platform, locked for the run; platforms run concurrently, tests
- * sequentially. Never throws for test failures — only for bad input paths.
+ * profile runs on). One device (or desktop browser) per platform, locked for the run, and this Mac's display while its
+ * desktop browsers run; platforms run concurrently, tests sequentially. Never throws for test failures — only for bad
+ * input paths.
  */
 export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Promise<RunResult> {
   const d = resolveDeps(deps);
@@ -301,7 +332,7 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
     }
   }
 
-  const slots = await claimDevices(
+  const { slots, display } = await claimDevices(
     d,
     requested.filter((p) => planned.some((x) => x.platform === p)),
     opts.deviceIds,
@@ -384,10 +415,11 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
       return out;
     };
     // Desktop browsers share this Mac's display, pointer and keyboard focus, so they run one after another (measured:
-    // Safari's clicks had no effect while a Chrome window was in front of it); devices run in parallel.
+    // Safari's clicks had no effect while a Chrome window was in front of it) under the display lock, which keeps other
+    // qa processes' browsers off the display until this lane ends; devices run in parallel.
     const lanes = new Map<string, Lane>();
     for (const slot of slots.values()) {
-      const desktop = PLATFORM_INFO[slot.platform].host === 'desktop';
+      const desktop = isDesktop(slot.platform);
       const key = desktop ? 'desktop' : slot.platform;
       const lane = lanes.get(key) ?? { desktop, slots: [], displayUnknown: null };
       lane.slots.push(slot);
@@ -399,8 +431,9 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
         const out: TestResult[] = [];
         for (const slot of lane.slots) {
           out.push(...(await runSlot(slot, lane)));
-          releaseSlot(slot);
+          releaseHeld(slot);
         }
+        if (lane.desktop) releaseHeld(display);
         return out;
       }),
     );
@@ -409,7 +442,8 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
       results.push(...lane.value);
     }
   } finally {
-    for (const slot of slots.values()) releaseSlot(slot);
+    for (const slot of slots.values()) releaseHeld(slot);
+    releaseHeld(display);
   }
 
   const byKey = new Map(results.map((r) => [`${r.id} ${r.platform}`, r]));
@@ -437,6 +471,8 @@ function smokeTest(profile: AppProfile): LoadedTest {
 /**
  * Observe-only smoke on one platform: launch → settle → health (incl. blank) → screenshot → inventory. `crawl:'tabs'`
  * visits role-identified tab bar items only (risk-filtered) and returns to the first tab. Jev is a reference column.
+ * A desktop browser whose start or end is unconfirmed may still be on the display: the smoke is then ERROR
+ * `display_unknown` (its own result kept in the reason), and the caller must not open another browser.
  */
 export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): Promise<RunResult> {
   const d = resolveDeps(deps);
@@ -450,39 +486,56 @@ export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): 
   const startedAt = new Date().toISOString();
   const t0 = d.clock.now();
   const test = smokeTest(profile);
-  const slots = await claimDevices(d, [opts.platform], { [opts.platform]: opts.deviceId });
+  const { slots, display } = await claimDevices(d, [opts.platform], { [opts.platform]: opts.deviceId });
   const slot = slots.get(opts.platform)!;
-  store.emit({
-    type: 'run.started',
-    runId,
-    runDir: store.runDir,
-    tests: [clean.deep({ id: test.id, name: test.spec.name, platforms: [opts.platform], steps: ['앱 시작: relaunch', '화면 점검: launch', ...(opts.crawl ? ['탭 순회'] : [])] })],
-    devices: slot.device ? [{ platform: opts.platform, id: slot.device.id, name: slot.device.name }] : [],
-  });
-  const base = { id: test.id, name: test.spec.name, file: null, app: profile.id, test };
+  const desktop = isDesktop(opts.platform);
   let result: TestResult;
-  if (slot.problem || !slot.device) {
-    result = unrunResult(base, opts.platform, 'ERROR', slot.problem?.code ?? 'no_device', slot.problem?.reason ?? '기기 없음', null, clean);
-  } else {
-    const driver = d.createDriver(opts.platform, slot.device.id);
-    try {
-      await driver.open(target);
+  try {
+    store.emit({
+      type: 'run.started',
+      runId,
+      runDir: store.runDir,
+      tests: [clean.deep({ id: test.id, name: test.spec.name, platforms: [opts.platform], steps: ['앱 시작: relaunch', '화면 점검: launch', ...(opts.crawl ? ['탭 순회'] : [])] })],
+      devices: slot.device ? [{ platform: opts.platform, id: slot.device.id, name: slot.device.name }] : [],
+    });
+    const base = { id: test.id, name: test.spec.name, file: null, app: profile.id, test };
+    if (slot.problem || !slot.device) {
+      result = unrunResult(base, opts.platform, 'ERROR', slot.problem?.code ?? 'no_device', slot.problem?.reason ?? '기기 없음', null, clean);
+    } else {
+      const driver = d.createDriver(opts.platform, slot.device.id);
+      let opened = false;
+      let lost: string | null = null;
       try {
-        const session = new TestSession(
-          { runId, store, clean, driver, device: slot.device, clock: d.clock, jev: d.jev(), ocr: d.ocr, relFile: null, signal: opts.signal },
-          test,
-          opts.platform,
-          target,
-        );
-        result = await session.runSmoke({ crawl: opts.crawl === 'tabs', inventoryDir: d.inventoryDir });
-      } finally {
-        await driver.close().catch(() => undefined);
+        await driver.open(target);
+        opened = true;
+        try {
+          const session = new TestSession(
+            { runId, store, clean, driver, device: slot.device, clock: d.clock, jev: d.jev(), ocr: d.ocr, relFile: null, signal: opts.signal },
+            test,
+            opts.platform,
+            target,
+          );
+          result = await session.runSmoke({ crawl: opts.crawl === 'tabs', inventoryDir: d.inventoryDir });
+        } finally {
+          await driver.close().catch((err: unknown) => {
+            // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
+            if (desktop) lost = `세션 종료를 확인하지 못함 (${message(err)})`;
+          });
+        }
+      } catch (err) {
+        result = unrunResult(base, opts.platform, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`, slot.device, clean);
+        if (desktop && !opened && failureStatus(err) !== 'rejected') lost = `세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음 (${message(err)})`;
       }
-    } catch (err) {
-      result = unrunResult(base, opts.platform, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`, slot.device, clean);
-    } finally {
-      slot.lock?.release();
+      if (lost !== null) {
+        const reason = clean.text(`데스크톱 화면 상태를 알 수 없음: ${PLATFORM_INFO[opts.platform].label} ${lost}`);
+        store.emit({ type: 'log', level: 'error', source: 'runner', message: reason });
+        const own = result.verdict === 'PASS' ? '' : `; 스모크 결과 ${result.verdict}${result.code ? ` ${result.code}` : ''}: ${result.reason}`;
+        result = { ...result, verdict: 'ERROR', code: 'display_unknown', qaStatus: qaStatus({ verdict: 'ERROR', code: 'display_unknown' }), reason: `${reason}${own}` };
+      }
     }
+  } finally {
+    releaseHeld(slot);
+    releaseHeld(display);
   }
   if (result.steps.length === 0) store.emit({ type: 'test.finished', runId, testId: result.id, platform: result.platform, verdict: result.verdict, reason: result.reason, durationMs: 0 });
   return finishRun(store, d, { kind: 'smoke', startedAt, t0, platform: opts.platform, slots, junit: false, profiles: [profile] }, [result]);
@@ -505,16 +558,20 @@ async function openStartPage(driver: Driver, target: WebTarget, d: RunnerDeps, p
 }
 
 /**
- * Opens a session on the platform's device (locked) without launching an app — a website is opened at its start URL —
- * runs `use`, then cleans up.
+ * Opens a session on the platform's device (locked; a desktop browser also locks this Mac's display first, see
+ * `DISPLAY_LOCK`) without launching an app — a website is opened at its start URL — runs `use`, then cleans up. A
+ * desktop session whose end is unconfirmed throws: its window may still be on the display.
  */
 async function withScreen<T>(opts: ScreenOptions, d: RunnerDeps, use: (driver: Driver, device: DeviceInfo, profile: AppProfile) => Promise<T>): Promise<T> {
   const profile = loadAppProfile(opts.app, d.appsDir);
   const target = appTarget(profile, opts.platform);
   if (!target) throw new Error(`앱 프로필 ${opts.app}에 ${opts.platform} 설정이 없습니다`);
+  const desktop = isDesktop(opts.platform);
   const device = await d.pickDevice(opts.platform, opts.deviceId);
-  const lock = d.acquireLock(device.id);
+  const display = desktop ? d.acquireLock(DISPLAY_LOCK) : null;
+  let lock: { release(): void } | null = null;
   try {
+    lock = d.acquireLock(device.id);
     const driver = d.createDriver(opts.platform, device.id);
     await driver.open(target);
     try {
@@ -522,10 +579,14 @@ async function withScreen<T>(opts: ScreenOptions, d: RunnerDeps, use: (driver: D
       opts.signal?.throwIfAborted();
       return await use(driver, device, profile);
     } finally {
-      await driver.close().catch(() => undefined);
+      await driver.close().catch((err: unknown) => {
+        // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
+        if (desktop) throw new Error(new EvidenceSanitizer(profile.redact).text(`데스크톱 화면 상태를 알 수 없음: ${PLATFORM_INFO[opts.platform].label} 세션 종료를 확인하지 못함 (${message(err)})`), { cause: err });
+      });
     }
   } finally {
-    lock.release();
+    lock?.release();
+    display?.release();
   }
 }
 

@@ -17,9 +17,20 @@ import { navigationProblem, targetProblem } from './appid.ts';
 import { failureStatus, RefusedError, StepError, valueMatches, type DriverOptions, type Key, type LaunchOptions } from './base.ts';
 import { sliceLog } from './logs.ts';
 
+/** The deepest element at viewport point `(x, y)` (`arguments`), through open shadow roots, in `el` (null: nothing there). */
+const ELEMENT_AT = `
+const [x, y] = arguments;
+let el = document.elementFromPoint(x, y);
+while (el && el.shadowRoot) {
+  const inner = el.shadowRoot.elementFromPoint(x, y);
+  if (!inner || inner === el) break;
+  el = inner;
+}`;
+
 /**
  * Read-only page scripts (W3C `/execute/sync` bodies). `field`: the element given as argument, else the focused one
  * (through open shadow roots), when it takes typed text; a password's value never leaves the page (length only).
+ * `element`: the element input at a point reaches (its W3C reference); `hit`: that element's box and its ancestors'.
  */
 export const DESKTOP_SCRIPTS = {
   viewport: 'return [window.innerWidth, window.innerHeight];',
@@ -38,14 +49,9 @@ const secure = wantSecure || (el.tagName === 'INPUT' && el.type === 'password');
 return { el, secure, length: Array.from(value).length, value: secure ? null : value };`,
   history: "return { length: history.length, canGoBack: typeof navigation === 'object' && navigation !== null ? navigation.canGoBack : null };",
   focused: 'return document.hasFocus();',
-  hit: `
-const [x, y] = arguments;
-let el = document.elementFromPoint(x, y);
-while (el && el.shadowRoot) {
-  const inner = el.shadowRoot.elementFromPoint(x, y);
-  if (!inner || inner === el) break;
-  el = inner;
-}
+  element: `${ELEMENT_AT}
+return el;`,
+  hit: `${ELEMENT_AT}
 const boxes = [];
 for (let n = el; n; ) {
   const r = n.getBoundingClientRect();
@@ -58,6 +64,7 @@ return boxes;`,
 
 const Viewport = z.tuple([z.number(), z.number()]);
 const ElementRef = z.looseObject({ [W3C_ELEMENT_KEY]: z.string().min(1) });
+const ElementAt = z.union([z.null(), ElementRef]);
 const FieldState = z.union([z.null(), z.object({ el: ElementRef, secure: z.boolean(), length: z.number().int().nonnegative(), value: z.string().nullable() })]);
 const HistoryState = z.object({ length: z.number().int().nonnegative(), canGoBack: z.boolean().nullable() });
 const HitBoxes = z.array(z.tuple([z.number(), z.number(), z.number(), z.number()]));
@@ -518,6 +525,14 @@ export class DesktopWebDriver implements Driver {
     const boxes = HitBoxes.safeParse(raw);
     if (!boxes.success) throw unexpectedResponse('elementFromPoint', raw);
     return boxes.data.some(([x, y, w, h]) => Math.abs(x - target.x) <= 2 && Math.abs(y - target.y) <= 2 && Math.abs(w - target.width) <= 2 && Math.abs(h - target.height) <= 2);
+  }
+
+  /** W3C reference id of the element input at `p` reaches (`elementFromPoint`, through open shadow roots); null = nothing there. */
+  async elementIdAt(p: Point): Promise<string | null> {
+    const raw = await this.#api.executeScript(DESKTOP_SCRIPTS.element, [Math.round(p.x), Math.round(p.y)]);
+    const ref = ElementAt.safeParse(raw);
+    if (!ref.success) throw unexpectedResponse('elementFromPoint', raw);
+    return ref.data === null ? null : ref.data[W3C_ELEMENT_KEY];
   }
 
   /**

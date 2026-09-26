@@ -92,6 +92,8 @@ export class FakeDriver implements Driver {
   logSanitize: ((line: string) => string) | null = null;
   /** Hit-test answer (iOS WDA / desktop `elementFromPoint`); undefined = the driver cannot tell (the default). */
   hittable: (p: Point, target: Rect | null) => boolean | undefined = () => undefined;
+  /** Element identity at a point (desktop web `elementFromPoint`); unset = the driver has none (native, mobile web). */
+  elementIdAt?: (p: Point) => Promise<string | null>;
 
   constructor(screen: Snapshot, clock = new FakeClock()) {
     this.platform = screen.platform;

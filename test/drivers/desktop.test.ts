@@ -4,12 +4,12 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { W3C_KEYS } from '../../src/appium/client.ts';
+import { W3C_ELEMENT_KEY, W3C_KEYS } from '../../src/appium/client.ts';
 import { PATHS } from '../../src/core/config.ts';
 import type { DeviceInfo, WebTarget } from '../../src/core/types.ts';
 import { failureStatus } from '../../src/drivers/base.ts';
 import { chooseDevice } from '../../src/drivers/devices.ts';
-import { DesktopWebDriver } from '../../src/drivers/desktop.ts';
+import { DESKTOP_SCRIPTS, DesktopWebDriver } from '../../src/drivers/desktop.ts';
 import type { Reply, StubRequest } from './stubs.ts';
 import { sampleExtract, startW3CStub, type FakePage, type W3CStub } from './w3c-stub.ts';
 
@@ -463,6 +463,30 @@ describe('isHittable', () => {
       assert.equal(await d.isHittable({ x: 1, y: 1 }, null), undefined);
       assert.equal(stub.scripts().filter((s) => s === 'hit').length, 0);
       await assert.rejects(d.isHittable({ x: 1, y: 1 }, target));
+    });
+  });
+});
+
+describe('elementIdAt', () => {
+  const ref = (id: string) => ({ [W3C_ELEMENT_KEY]: id });
+
+  it('is the W3C reference of the element at the (rounded) point; it changes when the page swaps the element', async () => {
+    await withDriver({ element: ref('E-old') }, async (d, stub) => {
+      assert.equal(await d.elementIdAt(AT), 'E-old');
+      assert.deepEqual(posted(stub, '/execute/sync').at(-1)?.body, { script: DESKTOP_SCRIPTS.element, args: [401, 107] });
+      assert.equal(await d.elementIdAt(AT), 'E-old');
+      stub.page.element = ref('E-new'); // same box, name and state; another element
+      assert.equal(await d.elementIdAt(AT), 'E-new');
+    });
+  });
+
+  it('is null when nothing is there; a garbled answer throws', async () => {
+    await withDriver({ element: null }, async (d, stub) => {
+      assert.equal(await d.elementIdAt({ x: 5000, y: 5000 }), null);
+      for (const garbled of ['E1', { [W3C_ELEMENT_KEY]: '' }, { id: 'E1' }, [ref('E1')]]) {
+        stub.page.element = garbled;
+        await assert.rejects(d.elementIdAt(AT), /elementFromPoint: unexpected response/, JSON.stringify(garbled));
+      }
     });
   });
 });
