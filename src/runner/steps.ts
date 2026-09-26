@@ -1,6 +1,5 @@
-// Step labels (run.started / reports) and run-time `${NAME}` expansion; kinds come from `src/spec/steps.ts`.
-import type { StepSpec } from '../spec/schema.ts';
-import { STEP_KIND_LABEL, stepKind } from '../spec/steps.ts';
+// Step labels (run.started / reports) and run-time `${NAME}` expansion; kinds come from `src/spec/schema.ts`.
+import { STEP_KIND_LABEL, stepKind, type StepSpec } from '../spec/schema.ts';
 
 function describe(value: unknown): string {
   if (value === true || value === undefined) return '';

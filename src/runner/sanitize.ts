@@ -90,11 +90,15 @@ export class EvidenceSanitizer {
     this.redact = createRedactor(redactPatterns);
   }
 
-  /** Masks `value` in every later write: an `${ENV}` expansion, text typed into a secure field, an observed password value. */
+  /**
+   * Masks `value` in every later write: an `${ENV}` expansion, text typed into a secure field, an observed password value.
+   * A multi-line value also registers each line: line-based evidence (device logs prefix every line) never shows it whole.
+   */
   addSecret(value: string): void {
     const secret = value.normalize('NFC');
-    if (!secret || MASKED.test(secret) || this.secrets.includes(secret)) return;
-    this.secrets = [...this.secrets, secret].sort((a, b) => b.length - a.length);
+    const parts = new Set([secret, ...secret.split(/\r\n|\r|\n/)]);
+    const added = [...parts].filter((p) => p && !MASKED.test(p) && !this.secrets.includes(p));
+    if (added.length) this.secrets = [...this.secrets, ...added].sort((a, b) => b.length - a.length);
   }
 
   /** Tracks what password nodes of an observation expose (some apps put the plain value in the tree). */

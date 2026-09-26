@@ -4,8 +4,7 @@
 // untestable with a reason).
 import type { z } from 'zod';
 import { labelRisk } from '../policy/risk.ts';
-import { STEP_BRANCHES, TestSpec, type AppProfile } from '../spec/schema.ts';
-import { findStepKind } from '../spec/steps.ts';
+import { findStepKind, STEP_BRANCHES, TestSpec, type AppProfile } from '../spec/schema.ts';
 import type { ScreenInfo } from './context.ts';
 import { isPlainObject, visitJson } from './json.ts';
 

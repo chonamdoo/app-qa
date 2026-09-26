@@ -7,8 +7,7 @@ import { z } from 'zod';
 import { expandHome } from '../core/config.ts';
 import { sha256 } from '../core/fsx.ts';
 import type { Platform, Verdict } from '../core/types.ts';
-import { AppProfile, PlanFile, TestSpec, type StepSpec } from '../spec/schema.ts';
-import { findStepKind, STEP_KIND_LABEL } from '../spec/steps.ts';
+import { AppProfile, findStepKind, PlanFile, STEP_KIND_LABEL, TestSpec, type StepSpec } from '../spec/schema.ts';
 
 export class PathRejected extends Error {}
 

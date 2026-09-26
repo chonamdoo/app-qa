@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Candidate } from '../../src/core/types.ts';
 import { JevClient } from '../../src/jev/client.ts';
-import { groundChoice, judgeClaim, judgeCommit, judgeWhich, reviewGenerated } from '../../src/jev/decide.ts';
+import { claimRequest, commitRequest, groundChoice, groundingRequest, judgeClaim, judgeCommit, judgeWhich, reviewGenerated, reviewRequest, whichRequest } from '../../src/jev/decide.ts';
 import { createRedactor } from '../../src/jev/redact.ts';
 import { body, choiceAnswer, scriptedFetch, testCalibration, testConfig } from './_helpers.ts';
 
@@ -116,6 +116,26 @@ test('redaction masks app-profile patterns and built-in PII in rows, texts and i
   assert.match(sent, /예약번호 \[REDACTED\] 확인/);
   // No coordinates ever reach Jev.
   assert.doesNotMatch(sent, /tapPoint|"rect"|"x":/);
+});
+
+test('a secret containing `|` is redacted in its raw field, before the row format rewrites `|` to `¦`', () => {
+  const SECRET = 'demo|private-token';
+  const redact = createRedactor(['demo\\|private-token']);
+  const leaky = { ...cand('e4', `토큰 ${SECRET}`, 'input', SECRET), state: ['focused', SECRET] };
+  const pool = [...cands, leaky];
+  const shown = [`토큰: ${SECRET}`];
+  const requests = {
+    grounding: groundingRequest(pool, '토큰 입력란', shown, redact),
+    claim: claimRequest(pool, '토큰이 보인다', shown, redact),
+    which: whichRequest(pool, ['홈', '토큰 화면'], shown, redact),
+    commit: commitRequest(pool, leaky, shown, redact),
+    review: reviewRequest({ requirement: { id: 'r1', text: `토큰 ${SECRET}` }, test: { steps: [{ type: SECRET, into: leaky.name }] } }, redact),
+  };
+  for (const [name, req] of Object.entries(requests)) {
+    const sent = JSON.stringify(req);
+    for (const form of [SECRET, 'demo¦private-token']) assert.equal(sent.includes(form), false, `${name} request leaks ${form}`);
+  }
+  assert.equal(requests.commit.state.target, 'e4 | input | 토큰 [REDACTED] | value="[REDACTED]", focused, [REDACTED] | bottom');
 });
 
 test('which maps the winning s-key back to the option text; none means loading / none of these', async () => {

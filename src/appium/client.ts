@@ -32,25 +32,66 @@ export class AppiumProtocolError extends Error {
   }
 }
 
-// W3C codes that prove the command was refused before it touched the device.
-const REFUSED_CODES: Record<string, true> = {
-  'invalid argument': true,
-  'invalid selector': true,
-  'invalid session id': true,
-  'invalid element state': true,
-  'element not interactable': true,
-  'element click intercepted': true,
-  'move target out of bounds': true,
-  'no such element': true,
-  'no such window': true,
-  'no such alert': true,
-  'stale element reference': true,
-  'session not created': true,
-  'unknown command': true,
-  'unknown method': true,
-  'unsupported operation': true,
-  'not implemented': true,
-};
+// Every W3C error code (WebDriver §6.6) plus Appium's `not implemented`. A code outside this set is not a W3C error.
+const W3C_ERROR_CODES = new Set([
+  'element click intercepted',
+  'element not interactable',
+  'insecure certificate',
+  'invalid argument',
+  'invalid cookie domain',
+  'invalid element state',
+  'invalid selector',
+  'invalid session id',
+  'javascript error',
+  'move target out of bounds',
+  'no such alert',
+  'no such cookie',
+  'no such element',
+  'no such frame',
+  'no such shadow root',
+  'no such window',
+  'detached shadow root',
+  'script timeout',
+  'session not created',
+  'stale element reference',
+  'timeout',
+  'unable to capture screen',
+  'unable to set cookie',
+  'unexpected alert open',
+  'unknown command',
+  'unknown error',
+  'unknown method',
+  'unsupported operation',
+  'not implemented',
+]);
+
+// W3C codes that prove the command was refused before it touched the device. A `Set`: the code is server-supplied text,
+// so inherited object keys (`constructor`, `__proto__`) must never count as a refusal.
+const REFUSED_CODES = new Set([
+  'invalid argument',
+  'invalid selector',
+  'invalid session id',
+  'invalid element state',
+  'element not interactable',
+  'element click intercepted',
+  'move target out of bounds',
+  'no such element',
+  'no such window',
+  'no such alert',
+  'stale element reference',
+  'session not created',
+  'unknown command',
+  'unknown method',
+  'unsupported operation',
+  'not implemented',
+]);
+
+/** A W3C error value: a known code, and `message` / `stacktrace` strings when present. */
+const W3CErrorValue = z.looseObject({
+  error: z.string().refine((code) => W3C_ERROR_CODES.has(code)),
+  message: z.string().optional(),
+  stacktrace: z.string().optional(),
+});
 
 /**
  * Maps a failure to an action status.
@@ -59,24 +100,27 @@ const REFUSED_CODES: Record<string, true> = {
  * never be retried automatically.
  */
 export function actionStatusOf(err: unknown): Exclude<ActionStatus, 'completed'> {
-  return err instanceof AppiumProtocolError && REFUSED_CODES[err.code] ? 'rejected' : 'uncertain';
+  return err instanceof AppiumProtocolError && REFUSED_CODES.has(err.code) ? 'rejected' : 'uncertain';
 }
 
-/** Parses a WebDriver error response body. Non-JSON / non-W3C bodies become `unknown error`. */
+/** The protocol error a W3C error value describes (first message line only), or null when `value` is not one. */
+function w3cError(httpStatus: number, value: unknown): AppiumProtocolError | null {
+  const r = W3CErrorValue.safeParse(value);
+  if (!r.success) return null;
+  const message = r.data.message === undefined ? `HTTP ${httpStatus}` : r.data.message.split('\n')[0]!.slice(0, 500);
+  return new AppiumProtocolError(httpStatus, r.data.error, message);
+}
+
+/** Parses a WebDriver error response body. A body that is not a valid W3C error value becomes `unknown error` with the text kept. */
 export function parseW3CError(httpStatus: number, body: string): AppiumProtocolError {
-  let code = 'unknown error';
-  let message = body.slice(0, 500) || `HTTP ${httpStatus}`;
+  let parsed: unknown = null;
   try {
-    const parsed = JSON.parse(body) as { value?: { error?: unknown; message?: unknown } };
-    const v = parsed.value;
-    if (v && typeof v === 'object') {
-      if (typeof v.error === 'string' && v.error) code = v.error;
-      message = typeof v.message === 'string' ? v.message.split('\n')[0]!.slice(0, 500) : `HTTP ${httpStatus}`;
-    }
+    parsed = JSON.parse(body);
   } catch {
-    // keep raw text
+    // not JSON: keep the raw text below
   }
-  return new AppiumProtocolError(httpStatus, code, message);
+  const err = typeof parsed === 'object' && parsed !== null && 'value' in parsed ? w3cError(httpStatus, parsed.value) : null;
+  return err ?? new AppiumProtocolError(httpStatus, 'unknown error', body.slice(0, 500) || `HTTP ${httpStatus}`);
 }
 
 /**
@@ -89,8 +133,9 @@ export function unexpectedResponse(what: string, value: unknown): AppiumTranspor
 }
 
 /**
- * Decodes a 2xx body: it must be a JSON object with a `value`; a `value.error` string (with or without `message`)
- * is a W3C error; a non-string `error` or a missing/garbled envelope is `malformed`.
+ * Decodes a 2xx body: it must be a JSON object with a `value`; a `value.error` is a W3C error only when the value is a
+ * valid W3C error (known code, string `message` / `stacktrace` when present). Any other `error`, or a missing/garbled
+ * envelope, is `malformed`.
  */
 function decodeW3CResponse(httpStatus: number, body: string, what: string): unknown {
   let parsed: unknown;
@@ -99,14 +144,12 @@ function decodeW3CResponse(httpStatus: number, body: string, what: string): unkn
   } catch {
     throw new AppiumTransportError('malformed', `${what}: response is not JSON`);
   }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || !Object.hasOwn(parsed, 'value')) {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || !('value' in parsed)) {
     throw new AppiumTransportError('malformed', `${what}: response has no W3C value`);
   }
-  const value = (parsed as { value: unknown }).value;
+  const value = parsed.value;
   if (typeof value === 'object' && value !== null && Object.hasOwn(value, 'error')) {
-    const code = (value as { error: unknown }).error;
-    if (typeof code === 'string' && code) throw parseW3CError(httpStatus, body);
-    throw new AppiumTransportError('malformed', `${what}: response has an invalid W3C error`);
+    throw w3cError(httpStatus, value) ?? new AppiumTransportError('malformed', `${what}: response has an invalid W3C error`);
   }
   return value;
 }

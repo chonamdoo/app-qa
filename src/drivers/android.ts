@@ -127,13 +127,15 @@ export class AndroidDriver extends AppiumDriver {
 
   /**
    * Runs a permission-changing device command and fails unless it exited 0 (or, when `skippable`, reported an
-   * unchangeable permission). A requested permission state that was not applied is never ignored; output without the
-   * trailing exit status means the stream was cut after the command may have run (`uncertain`, not a refusal).
+   * unchangeable permission). A requested permission state that was not applied is never ignored. Output without the
+   * trailing exit status (stream cut) or with a signal status (≥ 128, e.g. 137 = SIGKILL) means the command may have
+   * run: `uncertain`, checked before any refusal.
    */
   private async permissionCommand(argv: string[], skippable: boolean): Promise<void> {
     const out = await adb(this.deviceId, ['shell', `${argv.map(shq).join(' ')} 2>&1; echo "exit=$?"`]);
     const exit = [...out.matchAll(/^exit=(\d+)$/gm)].at(-1)?.[1];
     if (exit === undefined) throw new Error(`${argv.slice(0, 3).join(' ')}: 종료 상태를 받지 못했습니다 (기기 연결 끊김 가능)`);
+    if (Number(exit) >= 128) throw new Error(`${argv.slice(0, 3).join(' ')}: 신호로 종료되었습니다 (exit=${exit}, 적용 여부 불명)`);
     if (exit === '0' || (skippable && UNCHANGEABLE_PERMISSION.test(out))) return;
     throw new RefusedError(`${argv.slice(0, 3).join(' ')} 실패: ${out.trim().split('\n').slice(-2).join(' ')}`);
   }

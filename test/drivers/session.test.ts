@@ -79,6 +79,25 @@ describe('gesture outcome on unvalidated 200 answers', () => {
     assert.equal((await driver.tap({ x: 10, y: 10 })).status, 'rejected');
     await driver.close();
   });
+
+  it('an error that is not a known W3C refusal (inherited object keys, unknown codes, wrong shape) is uncertain', async () => {
+    const bodies: unknown[] = [
+      ...['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf', 'no such thing'].map((error) => ({ value: { error, message: 'unvalidated' } })),
+      { value: { error: 'no such element', message: 5 } },
+      { value: { error: 'no such element', message: 'x', stacktrace: {} } },
+    ];
+    let reply: { status: number; body: unknown } = { status: 200, body: null };
+    stub = await startAppiumStub((req) => (req.path === '/session/s1/actions' ? reply : undefined));
+    const driver = new AndroidDriver('emulator-5554', { serverUrl: stub.url });
+    await driver.open({ platform: 'android', appId: 'kr.tteonam.app' });
+    for (const status of [200, 404]) {
+      for (const body of bodies) {
+        reply = { status, body };
+        assert.equal((await driver.tap({ x: 10, y: 10 })).status, 'uncertain', `${status} ${JSON.stringify(body)}`);
+      }
+    }
+    await driver.close();
+  });
 });
 
 describe('mutating commands succeed only with W3C value null', () => {

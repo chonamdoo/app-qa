@@ -62,7 +62,8 @@ export function scriptOf(req: StubRequest): string | null {
 }
 
 // FAKE_ADB_DROP: once the device shell ran that command (see DEVICE_TOOL), adb loses the stream: its stdout is dropped,
-// FAKE_ADB_DROP_STDERR is printed and it exits FAKE_ADB_DROP_EXIT.
+// FAKE_ADB_DROP_STDERR is printed and it exits FAKE_ADB_DROP_EXIT. `logcat` prints logcat.txt, then — when the test
+// made a logcat.fifo — whatever the test writes to it: a stream that stays open until the test ends it.
 const ADB = `#!/bin/sh
 root="$FAKE_ADB_ROOT"
 { for a in "$@"; do printf '%s\\037' "$a"; done; printf '\\n'; } >> "$root/host.log"
@@ -82,7 +83,7 @@ case "$cmd" in
     exit $rc ;;
   install|install-multiple) if [ -n "$FAKE_INSTALL_FAILURE" ]; then echo "adb: failed to install $last: $FAKE_INSTALL_FAILURE" >&2; exit 1; fi ;;
   pull) cp "$root/sdcard/$(basename "$1")" "$2" ;;
-  logcat) cat "$root/logcat.txt" ;;
+  logcat) cat "$root/logcat.txt"; if [ -p "$root/logcat.fifo" ]; then cat "$root/logcat.fifo"; fi ;;
 esac
 `;
 
@@ -92,6 +93,7 @@ root="$FAKE_ADB_ROOT"
 name=$(basename "$0")
 { printf '%s\\037' "$name"; for a in "$@"; do printf '%s\\037' "$a"; done; printf '\\n'; } >> "$root/device.log"
 [ "$name $1" = "$FAKE_ADB_DROP" ] && : > "$root/dropped"
+[ "$name $1" = "$FAKE_DEVICE_KILL" ] && kill -KILL $$
 for last; do :; done
 case "$name $1" in
   "pm clear") echo Success ;;
@@ -117,6 +119,8 @@ export interface FakeAdb {
    * output, prints `stderr` and exits `exit` — for every later shell too, until the next `dropAfter`.
    */
   dropAfter(command: string, stderr: string, exit: number): void;
+  /** The device tool running `command` (tool + first argument) is killed by SIGKILL after recording its call (`$?` = 137). */
+  killOn(command: string): void;
   /** `adb install` / `install-multiple` fail with the package manager's `failure` text on stderr (exit 1). */
   failInstall(failure: string): void;
   restore(): void;
@@ -158,6 +162,9 @@ export function installFakeAdb(): FakeAdb {
       rmSync(join(root, 'dropped'), { force: true });
       Object.assign(process.env, { FAKE_ADB_DROP: command, FAKE_ADB_DROP_STDERR: stderr, FAKE_ADB_DROP_EXIT: String(exit) });
     },
+    killOn(command) {
+      process.env.FAKE_DEVICE_KILL = command;
+    },
     failInstall(failure) {
       process.env.FAKE_INSTALL_FAILURE = failure;
     },
@@ -166,7 +173,7 @@ export function installFakeAdb(): FakeAdb {
       else process.env.ANDROID_HOME = saved.home;
       if (saved.root === undefined) delete process.env.FAKE_ADB_ROOT;
       else process.env.FAKE_ADB_ROOT = saved.root;
-      for (const key of ['FAKE_ADB_DROP', 'FAKE_ADB_DROP_STDERR', 'FAKE_ADB_DROP_EXIT', 'FAKE_INSTALL_FAILURE']) delete process.env[key];
+      for (const key of ['FAKE_ADB_DROP', 'FAKE_ADB_DROP_STDERR', 'FAKE_ADB_DROP_EXIT', 'FAKE_DEVICE_KILL', 'FAKE_INSTALL_FAILURE']) delete process.env[key];
       rmSync(root, { recursive: true, force: true });
     },
   };

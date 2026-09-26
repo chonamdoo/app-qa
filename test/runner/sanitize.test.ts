@@ -7,6 +7,7 @@ import type { RunSummary } from '../../src/report/types.ts';
 import { captureScreen } from '../../src/runner/index.ts';
 import { EvidenceSanitizer } from '../../src/runner/sanitize.ts';
 import { FakeDriver, fixtureSnapshot } from '../helpers/fake-driver.ts';
+import { commitSafe } from '../helpers/jev-stub.ts';
 import { fakeDeps, PROFILES, readJsonl, runYaml, tempRoot } from '../helpers/run.ts';
 
 const APP = 'kr.tteonam.app';
@@ -95,7 +96,7 @@ describe('evidence sanitizer: run evidence', () => {
       if (method === 'typeText') d.screen = search([PASSWORD_FIELD, shows('hunter2-pw')]);
     };
     const steps = `  - type: "\${${PW}}"\n    into: { intent: 편명·도시·항공사, state: { focused: true } }\n  - wait: 50\n`;
-    const { result, events } = await runYaml({ 'tests/p.e2e.yaml': spec(steps) }, driver);
+    const { result, events } = await runYaml({ 'tests/p.e2e.yaml': spec(steps) }, driver, { jev: commitSafe().setup });
     const t = result.tests[0]!;
     assert.equal(t.verdict, 'PASS', t.reason);
     const [, typed, opts] = driver.called('typeText')[0]!.args as [unknown, string, { secure: boolean }];
@@ -162,7 +163,7 @@ describe('evidence sanitizer: run evidence', () => {
     const driver = new FakeDriver(search([]));
     const into = '    into: { intent: 편명·도시·항공사, state: { focused: true } }\n';
     const steps = `  - type: J27-J35\n${into}  - type: "\${${TOKEN}}"\n${into}  - assertText: J27-J35\n    timeout: 300\n`;
-    const { result, events } = await runYaml({ 'tests/l.e2e.yaml': spec(steps) }, driver, { files: { 'apps/tteonam.yaml': profile } });
+    const { result, events } = await runYaml({ 'tests/l.e2e.yaml': spec(steps) }, driver, { files: { 'apps/tteonam.yaml': profile }, jev: commitSafe().setup });
     assert.deepEqual(driver.called('typeText').map((c) => c.args[1]), ['J27-J35', 'tok-7f3a9c']);
     for (const [name, text] of [
       ['events.jsonl', readFileSync(join(result.runDir, 'events.jsonl'), 'utf8')],
@@ -186,7 +187,7 @@ describe('evidence sanitizer: run evidence', () => {
       if (method === 'typeText') d.screen = search([PASSWORD_FIELD, shows('hunter2-pw')]);
     };
     const steps = '  - type: hunter2-pw\n    into: { intent: 편명·도시·항공사, state: { focused: true } }\n  - wait: 50\n';
-    const { result, events } = await runYaml({ 'tests/p.e2e.yaml': spec(steps) }, driver);
+    const { result, events } = await runYaml({ 'tests/p.e2e.yaml': spec(steps) }, driver, { jev: commitSafe().setup });
     assert.equal(result.tests[0]!.verdict, 'PASS', result.tests[0]!.reason);
     assert.equal(driver.called('typeText')[0]!.args[1], 'hunter2-pw');
     const lines = readFileSync(join(result.runDir, 'events.jsonl'), 'utf8').split('\n');
@@ -229,6 +230,31 @@ describe('evidence sanitizer: run evidence', () => {
     // The same values as free text are still masked.
     assert.ok(t.steps[1]!.reason.includes('••••• ••• •••••••'), t.steps[1]!.reason);
     assert.ok(!JSON.stringify(lines).includes('ERROR tap android'));
+  });
+
+  it('an ${ENV} secret containing `|`, typed into a plain field, reaches no Jev request raw or as its row form `¦`', async () => {
+    const PIPE = 'QA_SANITIZE_PIPE';
+    const secret = 'demo|private-token';
+    process.env[PIPE] = secret;
+    try {
+      const driver = new FakeDriver(search([]));
+      driver.onAction = (method, d) => {
+        if (method === 'typeText') d.screen = search([shows(secret)]);
+      };
+      const jev = commitSafe();
+      const steps = `  - type: "\${${PIPE}}"\n    into: { intent: 편명·도시·항공사, state: { focused: true } }\n  - claim: 검색어가 입력되어 있다\n`;
+      const { result } = await runYaml({ 'tests/j.e2e.yaml': spec(steps) }, driver, { jev: jev.setup });
+      assert.deepEqual(driver.called('typeText').map((c) => c.args[1]), [secret]);
+      assert.ok(
+        jev.requests.some((r) => JSON.stringify(r).includes(`value=\\"${'•'.repeat(secret.length)}\\"`)),
+        `the typed field was sent, masked: ${result.tests[0]!.reason}`,
+      );
+      jev.requests.forEach((r, i) => {
+        for (const form of [secret, 'demo¦private-token']) assert.ok(!JSON.stringify(r).includes(form), `Jev request ${i + 1} leaks ${form}`);
+      });
+    } finally {
+      delete process.env[PIPE];
+    }
   });
 
   it('device log capture gets the session sanitizer, live: later ${ENV} secrets and profile `redact` are masked per line', async () => {

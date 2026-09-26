@@ -20,9 +20,9 @@ export type TargetSource = 'selector' | 'fast_path' | 'jev';
 
 /**
  * What the action does: `activate` (tap, longPress), `edit` a field's text (type, clear), `submit` a form or dialog
- * (Enter: `press: enter`, and `type.submit` after the text is typed). Activation and submission need the Jev commit
- * check; submission also treats a destructive-dialog screen as risky whatever the field is called. Editing needs an
- * editable target.
+ * (Enter: `press: enter`, and `type.submit` after the text is typed). Every one needs the Jev commit check on a
+ * deterministically safe target; submission also treats a destructive-dialog screen as risky whatever the field is
+ * called. Editing also needs an editable target.
  */
 export type Mutation = 'activate' | 'edit' | 'submit';
 
@@ -132,9 +132,9 @@ export class ActionPreparer<Ctx> {
     // Risky elements act only through selector/fast path: allowRisky never unlocks a Jev-grounded risky target.
     if (risk.risky && viaJev) return this.block(ctx, [...risk.reasons, JEV_RISKY], allowRisky);
     if (risk.risky && !allowRisky) return this.block(ctx, risk.reasons, false);
-    // Editing an editable field needs no commit check: typing or clearing without submit changes no external state
-    // (Enter is a separate `submit`, checked on its own fresh observation).
-    if (!risk.risky && !allowRisky && mutation !== 'edit') {
+    // Every target-based mutation of a deterministically safe target needs the commit check — an edit included: typing
+    // into or clearing a field can still auto-save or search, and only Jev can add that refusal.
+    if (!risk.risky && !allowRisky) {
       const commit = target ? await this.commit(ctx, model, target) : { verdict: 'error', reason: '대상 없음' };
       // Refusal-add only: 'pass' (commits) blocks, 'fail' lets the deterministic verdict stand, anything else is no answer.
       if (commit.verdict === 'pass') return this.block(ctx, [commit.reason], false);

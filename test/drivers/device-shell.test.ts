@@ -146,6 +146,20 @@ describe('host command outcome when the adb transport drops', () => {
     assert.ok(!fake.deviceCalls().some((c) => c[0] === 'am'));
   });
 
+  it('a permission command killed by a signal on the device (exit=137) is uncertain, and the app is not launched', async () => {
+    for (const [command, permissions] of [
+      ['pm grant', { camera: 'allow' }],
+      ['cmd appops', { location: 'deny' }],
+    ] as const) {
+      fake.killOn(command);
+      const o = await new AndroidDriver('emulator-5554').launch(APP, { permissions });
+      assert.equal(o.status, 'uncertain', `${command}: ${o.error}`);
+      assert.match(o.error ?? '', /exit=137/);
+    }
+    assert.ok(fake.deviceCalls().some((c) => c.join(' ').startsWith('cmd appops')), 'the killed command ran on the device');
+    assert.ok(!fake.deviceCalls().some((c) => c[0] === 'am'), 'the app must not be launched after an unknown permission outcome');
+  });
+
   it('an install the package manager refuses is rejected', async () => {
     fake.failInstall('Failure [INSTALL_FAILED_VERSION_DOWNGRADE]');
     const err: unknown = await adb('emulator-5554', ['install', '-r', '-d', '/data/local/tmp/app.apk']).then(() => null, (e: unknown) => e);

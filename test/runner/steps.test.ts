@@ -5,7 +5,7 @@ import { after, before, describe, it } from 'node:test';
 import type { Snapshot } from '../../src/core/types.ts';
 import { captureScreen, inspectScreen, runTests } from '../../src/runner/index.ts';
 import { FakeDriver, fixtureSnapshot } from '../helpers/fake-driver.ts';
-import { choice, jevStub } from '../helpers/jev-stub.ts';
+import { choice, commitSafe, jevStub } from '../helpers/jev-stub.ts';
 import { fakeDeps, readJsonl, runYaml, tempRoot } from '../helpers/run.ts';
 
 const APP = 'kr.tteonam.app';
@@ -27,7 +27,7 @@ describe('input steps', () => {
   it('types into the focused field; secure text never reaches the journal or events', async () => {
     const driver = new FakeDriver(screen('search-empty-keyboard', { keyboardShown: true }));
     const steps = `  - type: 인천\n    into: { intent: 편명·도시·항공사, state: { focused: true } }\n  - type: "\${${SECRET}}"\n    secure: true\n    into: { intent: 편명·도시·항공사, state: { focused: true } }\n  - hideKeyboard: true\n`;
-    const { result, events } = await runYaml({ 'tests/t.e2e.yaml': spec(steps) }, driver);
+    const { result, events } = await runYaml({ 'tests/t.e2e.yaml': spec(steps) }, driver, { jev: commitSafe().setup });
     assert.equal(result.tests[0]!.verdict, 'PASS', result.tests[0]!.reason);
     assert.deepEqual(driver.called('typeText').map((c) => c.args[1]), ['인천', 'hunter2']);
     assert.equal(driver.called('hideKeyboard').length, 1);
@@ -40,7 +40,7 @@ describe('input steps', () => {
   it('fails when the read-back does not match (INPUT_UNVERIFIED) and skips hideKeyboard without a keyboard', async () => {
     const driver = new FakeDriver(screen('search-empty-keyboard'));
     driver.typeError = 'INPUT_UNVERIFIED: 기대 "인천", 실제 "인"';
-    const typed = await runYaml({ 'tests/t.e2e.yaml': spec('  - hideKeyboard: true\n  - type: 인천\n    into: { intent: 편명·도시·항공사, state: { focused: true } }\n') }, driver);
+    const typed = await runYaml({ 'tests/t.e2e.yaml': spec('  - hideKeyboard: true\n  - type: 인천\n    into: { intent: 편명·도시·항공사, state: { focused: true } }\n') }, driver, { jev: commitSafe().setup });
     const t = typed.result.tests[0]!;
     assert.equal(t.code, 'input_unverified');
     assert.equal(driver.called('hideKeyboard').length, 0);

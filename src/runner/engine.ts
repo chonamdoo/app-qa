@@ -26,13 +26,21 @@ import { buildScreenModel, refind, type OcrLine } from '../observe/index.ts';
 import { cleanText } from '../observe/text.ts';
 import type { DecisionSummary, StepResult, TestResult } from '../report/types.ts';
 import type { LoadedTest } from '../spec/load.ts';
-import type { Condition as ConditionSchema, Expectation as ExpectationSchema, RepeatStepSpec, StepKind, StepSpec, TextMatch, WhichStepSpec } from '../spec/schema.ts';
-import { stepKind } from '../spec/steps.ts';
+import {
+  stepKind,
+  type Condition as ConditionSchema,
+  type Expectation as ExpectationSchema,
+  type RepeatStepSpec,
+  type StepKind,
+  type StepSpec,
+  type TextMatch,
+  type WhichStepSpec,
+} from '../spec/schema.ts';
 import type { z } from 'zod';
 import { checkHealth } from './health.ts';
 import { dHash, decodePng, hammingHex, type Raster } from './image.ts';
 import { findTabs, screenSlug, writeInventory } from './inventory.ts';
-import { assessRisk, labelRisk } from '../policy/risk.ts';
+import { assessRisk, labelRisk, type RiskAssessment } from '../policy/risk.ts';
 import { ActionPreparer, type Approval, type Mutation, type Obs } from './prepare.ts';
 import { asSelector, notFoundDiagnostics, resolveDeterministic, stateMatches, targetText, type TargetQuery, type TargetSpec } from './resolve.ts';
 import { groupData, judgeLines, ruleProblem, type LineMatch } from './rule.ts';
@@ -83,6 +91,8 @@ const MAX_INTERRUPT_ROUNDS = 10;
 const DEFAULT_BUDGET = { steps: 80, seconds: 600, jevCalls: 120 };
 /** Findings whose FAIL attaches crash artifacts (the app died or was replaced). */
 const CRASH_KINDS: Record<string, true> = { app_not_foreground: true, crash_dialog: true, anr_dialog: true, rn_redbox: true };
+const LINE_BREAK = /[\r\n]/;
+const TYPED_LINE_BREAK: RiskAssessment = { risky: true, unknown: false, reasons: ['줄바꿈은 제출(Enter)이 될 수 있음'] };
 
 const HEALTH_LABEL: Record<HealthFinding['kind'], string> = {
   app_not_foreground: '앱이 포그라운드가 아님',
@@ -551,6 +561,9 @@ export class TestSession {
     // Containers: children observe and act themselves.
     if ('repeat' in step) return this.doRepeat(ctx, step);
     if ('use' in step) return this.doUse(ctx, step);
+    // A line break in typed text reaches the app as Enter (keyboard or the keys fallback): a submit without the submit
+    // policy. Blocked before anything touches the device.
+    if ('type' in step && LINE_BREAK.test(step.type)) approved(this.preparer.label(ctx, TYPED_LINE_BREAK, step.allowRisky ?? false));
     let obs = await this.observeBefore(ctx);
     if (ctx.interrupts && (await this.runInterrupts(ctx, obs))) obs = await this.observeBefore(ctx);
     if ('which' in step) return this.doWhich(ctx, step, obs);

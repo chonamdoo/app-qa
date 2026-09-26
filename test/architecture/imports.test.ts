@@ -58,21 +58,21 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-const IMPORT = /(?:^|\n)\s*(?:import|export)\b[^'"]*?from\s*['"](\.[^'"]+)['"]|import\(\s*['"](\.[^'"]+)['"]\s*\)/g;
+/**
+ * Relative specifiers of a module: `import … from` / `export … from`, side-effect `import './x.ts'`, and dynamic
+ * `import('./x.ts')` with a literal specifier (quotes or a backtick string without `${`).
+ */
+const IMPORT = /(?:^|\n)\s*(?:import|export)\b[^'"]*?from\s*['"](\.[^'"]+)['"]|(?:^|\n)\s*import\s*['"](\.[^'"]+)['"]|\bimport\(\s*(['"`])(\.[^'"`$]+)\3\s*\)/g;
 
-function edges(): { from: string; to: string }[] {
-  const out: { from: string; to: string }[] = [];
-  for (const from of [...sourceFiles('src'), ...sourceFiles('bin')]) {
-    for (const m of readFileSync(join(ROOT, from), 'utf8').matchAll(IMPORT)) {
-      const spec = m[1] ?? m[2]!;
-      out.push({ from, to: relative(ROOT, normalize(join(ROOT, dirname(from), spec))) });
-    }
-  }
-  return out;
+/** Module edges of `from` (a root-relative path) whose text is `source`. */
+function edgesOf(from: string, source: string): { from: string; to: string }[] {
+  return [...source.matchAll(IMPORT)].map((m) => ({ from, to: relative(ROOT, normalize(join(ROOT, dirname(from), m[1] ?? m[2] ?? m[4]!))) }));
 }
 
+const EDGES = [...sourceFiles('src'), ...sourceFiles('bin')].flatMap((from) => edgesOf(from, readFileSync(join(ROOT, from), 'utf8')));
+
 test('every cross-module import is allowed by the architecture table', () => {
-  const violations = edges()
+  const violations = EDGES
     .filter(({ from, to }) => !allowed(from, to))
     .map(({ from, to }) => `${from} (${moduleOf(from)}) → ${to} (${moduleOf(to)})`);
   assert.deepEqual(violations, []);
@@ -80,7 +80,7 @@ test('every cross-module import is allowed by the architecture table', () => {
 
 test('module dependency graph has no cycles', () => {
   const graph = new Map<Module, Set<Module>>();
-  for (const { from, to } of edges()) {
+  for (const { from, to } of EDGES) {
     const a = moduleOf(from);
     const b = moduleOf(to);
     if (a !== b) graph.set(a, (graph.get(a) ?? new Set()).add(b));
@@ -105,4 +105,24 @@ test('the allowance table rejects the edges the contract forbids', () => {
   assert.equal(allowed('src/drivers/android.ts', 'src/observe/index.ts'), false);
   assert.equal(allowed('src/jev/calibrate.ts', 'src/policy/risk.ts'), true);
   assert.equal(allowed('src/runner/index.ts', 'src/drivers/index.ts'), true);
+});
+
+test('side-effect and dynamic imports are collected, so a forbidden one is caught', () => {
+  const source = [
+    "import './steps.ts';",
+    'import "../cli/commands/calibrate.ts";',
+    'const m = await import(`../runner/index.ts`);',
+    "export const n = () => import('../drivers/index.ts');",
+    "import type { Snapshot } from '../core/types.ts';",
+    "export * from './decide.ts';",
+  ].join('\n');
+  const edges = edgesOf('src/jev/x.ts', source);
+  assert.deepEqual(
+    edges.map((e) => e.to),
+    ['src/jev/steps.ts', 'src/cli/commands/calibrate.ts', 'src/runner/index.ts', 'src/drivers/index.ts', 'src/core/types.ts', 'src/jev/decide.ts'],
+  );
+  assert.deepEqual(
+    edges.filter(({ from, to }) => !allowed(from, to)).map((e) => e.to),
+    ['src/cli/commands/calibrate.ts', 'src/runner/index.ts', 'src/drivers/index.ts'],
+  );
 });

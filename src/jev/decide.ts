@@ -62,7 +62,7 @@ export function whichRequest(cands: readonly Candidate[], options: readonly stri
 
 export function commitRequest(cands: readonly Candidate[], target: Candidate, texts: readonly string[], redact: Redactor): JevRequest {
   return {
-    state: { screen: screenState(cands, texts, redact), target: redact(candidateRow(target)) },
+    state: { screen: screenState(cands, texts, redact), target: redactedRow(target, redact) },
     questions: { [QUESTION_IDS.commit]: commitQuestion() },
   };
 }
@@ -193,9 +193,17 @@ export async function reviewGenerated(
   };
 }
 
-/** Rows via Observe's single row format, then redaction of every screen string. */
+/** Rows via Observe's single row format (fields redacted first), then redaction of every screen string. */
 function screenState(cands: readonly Candidate[], texts: readonly string[], redact: Redactor): ScreenState {
-  return { rows: cands.map((c) => redact(candidateRow(c))), texts: texts.map(redact) };
+  return { rows: cands.map((c) => redactedRow(c, redact)), texts: texts.map(redact) };
+}
+
+/**
+ * Redacts the raw free-text fields, then formats the row: the format rewrites `|` to `¦`, so a secret containing `|`
+ * would no longer match once the row is built.
+ */
+function redactedRow(c: Candidate, redact: Redactor): string {
+  return candidateRow({ ...c, name: redact(c.name), value: c.value === null ? null : redact(c.value), state: c.state.map(redact) });
 }
 
 type Asked = { ok: true; answers: Record<string, JevAnswer>; receipt: JevReceipt } | { ok: false; receipt: JevReceipt; reason: string };

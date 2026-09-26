@@ -62,6 +62,9 @@ export function iosLogArgs(udid: string, executable: string): string[] {
  * Splits a byte stream into lines and emits `sanitize(line)` for each one; a trailing line without a newline is
  * sanitized when the stream ends. UTF-8 characters split across chunks are decoded whole. A throwing `sanitize`
  * fails the stream, so nothing unsanitized is ever passed on.
+ * Multi-line secrets: device logs never carry them contiguously (logcat prefixes every line with a timestamp, pid and
+ * tag), so joining lines cannot find them. The line contract stays; the runner's sanitizer masks every line part of a
+ * multi-line secret on its own (`EvidenceSanitizer.addSecret`).
  */
 export function sanitizeLines(sanitize: (line: string) => string): Transform {
   const decoder = new StringDecoder('utf8');
@@ -94,7 +97,6 @@ export function sanitizeLines(sanitize: (line: string) => string): Transform {
 interface Capture {
   child: ChildProcess;
   key: string;
-  sanitize: (line: string) => string;
   written: Promise<void>;
 }
 
@@ -103,12 +105,14 @@ const DRAIN_MS = 2000;
 
 /**
  * One log file per driver session; streams are (re)armed per app process (a relaunch yields a new pid)
- * and all append to the same file, so slices span restarts.
+ * and all append to the same file, so slices span restarts. Every sanitizer ever armed keeps applying, in arm order,
+ * to every later line of the file: an app may still log an earlier test's secret after the next test re-armed it.
  */
 export class LogCapture {
   readonly platform: Platform;
   readonly file: string;
   #capture: Capture | null = null;
+  readonly #sanitizers = new Set<(line: string) => string>();
   #onExit = () => void this.stop();
 
   constructor(platform: Platform, deviceId: string) {
@@ -117,22 +121,24 @@ export class LogCapture {
   }
 
   /**
-   * Streams the stdout of `file args` into the log file line by line through `sanitize`. A live stream for the same
-   * `key` (pid / executable) keeps running and sanitizes the lines still to come with `sanitize`.
+   * Streams the stdout of `file args` into the log file line by line through every sanitizer armed so far plus
+   * `sanitize`. A live stream for the same `key` (pid / executable) keeps running.
    */
   async arm(key: string, file: 'adb' | 'xcrun', args: string[], sanitize: (line: string) => string): Promise<void> {
+    this.#sanitizers.add(sanitize);
     const live = this.#capture;
-    if (live && live.key === key && live.child.exitCode === null && live.child.signalCode === null) {
-      live.sanitize = sanitize;
-      return;
-    }
+    if (live && live.key === key && live.child.exitCode === null && live.child.signalCode === null) return;
     await this.stop();
     const child = spawn(file === 'adb' ? adbPath() : 'xcrun', args, { env: childEnv(), stdio: ['ignore', 'pipe', 'ignore'] });
     await once(child, 'spawn'); // a missing binary rejects here and reaches the startLogs caller
     const written = Promise.withResolvers<void>();
-    const capture: Capture = { child, key, sanitize, written: written.promise };
-    pipeline(child.stdout!, sanitizeLines((line) => capture.sanitize(line)), createWriteStream(this.file, { flags: 'a', mode: 0o600 }), () => written.resolve());
-    this.#capture = capture;
+    const clean = sanitizeLines((line) => {
+      let out = line;
+      for (const s of this.#sanitizers) out = s(out);
+      return out;
+    });
+    pipeline(child.stdout!, clean, createWriteStream(this.file, { flags: 'a', mode: 0o600 }), () => written.resolve());
+    this.#capture = { child, key, written: written.promise };
     process.once('exit', this.#onExit);
   }
 
