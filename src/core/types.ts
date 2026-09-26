@@ -233,11 +233,14 @@ export interface Driver {
    */
   isHittable?(p: Point, target: Rect | null): Promise<boolean | undefined>;
   /**
-   * Identity of the element that receives input at `p`, stable while that element lives (desktop: the W3C element
-   * reference of the deepest `elementFromPoint` element, through open shadow roots); null = nothing there. Absent on
-   * native and mobile-web drivers, whose element identity is tree path + resource id + box + state.
+   * Identity of the target element that receives input at `p`, the element whose box is `box` (±2 px, as
+   * `isHittable`), stable while that element lives — not the deepest element there, which may be a child that outlives
+   * a replaced target (desktop: the W3C element references of the `elementFromPoint` element and its ancestors, out
+   * through open shadow roots, whose box is `box`; `box` null — OCR text, no element box — all of them). null = no
+   * element there with that box. Absent on native and mobile-web drivers, whose element identity is tree path +
+   * resource id + box + state.
    */
-  elementIdAt?(p: Point): Promise<string | null>;
+  elementIdAt?(p: Point, box: Rect | null): Promise<string | null>;
   /**
    * Identity of the element keys go to (`press`, `type.submit`'s Enter), stable while that element lives (desktop: the
    * W3C element reference of the deepest `document.activeElement`, through open shadow roots); null = nothing focused

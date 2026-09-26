@@ -404,4 +404,152 @@ export const PlanFile = z.strictObject({
 });
 export type PlanFile = z.infer<typeof PlanFile>;
 
+// ───────────────────────── checkEach rules ─────────────────────────
+// The static rule language (invariant 1), shared by plan validation and the runner; `src/runner/rule.ts` evaluates a
+// rule only after `ruleProblem` accepted it: every object in it is exactly one known operator with the operands it
+// needs, every `var` outside a collection's logic names a group of the pattern (inside, it reads the current item), and
+// at least one group is read. json-logic-js treats `{}` or a multi-key object as a truthy data literal and compares a
+// missing operand as `undefined` (`{"==":[]}` is true), so an unchecked rule could PASS without testing anything.
+
+/**
+ * json-logic-js 2.0.5 operators a rule may use, each with the operand count [min, max] it needs to compute anything: the
+ * library reads a missing operand as `undefined` (`{"%":[n]}` is NaN, and `NaN != 0` is true) and ignores extra ones.
+ * The allow list is this table, so no allowed operator goes unchecked. `log` is left out: it prints group values to
+ * stdout, around the evidence sanitizer. `missing` and `missing_some` are left out: they read groups by name without a
+ * `var`, so a line lacking such a group would be evaluated (as "missing") instead of reported unobserved.
+ */
+const RULE_OPERATORS: Record<string, readonly [number, number]> = {
+  '==': [2, 2],
+  '===': [2, 2],
+  '!=': [2, 2],
+  '!==': [2, 2],
+  '>': [2, 2],
+  '>=': [2, 2],
+  // A third operand makes a between check.
+  '<': [2, 3],
+  '<=': [2, 3],
+  '!!': [1, 1],
+  '!': [1, 1],
+  '%': [2, 2],
+  in: [2, 2],
+  cat: [1, Infinity],
+  // source, start, optional length.
+  substr: [2, 3],
+  '+': [2, Infinity],
+  '*': [2, Infinity],
+  // One operand negates.
+  '-': [1, 2],
+  '/': [2, 2],
+  min: [1, Infinity],
+  max: [1, Infinity],
+  merge: [1, Infinity],
+  // No default: a missing group must not turn into a value the rule accepts.
+  var: [1, 1],
+  // condition, then, else; more pairs chain else-ifs.
+  if: [3, Infinity],
+  '?:': [3, 3],
+  and: [1, Infinity],
+  or: [1, Infinity],
+  // array, logic applied to each item.
+  filter: [2, 2],
+  map: [2, 2],
+  // array, logic, initial value: without one json-logic-js starts the accumulator at null, which the logic reads as a
+  // value (`max` of -3 and null is 0).
+  reduce: [3, 3],
+  all: [2, 2],
+  none: [2, 2],
+  some: [2, 2],
+};
+
+/**
+ * Operators whose operand at this index must be a list when evaluated, and whether a string counts: json-logic-js reads
+ * any other value as an empty collection (`all`/`some`/`none` then answer without evaluating their logic, `filter`/`map`
+ * give `[]`, `reduce` its initial value) and `in` of a non-list as false. `merge` takes any values (a non-list is one
+ * item), so it needs no check. The runner checks these operands as it evaluates.
+ */
+export const RULE_LIST_OPERAND: Record<string, { at: number; strings: boolean }> = {
+  all: { at: 0, strings: false },
+  none: { at: 0, strings: false },
+  some: { at: 0, strings: false },
+  filter: { at: 0, strings: false },
+  map: { at: 0, strings: false },
+  reduce: { at: 0, strings: false },
+  in: { at: 1, strings: true },
+};
+
+/**
+ * Operators that evaluate the logic operand at this index once per item of their list, with that item as the data
+ * (`reduce`: `{current, accumulator}`). A `var` there reads the item, never a group: json-logic-js reads a part the item
+ * lacks as null, which a comparison can still call true (`{"none":[{"merge":[{"var":"n"}]},{">":[{"var":"n"},0]}]}`
+ * reads `n` of the number 5 as null, not above 0, so no item fails).
+ */
+export const RULE_ITEM_LOGIC: Record<string, number> = { all: 1, none: 1, some: 1, filter: 1, map: 1, reduce: 1 };
+
+/** `item`: inside a collection's logic (`RULE_ITEM_LOGIC`), where the data is the current item. */
+function operandProblem(value: unknown, groups: ReadonlySet<string>, read: Set<string>, item: boolean, path: string): string | null {
+  if (Array.isArray(value)) {
+    for (const [i, entry] of value.entries()) {
+      const problem = operandProblem(entry, groups, read, item, `${path}[${i}]`);
+      if (problem) return problem;
+    }
+    return null;
+  }
+  return value !== null && typeof value === 'object' ? operatorProblem(value, groups, read, item, path) : null;
+}
+
+function operatorProblem(rule: unknown, groups: ReadonlySet<string>, read: Set<string>, item: boolean, path: string): string | null {
+  if (rule === null || typeof rule !== 'object' || Array.isArray(rule)) return `${path}: JSONLogic 연산자 객체가 아님`;
+  const entries = Object.entries(rule);
+  if (entries.length !== 1) return `${path}: 연산자 객체는 키가 정확히 1개여야 함 (${entries.length}개: ${entries.map(([k]) => k).join(', ') || '없음'})`;
+  const [op, operand] = entries[0]!;
+  if (!Object.hasOwn(RULE_OPERATORS, op)) return `${path}: 알 수 없는 JSONLogic 연산자 "${op}"`;
+  // json-logic-js passes a non-array operand as the single operand.
+  const operands: unknown[] = Array.isArray(operand) ? operand : [operand];
+  // Inside a collection's logic `{"var": []}` reads the item itself, like `{"var": ""}`.
+  const [min, max] = item && op === 'var' ? ([0, 1] as const) : RULE_OPERATORS[op]!;
+  if (operands.length < min || operands.length > max) {
+    const need = min === max ? `${min}개` : max === Infinity ? `${min}개 이상` : `${min}~${max}개`;
+    return `${path}.${op}: 피연산자 ${operands.length}개 (필요: ${need})`;
+  }
+  if (op === 'var') {
+    const name = operands[0] ?? '';
+    if (item) {
+      if (typeof name !== 'string') return `${path}.var: 컬렉션 항목의 경로(문자열)여야 함`;
+      // The data there is the item: a group name would read the item, not the group.
+      return groups.has(name.split('.', 1)[0]!) ? `${path}.var: 컬렉션 안의 "${name}"는 이름 그룹이 아니라 현재 항목을 읽음 — 이름 그룹은 컬렉션 밖에서 읽으세요` : null;
+    }
+    if (typeof name !== 'string' || !name) return `${path}.var: pattern의 이름 그룹 이름(비어 있지 않은 문자열)이어야 함`;
+    if (!groups.has(name)) return `${path}.var: "${name}"는 pattern의 이름 그룹이 아님`;
+    read.add(name);
+    return null;
+  }
+  if (!Array.isArray(operand)) return operandProblem(operand, groups, read, item, `${path}.${op}`);
+  const logicAt = Object.hasOwn(RULE_ITEM_LOGIC, op) ? RULE_ITEM_LOGIC[op] : undefined;
+  for (const [i, value] of operand.entries()) {
+    const problem = operandProblem(value, groups, read, item || i === logicAt, `${path}.${op}[${i}]`);
+    if (problem) return problem;
+  }
+  return null;
+}
+
+/**
+ * Every named group of a `checkEach` pattern, compiled as the runner compiles it (`u`): an always-matching empty
+ * alternative lists them all in `groups`. Throws on an invalid pattern.
+ */
+export function patternGroups(pattern: string): Set<string> {
+  return new Set(Object.keys(new RegExp(`(?:${pattern})|`, 'u').exec('')!.groups ?? {}));
+}
+
+/**
+ * Why `rule` is not a checkable JSONLogic rule over the pattern's named `groups` (Korean), or null. Every object in it
+ * must be one known operator with the operands it needs, every `var` outside a collection's logic must name a group and
+ * none inside may (it reads the item there), and the rule must read at least one group.
+ */
+export function ruleProblem(rule: unknown, groups: ReadonlySet<string>): string | null {
+  const read = new Set<string>();
+  const problem = operatorProblem(rule, groups, read, false, 'rule');
+  if (problem) return problem;
+  return read.size ? null : 'rule: var가 없어 아무 값도 검사하지 않음';
+}
+
 export { Step, Target, Selector, TextMatch, StateFilter, Condition, Expectation, Interrupt, NormPoint, AndroidPackage, IosBundleId };

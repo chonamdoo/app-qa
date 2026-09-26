@@ -28,6 +28,19 @@ while (el && el.shadowRoot) {
   el = inner;
 }`;
 
+/**
+ * `el` (ELEMENT_AT) and its ancestors, innermost first and out through open shadow roots (a shadow tree's host), each
+ * with its bounding box `[left, top, width, height]`, in `chain`.
+ */
+const HIT_CHAIN = `${ELEMENT_AT}
+const chain = [];
+for (let n = el; n; ) {
+  const r = n.getBoundingClientRect();
+  chain.push([n, [r.left, r.top, r.width, r.height]]);
+  const root = n.getRootNode();
+  n = n.parentElement || (root instanceof ShadowRoot ? root.host : null);
+}`;
+
 /** The deepest focused element, through open shadow roots, in `active` (null or the body: nothing focused). */
 const ACTIVE = `
 let active = document.activeElement;
@@ -36,8 +49,8 @@ while (active && active.shadowRoot && active.shadowRoot.activeElement) active = 
 /**
  * Read-only page scripts (W3C `/execute/sync` bodies). `field`: the element given as argument, else the focused one
  * (through open shadow roots), when it takes typed text; a password's value never leaves the page (length only).
- * `element`: the element input at a point reaches (its W3C reference); `hit`: that element's box and its ancestors'.
- * `active`: the element keys go to (its W3C reference), null when nothing but the document is focused.
+ * `element`: the element input at a point reaches and its ancestors, each as its W3C reference with its box; `hit`: those
+ * boxes. `active`: the element keys go to (its W3C reference), null when nothing but the document is focused.
  */
 export const DESKTOP_SCRIPTS = {
   viewport: 'return [window.innerWidth, window.innerHeight];',
@@ -54,25 +67,25 @@ return { el, secure, length: Array.from(value).length, value: secure ? null : va
 return active && active !== document.body && active !== document.documentElement ? active : null;`,
   history: "return { length: history.length, canGoBack: typeof navigation === 'object' && navigation !== null ? navigation.canGoBack : null };",
   focused: 'return document.hasFocus();',
-  element: `${ELEMENT_AT}
-return el;`,
-  hit: `${ELEMENT_AT}
-const boxes = [];
-for (let n = el; n; ) {
-  const r = n.getBoundingClientRect();
-  boxes.push([r.left, r.top, r.width, r.height]);
-  const root = n.getRootNode();
-  n = n.parentElement || (root instanceof ShadowRoot ? root.host : null);
-}
-return boxes;`,
+  element: `${HIT_CHAIN}
+return chain;`,
+  hit: `${HIT_CHAIN}
+return chain.map((link) => link[1]);`,
 } as const;
 
 const Viewport = z.tuple([z.number(), z.number()]);
 const ElementRef = z.looseObject({ [W3C_ELEMENT_KEY]: z.string().min(1) });
-const ElementAt = z.union([z.null(), ElementRef]);
+const ElementOrNone = z.union([z.null(), ElementRef]);
 const FieldState = z.union([z.null(), z.object({ el: ElementRef, secure: z.boolean(), length: z.number().int().nonnegative(), value: z.string().nullable() })]);
 const HistoryState = z.object({ length: z.number().int().nonnegative(), canGoBack: z.boolean().nullable() });
-const HitBoxes = z.array(z.tuple([z.number(), z.number(), z.number(), z.number()]));
+const Box = z.tuple([z.number(), z.number(), z.number(), z.number()]);
+const HitBoxes = z.array(Box);
+const HitChain = z.array(z.tuple([ElementRef, Box]));
+
+/** A page box `[left, top, width, height]` is `target` within ±2 px (sub-pixel layout rounding). */
+function sameBox([x, y, w, h]: z.infer<typeof Box>, target: Rect): boolean {
+  return Math.abs(x - target.x) <= 2 && Math.abs(y - target.y) <= 2 && Math.abs(w - target.width) <= 2 && Math.abs(h - target.height) <= 2;
+}
 
 /** A focused text field: its W3C element reference (passed back to the read-back script) and value (secure: `•` × length). */
 interface Field {
@@ -529,21 +542,28 @@ export class DesktopWebDriver implements Driver {
     const raw = await this.#api.executeScript(DESKTOP_SCRIPTS.hit, [Math.round(p.x), Math.round(p.y)]);
     const boxes = HitBoxes.safeParse(raw);
     if (!boxes.success) throw unexpectedResponse('elementFromPoint', raw);
-    return boxes.data.some(([x, y, w, h]) => Math.abs(x - target.x) <= 2 && Math.abs(y - target.y) <= 2 && Math.abs(w - target.width) <= 2 && Math.abs(h - target.height) <= 2);
+    return boxes.data.some((box) => sameBox(box, target));
   }
 
-  /** W3C reference id of the element input at `p` reaches (`elementFromPoint`, through open shadow roots); null = nothing there. */
-  async elementIdAt(p: Point): Promise<string | null> {
+  /**
+   * W3C reference ids (JSON array) of the elements on the `elementFromPoint` chain at `p` (the element found and its
+   * ancestors, out through open shadow roots) whose box is `box` (±2 px, as `isHittable`): the target element itself,
+   * with any child or wrapper of exactly its box. The element input reaches may be a child of the target that
+   * outlives it; the target is identified by its own reference. `box` null (OCR text: no element box): the whole
+   * chain. null = no element there with that box.
+   */
+  async elementIdAt(p: Point, box: Rect | null): Promise<string | null> {
     const raw = await this.#api.executeScript(DESKTOP_SCRIPTS.element, [Math.round(p.x), Math.round(p.y)]);
-    const ref = ElementAt.safeParse(raw);
-    if (!ref.success) throw unexpectedResponse('elementFromPoint', raw);
-    return ref.data === null ? null : ref.data[W3C_ELEMENT_KEY];
+    const chain = HitChain.safeParse(raw);
+    if (!chain.success) throw unexpectedResponse('elementFromPoint', raw);
+    const ids = chain.data.flatMap(([ref, b]) => (box === null || sameBox(b, box) ? [ref[W3C_ELEMENT_KEY]] : []));
+    return ids.length === 0 ? null : JSON.stringify(ids);
   }
 
   /** W3C reference id of the element keys go to (the deepest `document.activeElement`); null = nothing focused. */
   async focusedElementId(): Promise<string | null> {
     const raw = await this.#api.executeScript(DESKTOP_SCRIPTS.active);
-    const ref = ElementAt.safeParse(raw);
+    const ref = ElementOrNone.safeParse(raw);
     if (!ref.success) throw unexpectedResponse('activeElement', raw);
     return ref.data === null ? null : ref.data[W3C_ELEMENT_KEY];
   }

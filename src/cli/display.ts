@@ -1,11 +1,12 @@
 // The host-wide "desktop display unknown" marker (`src/drivers/lock.ts`): `qa doctor` reports it, `qa setup --browsers`
-// clears it. While it exists every desktop web test is BLOCKED (`display_unknown`) because a browser window an earlier run
-// could not confirm closed may still be on the shared display.
+// clears it. A qa process writes it before it opens a desktop browser and removes it once that browser's end is
+// confirmed; it stays when the end or start could not be confirmed, or the process was killed or crashed first. While it
+// exists every desktop web test is BLOCKED (`display_unknown`): a browser window may still be on the shared display.
 import type { Check } from '../appium/setup.ts';
 import { acquireDisplayLock, clearDisplayUnknown, DeviceLockedError, readDisplayUnknown, type DisplayUnknown } from '../drivers/index.ts';
 
 const LABEL = '데스크톱 화면 상태';
-const CLEAR_HINT = '남은 자동화 브라우저 창(Chrome·Safari)을 모두 닫은 뒤 `qa setup --browsers`로 표시를 지우세요';
+const CLEAR_HINT = 'qa 실행이 아직 진행 중이면 끝날 때까지 기다리세요(정상 종료하면 표시가 지워집니다). 끝났는데도 남아 있으면 남은 자동화 브라우저 창(Chrome·Safari)을 모두 닫은 뒤 `qa setup --browsers`로 표시를 지우세요';
 
 function unknownDetail(unknown: DisplayUnknown): string {
   return `${unknown.reason} (${unknown.since}부터${unknown.runId ? `, 실행 ${unknown.runId}` : ''})`;

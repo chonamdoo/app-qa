@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import type { QaEventBody } from '../../src/core/events.ts';
-import type { Platform, Point, Snapshot } from '../../src/core/types.ts';
+import type { Platform, Point, Rect, Snapshot } from '../../src/core/types.ts';
 import { acquireDisplayLock, clearDisplayUnknown, readDisplayUnknown, RefusedError, StepError } from '../../src/drivers/index.ts';
 import { appTarget, captureScreen, inspectScreen, runSmoke, runTests, type RunnerDeps } from '../../src/runner/index.ts';
 import { AppProfile } from '../../src/spec/schema.ts';
@@ -146,6 +146,38 @@ describe('web targets', () => {
     // Asked before the check and again at the point actually tapped.
     assert.equal(same.asked.length, 2);
     assert.deepEqual(same.asked[1], tap!.args[0]);
+  });
+
+  it('refuses a tap whose button was replaced while Jev answered by one that adopted its child: the identity is the target element, not the deepest one', async () => {
+    // `<button><span>도움말</span></button>`: elementFromPoint finds the span, which a new button with the same tree
+    // position, id, box and state took over. The page answers per box: 도움말's box is the button's, not the span's.
+    const HELP = { x: 1175, y: 12, width: 74, height: 44 };
+    const run = async (after: string) => {
+      const driver = new FakeDriver(index());
+      driver.hittable = () => true;
+      let button = 'button-old';
+      const boxes: (Rect | null)[] = [];
+      driver.elementIdAt = async (_p, box) => {
+        boxes.push(box);
+        const isHelp = box !== null && box !== undefined && (['x', 'y', 'width', 'height'] as const).every((k) => Math.abs(box[k] - HELP[k]) <= 2);
+        return isHelp ? button : 'span';
+      };
+      const jev = jevStub((_id, q) => {
+        button = after;
+        return q.type === 'noul' ? noul(0.02) : choice(q, 'none', 0.9);
+      }, webCalibration());
+      const { result } = await runYaml({ 'tests/r.e2e.yaml': web('  - tap: 도움말\n    expectNoChange: true\n') }, driver, { platform: 'desktop-chrome', jev: jev.setup });
+      return { driver, boxes, t: result.tests[0]! };
+    };
+    const replaced = await run('button-new');
+    assert.equal(replaced.t.code, 'stale_target', replaced.t.reason);
+    assert.match(replaced.t.reason, /Jev commit 확인 중 "도움말" 탭 지점의 요소가 다른 요소로 바뀜/);
+    assert.equal(replaced.driver.called('tap').length, 0);
+    // Asked with the target's element box before the check and on the observation after it.
+    assert.deepEqual(replaced.boxes, [HELP, HELP]);
+    const same = await run('button-old');
+    assert.equal(same.t.verdict, 'PASS', same.t.reason);
+    assert.equal(same.driver.called('tap').length, 1);
   });
 
   it('refuses Enter (press: enter, type.submit) whose focused field was replaced while Jev answered, even with the same path, id, box, value and state', async () => {
@@ -564,10 +596,12 @@ describe('smoke, capture and inspect on a desktop browser', () => {
     const log: string[] = [];
     const chrome = new FakeDriver(index());
     chrome.closeError = uncertainClose();
+    // This process's own record (before the browser opened) is written; the unconfirmed end cannot be.
+    let writes = 0;
     const lost = await smoke(chrome, 'desktop-chrome', {
       ...lockLog(log),
       markDisplayUnknown: () => {
-        throw new Error('EACCES: permission denied');
+        if (writes++ > 0) throw new Error('EACCES: permission denied');
       },
     });
     assert.equal(lost.t.code, 'display_unknown', lost.t.reason);

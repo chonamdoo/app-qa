@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { W3C_ELEMENT_KEY, W3C_KEYS } from '../../src/appium/client.ts';
 import { PATHS } from '../../src/core/config.ts';
-import type { DeviceInfo, WebTarget } from '../../src/core/types.ts';
+import type { DeviceInfo, Rect, WebTarget } from '../../src/core/types.ts';
 import { failureStatus } from '../../src/drivers/base.ts';
 import { chooseDevice } from '../../src/drivers/devices.ts';
 import { DESKTOP_SCRIPTS, DesktopWebDriver } from '../../src/drivers/desktop.ts';
@@ -467,25 +467,111 @@ describe('isHittable', () => {
   });
 });
 
+/** An element of a minimal page for the real page scripts: its W3C reference id, box, parent and (open) shadow root. */
+class FakeElement {
+  parentElement: FakeElement | null = null;
+  shadowRoot: FakeShadowRoot | null = null;
+  root: unknown = null;
+  readonly id: string;
+  readonly box: [number, number, number, number];
+  constructor(id: string, box: [number, number, number, number], parent: FakeElement | null = null) {
+    this.id = id;
+    this.box = box;
+    this.parentElement = parent;
+  }
+  getBoundingClientRect() {
+    const [left, top, width, height] = this.box;
+    return { left, top, width, height };
+  }
+  getRootNode(): unknown {
+    return this.root;
+  }
+}
+
+class FakeShadowRoot {
+  readonly host: FakeElement;
+  hit: FakeElement | null = null;
+  constructor(host: FakeElement) {
+    this.host = host;
+    host.shadowRoot = this;
+  }
+  elementFromPoint(): FakeElement | null {
+    return this.hit;
+  }
+}
+
+/** Runs a `DESKTOP_SCRIPTS` body as `/execute/sync` would: `arguments` = `args`, elements answered as W3C references. */
+function inPage(script: string, hit: FakeElement | null, args: unknown[]): unknown {
+  const document = { elementFromPoint: () => hit };
+  const result: unknown = new Function('document', 'ShadowRoot', 'args', `return (function () {${script}\n}).apply(null, args);`)(document, FakeShadowRoot, args);
+  const answer = (v: unknown): unknown => (v instanceof FakeElement ? { [W3C_ELEMENT_KEY]: v.id } : Array.isArray(v) ? v.map(answer) : v);
+  return answer(result);
+}
+
 describe('elementIdAt', () => {
   const ref = (id: string) => ({ [W3C_ELEMENT_KEY]: id });
-
-  it('is the W3C reference of the element at the (rounded) point; it changes when the page swaps the element', async () => {
-    await withDriver({ element: ref('E-old') }, async (d, stub) => {
-      assert.equal(await d.elementIdAt(AT), 'E-old');
+  const BUTTON = { x: 100, y: 90, width: 80, height: 40 };
+  /** `<body><button><span>` with the tap point on the span; the button is `button`. */
+  const page = (button: string, spanBox: [number, number, number, number] = [110, 100, 60, 20]) => {
+    const body = new FakeElement('body', [0, 0, 1280, 800]);
+    const btn = new FakeElement(button, [BUTTON.x, BUTTON.y, BUTTON.width, BUTTON.height], body);
+    const span = new FakeElement('span', spanBox, btn);
+    return { body, btn, span };
+  };
+  /** Asks the driver with the real `element` script's answer on the page whose tap point is on `hit`. */
+  const idOn = async (hit: FakeElement | null, box: Rect | null) =>
+    withDriver({ element: inPage(DESKTOP_SCRIPTS.element, hit, [401, 107]) }, async (d, stub) => {
+      const id = await d.elementIdAt(AT, box);
       assert.deepEqual(posted(stub, '/execute/sync').at(-1)?.body, { script: DESKTOP_SCRIPTS.element, args: [401, 107] });
-      assert.equal(await d.elementIdAt(AT), 'E-old');
-      stub.page.element = ref('E-new'); // same box, name and state; another element
-      assert.equal(await d.elementIdAt(AT), 'E-new');
+      return id;
     });
+
+  it('identifies the element with the target box, not the deepest one: a replaced button that adopted the old child is another element', async () => {
+    const old = page('button-old');
+    const before = await idOn(old.span, BUTTON);
+    assert.equal(before, JSON.stringify(['button-old']));
+    // Same box, path, id and state; the tapped child (the span elementFromPoint finds) moved into the new button.
+    const renewed = new FakeElement('button-new', old.btn.box, old.body);
+    old.span.parentElement = renewed;
+    assert.deepEqual((inPage(DESKTOP_SCRIPTS.element, old.span, [401, 107]) as unknown[])[0], [ref('span'), [110, 100, 60, 20]], 'the deepest element is still the old span');
+    assert.notEqual(await idOn(old.span, BUTTON), before);
+    // The same button (a fresh page model of it) is the same element.
+    const again = page('button-old');
+    assert.equal(await idOn(again.span, { ...BUTTON, x: BUTTON.x + 1.5 }), before);
   });
 
-  it('is null when nothing is there; a garbled answer throws', async () => {
-    await withDriver({ element: null }, async (d, stub) => {
-      assert.equal(await d.elementIdAt({ x: 5000, y: 5000 }), null);
-      for (const garbled of ['E1', { [W3C_ELEMENT_KEY]: '' }, { id: 'E1' }, [ref('E1')]]) {
+  it('a child of exactly the target box is part of the identity, so replacing the target around it is still seen', async () => {
+    const full = page('button-old', [BUTTON.x, BUTTON.y, BUTTON.width, BUTTON.height]);
+    const before = await idOn(full.span, BUTTON);
+    assert.equal(before, JSON.stringify(['span', 'button-old']));
+    full.span.parentElement = new FakeElement('button-new', full.btn.box, full.body);
+    assert.notEqual(await idOn(full.span, BUTTON), before);
+  });
+
+  it('walks out of open shadow roots to the host; no element with the box is null; no box (OCR text) is the whole chain', async () => {
+    const body = new FakeElement('body', [0, 0, 1280, 800]);
+    const host = new FakeElement('x-button', [90, 80, 100, 60], body);
+    const shadow = new FakeShadowRoot(host);
+    const btn = new FakeElement('inner-button', [BUTTON.x, BUTTON.y, BUTTON.width, BUTTON.height]);
+    btn.root = shadow;
+    const span = new FakeElement('span', [110, 100, 60, 20], btn);
+    span.root = shadow;
+    shadow.hit = span;
+    assert.equal(await idOn(host, BUTTON), JSON.stringify(['inner-button']));
+    assert.equal(await idOn(host, { x: 90, y: 80, width: 100, height: 60 }), JSON.stringify(['x-button']));
+    assert.equal(await idOn(host, { x: 300, y: 300, width: 10, height: 10 }), null);
+    assert.equal(await idOn(host, null), JSON.stringify(['span', 'inner-button', 'x-button', 'body']));
+    assert.equal(await idOn(null, BUTTON), null);
+    assert.equal(await idOn(null, null), null);
+    // `hit` (isHittable) walks the same chain: its boxes.
+    assert.deepEqual(inPage(DESKTOP_SCRIPTS.hit, host, [401, 107]), [[110, 100, 60, 20], [BUTTON.x, BUTTON.y, BUTTON.width, BUTTON.height], [90, 80, 100, 60], [0, 0, 1280, 800]]);
+  });
+
+  it('a garbled answer throws', async () => {
+    await withDriver({ element: [] }, async (d, stub) => {
+      for (const garbled of [null, 'E1', ref('E1'), [ref('E1')], [[ref('E1')]], [[{ [W3C_ELEMENT_KEY]: '' }, [0, 0, 1, 1]]], [[ref('E1'), [0, 0, 1]]]]) {
         stub.page.element = garbled;
-        await assert.rejects(d.elementIdAt(AT), /elementFromPoint: unexpected response/, JSON.stringify(garbled));
+        await assert.rejects(d.elementIdAt(AT, BUTTON), /elementFromPoint: unexpected response/, JSON.stringify(garbled));
       }
     });
   });

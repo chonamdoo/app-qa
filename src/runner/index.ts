@@ -7,7 +7,7 @@ import type { EventSink } from '../core/events.ts';
 import { newRunId, sha256, writeJson, writeSecure } from '../core/fsx.ts';
 import { PLATFORM_INFO, PLATFORMS } from '../core/platform.ts';
 import type { DeviceInfo, Driver, Platform, ScreenModel, Verdict, WebTarget } from '../core/types.ts';
-import { acquireDeviceLock, acquireDisplayLock, createDriver, failureStatus, markDisplayUnknown, pickDevice, readDisplayUnknown, type DisplayUnknown } from '../drivers/index.ts';
+import { acquireDeviceLock, acquireDisplayLock, clearDisplayUnknown, createDriver, failureStatus, markDisplayUnknown, pickDevice, readDisplayUnknown, type DisplayUnknown } from '../drivers/index.ts';
 import { JevClient } from '../jev/client.ts';
 import { loadJevConfig } from '../jev/config.ts';
 import { loadCalibration } from '../jev/gates.ts';
@@ -83,8 +83,13 @@ export interface RunnerDeps {
   acquireDisplayLock(): { release(): void };
   /** The host-wide record that a browser window may still be on the display (read under the display lock), or null. */
   readDisplayUnknown(): DisplayUnknown | null;
-  /** Writes that record (throws when it cannot); only `qa setup --browsers` clears it. */
+  /**
+   * Writes that record (throws when it cannot): this process's own before it opens a desktop browser (`claimDisplay`),
+   * and the cause when a desktop session end or start is unconfirmed.
+   */
   markDisplayUnknown(record: DisplayUnknown): void;
+  /** Removes that record (throws when it cannot): only this process's own, once its desktop sessions all ended confirmed (`releaseDisplay`). */
+  clearDisplayUnknown(): void;
   jev(): JevSetup;
   ocr: OcrFn | null;
   clock: Clock;
@@ -123,6 +128,7 @@ function resolveDeps(partial: Partial<RunnerDeps> = {}): RunnerDeps {
     acquireDisplayLock: partial.acquireDisplayLock ?? acquireDisplayLock,
     readDisplayUnknown: partial.readDisplayUnknown ?? readDisplayUnknown,
     markDisplayUnknown: partial.markDisplayUnknown ?? markDisplayUnknown,
+    clearDisplayUnknown: partial.clearDisplayUnknown ?? clearDisplayUnknown,
     jev: partial.jev ?? realJev,
     ocr: partial.ocr !== undefined ? partial.ocr : existsSync(OCR_HELPER) ? runOcr : null,
     clock: partial.clock ?? realClock,
@@ -203,18 +209,66 @@ function releaseHeld(held: Held): void {
   lock?.release();
 }
 
+/**
+ * This process's hold on the display: the lock and its own display-unknown record. Before it opens a desktop browser it
+ * records the display as unknown itself (`claimDisplay`), so a process killed or crashed while its browser may be open
+ * leaves the record, and the next run — which reclaims the dead owner's lock — opens no browser beside a window that
+ * may have survived. `releaseDisplay` removes the record only when every session it counted ended confirmed.
+ */
+interface Display extends Held {
+  /** This process's record is on disk (written by `claimDisplay`; an unconfirmed session end or start overwrites it). */
+  recorded: boolean;
+  /** Desktop sessions started under the record whose end is not confirmed (a refused start opened no window). */
+  unconfirmed: number;
+}
+
+/**
+ * Before a desktop browser opens (display lock held, no record found): writes this process's record once — what a later
+ * run reads if this process dies before the session end is confirmed — and counts the session. A record that cannot be
+ * written: nothing may open (a crash would leave no trace); returns why.
+ */
+function claimDisplay(d: RunnerDeps, display: Display, runId?: string): string | null {
+  if (!display.recorded) {
+    try {
+      d.markDisplayUnknown({ since: new Date().toISOString(), reason: `qa 프로세스(pid ${process.pid})가 연 데스크톱 브라우저의 세션 종료가 아직 확인되지 않음 — 그 프로세스가 끝났다면 강제 종료·충돌로 창이 남았을 수 있음`, runId });
+    } catch (err) {
+      return `데스크톱 화면 사용 기록을 남기지 못해 브라우저를 열지 않음 (${message(err)}) — 이 프로세스가 비정상 종료하면 남은 창을 다음 실행이 알 수 없음`;
+    }
+    display.recorded = true;
+  }
+  display.unconfirmed++;
+  return null;
+}
+
+/**
+ * Releases the display lock (at most once, as `releaseHeld`), removing this process's record first when every browser
+ * session it opened ended confirmed. Otherwise the record stays, as does one that cannot be removed (logged): later
+ * runs are then refused until `qa setup --browsers` clears it.
+ */
+function releaseDisplay(d: RunnerDeps, display: Display, sink: EventSink | undefined): void {
+  if (display.lock !== null && display.recorded && display.unconfirmed === 0) {
+    try {
+      d.clearDisplayUnknown();
+      display.recorded = false;
+    } catch (err) {
+      sink?.emit({ type: 'log', level: 'error', source: 'runner', message: `데스크톱 화면 사용 기록을 지우지 못함 (${message(err)}) — 다음 데스크톱 실행은 display_unknown으로 막힘; 남은 브라우저 창이 없으면 qa setup --browsers로 지우세요` });
+    }
+  }
+  releaseHeld(display);
+}
+
 /** Why no browser opens on this Mac's display while the host-wide record is there, and how the user clears it. */
 function displayUnknownReason(unknown: DisplayUnknown): string {
   return `데스크톱 화면 상태를 알 수 없어 브라우저를 열지 않음 (${unknown.since}${unknown.runId ? ` 실행 ${unknown.runId}` : ''}: ${unknown.reason}) — 화면에 남은 브라우저 창을 닫은 뒤 qa setup --browsers로 해제하세요`;
 }
 
 /**
- * Records host-wide that a browser window may still be on this Mac's display (`reason` already sanitized) while the
- * display lock is still held: until `qa setup --browsers` clears it, no qa process of any checkout opens a browser
- * there. A record that cannot be written keeps the lock until this process exits (logged): releasing it would hand the
- * display on as if nothing were left.
+ * Records host-wide that a browser window may still be on this Mac's display (`reason` already sanitized; it replaces
+ * this process's own record, which then stays) while the display lock is still held: until `qa setup --browsers` clears
+ * it, no qa process of any checkout opens a browser there. A record that cannot be written keeps the lock until this
+ * process exits (logged): releasing it would hand the display on as if nothing were left.
  */
-function recordDisplayUnknown(d: RunnerDeps, display: Held, sink: EventSink | undefined, reason: string, runId?: string): void {
+function recordDisplayUnknown(d: RunnerDeps, display: Display, sink: EventSink | undefined, reason: string, runId?: string): void {
   try {
     d.markDisplayUnknown({ since: new Date().toISOString(), reason, runId });
   } catch (err) {
@@ -242,9 +296,9 @@ interface Lane {
  * browser; failures become a per-platform problem (tests there ERROR): a display held elsewhere refuses every desktop
  * platform like a device in use, and one recorded as unknown (read under its lock) refuses them as `display_unknown`.
  */
-async function claimDevices(d: RunnerDeps, platforms: readonly Platform[], ids: Partial<Record<Platform, string>> | undefined): Promise<{ slots: Map<Platform, Slot>; display: Held }> {
+async function claimDevices(d: RunnerDeps, platforms: readonly Platform[], ids: Partial<Record<Platform, string>> | undefined): Promise<{ slots: Map<Platform, Slot>; display: Display }> {
   const slots = new Map<Platform, Slot>();
-  const display: Held = { lock: null };
+  const display: Display = { lock: null, recorded: false, unconfirmed: 0 };
   let displayProblem: Slot['problem'] = null;
   if (platforms.some(isDesktop)) {
     try {
@@ -417,11 +471,20 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
         }
         const profile = group[0]!.test.profile;
         const target = appTarget(profile, slot.platform)!;
+        const refused = lane.desktop ? claimDisplay(d, display, runId) : null;
+        if (refused !== null) {
+          for (const { test } of group) skip(test, 'ERROR', 'session_failed', refused);
+          continue;
+        }
         try {
           await driver.open(target);
         } catch (err) {
           for (const { test } of group) skip(test, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`);
-          if (lane.desktop && failureStatus(err) !== 'rejected') loseDisplay(new EvidenceSanitizer(profile.redact), '세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음', err);
+          if (lane.desktop) {
+            // A refused start opened no window; any other failure may have left one.
+            if (failureStatus(err) === 'rejected') display.unconfirmed--;
+            else loseDisplay(new EvidenceSanitizer(profile.redact), '세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음', err);
+          }
           continue;
         }
         try {
@@ -441,6 +504,7 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
         } finally {
           try {
             await driver.close();
+            if (lane.desktop) display.unconfirmed--;
           } catch (err) {
             // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
             if (lane.desktop) loseDisplay(new EvidenceSanitizer(profile.redact), '세션 종료를 확인하지 못함', err);
@@ -469,7 +533,7 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
           out.push(...(await runSlot(slot, lane)));
           releaseHeld(slot);
         }
-        if (lane.desktop) releaseHeld(display);
+        if (lane.desktop) releaseDisplay(d, display, store);
         return out;
       }),
     );
@@ -479,7 +543,7 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
     }
   } finally {
     for (const slot of slots.values()) releaseHeld(slot);
-    releaseHeld(display);
+    releaseDisplay(d, display, store);
   }
 
   const byKey = new Map(results.map((r) => [`${r.id} ${r.platform}`, r]));
@@ -507,9 +571,10 @@ function smokeTest(profile: AppProfile): LoadedTest {
 /**
  * Observe-only smoke on one platform: launch → settle → health (incl. blank) → screenshot → inventory. `crawl:'tabs'`
  * visits role-identified tab bar items only (risk-filtered) and returns to the first tab. Jev is a reference column.
- * A desktop browser whose start or end is unconfirmed may still be on the display: the smoke is then ERROR
- * `display_unknown` (its own result kept in the reason) and the display is recorded as unknown, so no qa process opens
- * another browser until `qa setup --browsers` clears it. `test.finished` carries that final verdict.
+ * A desktop browser opens only under this process's own display record (`claimDisplay`), removed after its confirmed
+ * end. One whose start or end is unconfirmed may still be on the display: the smoke is then ERROR `display_unknown`
+ * (its own result kept in the reason) and the display is recorded as unknown, so no qa process opens another browser
+ * until `qa setup --browsers` clears it. `test.finished` carries that final verdict.
  */
 export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): Promise<RunResult> {
   const d = resolveDeps(deps);
@@ -536,8 +601,11 @@ export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): 
       devices: slot.device ? [{ platform: opts.platform, id: slot.device.id, name: slot.device.name }] : [],
     });
     const base = { id: test.id, name: test.spec.name, file: null, app: profile.id, test };
+    const refused = desktop && slot.device && !slot.problem ? claimDisplay(d, display, runId) : null;
     if (slot.problem || !slot.device) {
       result = unrunResult(base, opts.platform, 'ERROR', slot.problem?.code ?? 'no_device', slot.problem?.reason ?? '기기 없음', null, clean);
+    } else if (refused !== null) {
+      result = unrunResult(base, opts.platform, 'ERROR', 'session_failed', refused, slot.device, clean);
     } else {
       const driver = d.createDriver(opts.platform, slot.device.id);
       let opened = false;
@@ -554,14 +622,21 @@ export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): 
           );
           result = await session.runSmoke({ crawl: opts.crawl === 'tabs', inventoryDir: d.inventoryDir });
         } finally {
-          await driver.close().catch((err: unknown) => {
-            // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
-            if (desktop) lost = `세션 종료를 확인하지 못함 (${message(err)})`;
-          });
+          await driver.close().then(
+            () => {
+              if (desktop) display.unconfirmed--;
+            },
+            (err: unknown) => {
+              // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
+              if (desktop) lost = `세션 종료를 확인하지 못함 (${message(err)})`;
+            },
+          );
         }
       } catch (err) {
         result = unrunResult(base, opts.platform, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`, slot.device, clean);
-        if (desktop && !opened && failureStatus(err) !== 'rejected') lost = `세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음 (${message(err)})`;
+        // A refused start opened no window; any other failure may have left one.
+        if (desktop && !opened && failureStatus(err) === 'rejected') display.unconfirmed--;
+        else if (desktop && !opened) lost = `세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음 (${message(err)})`;
       }
       if (lost !== null) {
         const cause = clean.text(`${PLATFORM_INFO[opts.platform].label} ${lost}`);
@@ -574,7 +649,7 @@ export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): 
     }
   } finally {
     releaseHeld(slot);
-    releaseHeld(display);
+    releaseDisplay(d, display, store);
   }
   store.emit({ type: 'test.finished', runId, testId: result.id, platform: result.platform, verdict: result.verdict, reason: result.reason, durationMs: result.durationMs });
   return finishRun(store, d, { kind: 'smoke', startedAt, t0, platform: opts.platform, slots, junit: false, profiles: [profile] }, [result]);
@@ -599,8 +674,9 @@ async function openStartPage(driver: Driver, target: WebTarget, d: RunnerDeps, p
 /**
  * Opens a session on the platform's device (locked; a desktop browser also locks this Mac's display first, see
  * `RunnerDeps.acquireDisplayLock`) without launching an app — a website is opened at its start URL — runs `use`, then
- * cleans up. A desktop browser is refused while the display is recorded as unknown; one whose start or end is
- * unconfirmed records that (its window may still be on the display) and throws.
+ * cleans up. A desktop browser is refused while the display is recorded as unknown, and opens only under this
+ * process's own record (`claimDisplay`), removed after its confirmed end; one whose start or end is unconfirmed records
+ * that (its window may still be on the display) and throws.
  */
 async function withScreen<T>(opts: ScreenOptions, d: RunnerDeps, use: (driver: Driver, device: DeviceInfo, profile: AppProfile) => Promise<T>): Promise<T> {
   const profile = loadAppProfile(opts.app, d.appsDir);
@@ -608,7 +684,7 @@ async function withScreen<T>(opts: ScreenOptions, d: RunnerDeps, use: (driver: D
   if (!target) throw new Error(`앱 프로필 ${opts.app}에 ${opts.platform} 설정이 없습니다`);
   const desktop = isDesktop(opts.platform);
   const device = await d.pickDevice(opts.platform, opts.deviceId);
-  const display: Held = { lock: desktop ? d.acquireDisplayLock() : null };
+  const display: Display = { lock: desktop ? d.acquireDisplayLock() : null, recorded: false, unconfirmed: 0 };
   let lock: { release(): void } | null = null;
   // A browser window may be left on the display: recorded before the display lock goes, then thrown.
   const lose = (what: string, err: unknown): Error => {
@@ -621,22 +697,33 @@ async function withScreen<T>(opts: ScreenOptions, d: RunnerDeps, use: (driver: D
     if (unknown) throw new Error(displayUnknownReason(unknown));
     lock = d.acquireLock(device.id);
     const driver = d.createDriver(opts.platform, device.id);
+    const refused = desktop ? claimDisplay(d, display) : null;
+    if (refused !== null) throw new Error(refused);
     await driver.open(target).catch((err: unknown) => {
-      throw desktop && failureStatus(err) !== 'rejected' ? lose('세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음', err) : err;
+      if (!desktop) throw err;
+      // A refused start opened no window; any other failure may have left one.
+      if (failureStatus(err) !== 'rejected') throw lose('세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음', err);
+      display.unconfirmed--;
+      throw err;
     });
     try {
       if (target.kind === 'web') await openStartPage(driver, target, d, profile);
       opts.signal?.throwIfAborted();
       return await use(driver, device, profile);
     } finally {
-      await driver.close().catch((err: unknown) => {
-        // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
-        if (desktop) throw lose('세션 종료를 확인하지 못함', err);
-      });
+      await driver.close().then(
+        () => {
+          if (desktop) display.unconfirmed--;
+        },
+        (err: unknown) => {
+          // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
+          if (desktop) throw lose('세션 종료를 확인하지 못함', err);
+        },
+      );
     }
   } finally {
     lock?.release();
-    releaseHeld(display);
+    releaseDisplay(d, display, opts.events);
   }
 }
 

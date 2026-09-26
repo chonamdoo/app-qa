@@ -27,7 +27,7 @@ export interface FakePage {
   history: { length: number; canGoBack: boolean | null };
   /** What `elementFromPoint` + ancestors report: [x, y, width, height] per box. */
   hitBoxes: unknown;
-  /** What `elementFromPoint` returns at any point: a W3C element reference (identity while that element lives), null = nothing. Replace it to swap the element. */
+  /** What the `element` script returns at any point: `[W3C element reference, [x, y, width, height]]` per element, the deepest first. Replace it to swap an element. */
   element: unknown;
   /** What `document.activeElement` resolves to: a W3C element reference (identity while that element lives), null = nothing focused. Replace it to swap the focused element. */
   active: unknown;
@@ -86,7 +86,7 @@ export async function startW3CStub(init: Partial<FakePage> = {}, override?: (req
     console: [],
     front: true,
     raises: true,
-    element: null,
+    element: [],
     active: null,
     ...init,
   };

@@ -1,4 +1,4 @@
-// Enforces the module table of skills/architecture/SKILL.md on every relative import under src/ and bin/.
+// Enforces the module table of skills/architecture/SKILL.md on every import under src/ and bin/.
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, normalize, relative } from 'node:path';
@@ -59,17 +59,40 @@ function sourceFiles(dir: string): string[] {
 }
 
 /**
- * Relative specifiers of a module: `import … from` / `export … from`, side-effect `import './x.ts'`, and dynamic
- * `import('./x.ts')` with a literal specifier (quotes or a backtick string without `${`).
+ * Specifiers of a module: `import … from` / `export … from`, side-effect `import 'x'`, and dynamic `import('x')` with a
+ * literal specifier (quotes or a backtick string without `${`).
  */
-const IMPORT = /(?:^|\n)\s*(?:import|export)\b[^'"]*?from\s*['"](\.[^'"]+)['"]|(?:^|\n)\s*import\s*['"](\.[^'"]+)['"]|\bimport\(\s*(['"`])(\.[^'"`$]+)\3\s*\)/g;
+const IMPORT = /(?:^|\n)\s*(?:import|export)\b[^'"]*?from\s*['"]([^'"]+)['"]|(?:^|\n)\s*import\s*['"]([^'"]+)['"]|\bimport\(\s*(['"`])([^'"`$]+)\3\s*\)/g;
 
-/** Module edges of `from` (a root-relative path) whose text is `source`. */
-function edgesOf(from: string, source: string): { from: string; to: string }[] {
-  return [...source.matchAll(IMPORT)].map((m) => ({ from, to: relative(ROOT, normalize(join(ROOT, dirname(from), m[1] ?? m[2] ?? m[4]!))) }));
+function specifiersOf(source: string): string[] {
+  return [...source.matchAll(IMPORT)].map((m) => m[1] ?? m[2] ?? m[4]!);
 }
 
-const EDGES = [...sourceFiles('src'), ...sourceFiles('bin')].flatMap((from) => edgesOf(from, readFileSync(join(ROOT, from), 'utf8')));
+/** Module edges (relative specifiers) of `from` (a root-relative path) whose text is `source`. */
+function edgesOf(from: string, source: string): { from: string; to: string }[] {
+  return specifiersOf(source)
+    .filter((specifier) => specifier.startsWith('.'))
+    .map((specifier) => ({ from, to: relative(ROOT, normalize(join(ROOT, dirname(from), specifier))) }));
+}
+
+/** Packages a contract file may import besides node builtins (`node:…`): the contract's dependency list. */
+const CONTRACT_PACKAGES: Record<string, true> = { zod: true, yaml: true };
+
+/** Package specifiers of a contract file outside `CONTRACT_PACKAGES` and `node:` builtins (relative ones are edges). */
+function forbiddenPackages(source: string): string[] {
+  return specifiersOf(source).filter((specifier) => !specifier.startsWith('.') && !specifier.startsWith('node:') && !Object.hasOwn(CONTRACT_PACKAGES, specifier));
+}
+
+const SOURCES = [...sourceFiles('src'), ...sourceFiles('bin')];
+
+const EDGES = SOURCES.flatMap((from) => edgesOf(from, readFileSync(join(ROOT, from), 'utf8')));
+
+test('contract files import only node builtins, zod, yaml and other contracts', () => {
+  const violations = SOURCES.filter((file) => moduleOf(file) === 'contracts').flatMap((file) =>
+    forbiddenPackages(readFileSync(join(ROOT, file), 'utf8')).map((specifier) => `${file} → ${specifier}`),
+  );
+  assert.deepEqual(violations, []);
+});
 
 test('every cross-module import is allowed by the architecture table', () => {
   const violations = EDGES
@@ -125,4 +148,18 @@ test('side-effect and dynamic imports are collected, so a forbidden one is caugh
     edges.filter(({ from, to }) => !allowed(from, to)).map((e) => e.to),
     ['src/cli/commands/calibrate.ts', 'src/runner/index.ts', 'src/drivers/index.ts'],
   );
+});
+
+test('a contract importing any other package is caught, in every import form', () => {
+  const source = [
+    "import { z } from 'zod';",
+    "import type { Document } from 'yaml';",
+    "import { readFileSync } from 'node:fs';",
+    "import { STEP_KINDS } from './schema.ts';",
+    "import jsonLogic from 'json-logic-js';",
+    "import 'zod/v4';",
+    'const m = await import(`fs`);',
+    "export { parse } from 'yaml/util';",
+  ].join('\n');
+  assert.deepEqual(forbiddenPackages(source), ['json-logic-js', 'zod/v4', 'fs', 'yaml/util']);
 });

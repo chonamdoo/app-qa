@@ -30,7 +30,9 @@ import { cleanText } from '../observe/text.ts';
 import type { DecisionSummary, StepResult, TestResult } from '../report/types.ts';
 import type { LoadedTest } from '../spec/load.ts';
 import {
+  patternGroups,
   profilePlatforms,
+  ruleProblem,
   stepKind,
   stepLabel,
   type Condition as ConditionSchema,
@@ -50,7 +52,7 @@ import { assessRisk, labelRisk, type RiskAssessment } from '../policy/risk.ts';
 import { qaStatus } from '../report/status.ts';
 import { ActionPreparer, TRUNCATED_TARGET, type Approval, type Mutation, type Obs, type Refusal } from './prepare.ts';
 import { asSelector, notFoundDiagnostics, resolveDeterministic, stateMatches, targetText, type TargetQuery, type TargetSpec } from './resolve.ts';
-import { groupData, judgeLines, patternGroups, ruleProblem, type LineMatch } from '../spec/rule.ts';
+import { groupData, judgeLines, type LineMatch } from './rule.ts';
 import { EvidenceSanitizer, maskValue, SanitizedStore } from './sanitize.ts';
 import { expandStep, UnsetVariableError } from './steps.ts';
 import type { RunStore } from './store.ts';
@@ -274,7 +276,7 @@ export class TestSession {
       observe: (ocr, screenshot) => this.observe({ ocr, screenshot }),
       recentScroll: () => this.recentScroll,
       isHittable: async (p, target) => env.driver.isHittable?.(p, target),
-      elementIdAt: async (p) => env.driver.elementIdAt?.(p),
+      elementIdAt: async (p, box) => env.driver.elementIdAt?.(p, box),
       focusedElementId: async () => env.driver.focusedElementId?.(),
       // The target decides the surface (gate availability and the threshold used): a web target stays web even if a
       // driver mislabels a snapshot (fail-closed). Every Jev decision names it (`jevProblem`, `judgeOpts`).

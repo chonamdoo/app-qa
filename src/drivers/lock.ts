@@ -74,7 +74,10 @@ export function acquireDisplayLock(opts: LockOptions = {}): DeviceLock {
   }
 }
 
-/** Why the display is unknown: a desktop session end or start this user's qa could not confirm, and when. */
+/**
+ * Why the display is unknown, and since when: a desktop session end or start this user's qa could not confirm, or a qa
+ * process that opened a desktop browser and has not confirmed its end (yet — or never: killed or crashed).
+ */
 const DisplayUnknownRecord = z.strictObject({
   since: z.iso.datetime({ offset: true }),
   reason: z.string().min(1),

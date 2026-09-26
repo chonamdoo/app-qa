@@ -54,10 +54,11 @@ export interface PrepareHost<Ctx> {
   /** The driver's hit-test of a tap at `p` on the element box `target` (iOS WDA, desktop `elementFromPoint`); undefined = cannot tell. */
   isHittable(p: Point, target: Rect | null): Promise<boolean | undefined>;
   /**
-   * The identity of the element that receives a tap at `p` (desktop web: the page's element reference), null = nothing
-   * there; undefined = the driver has none (native, mobile web: the tree path, resource id, box and state identify it).
+   * The identity of the element with box `box` that receives a tap at `p` — the target itself, not a child of it input
+   * reaches (desktop web: the page's element references), null = no such element there; `box` null = no element box
+   * (OCR text). undefined = the driver has none (native, mobile web: the tree path, resource id, box and state identify it).
    */
-  elementIdAt(p: Point): Promise<string | null | undefined>;
+  elementIdAt(p: Point, box: Rect | null): Promise<string | null | undefined>;
   /** The identity of the element keys go to (desktop web: the focused element's reference), null = none; undefined as `elementIdAt`. */
   focusedElementId(): Promise<string | null | undefined>;
   /** Why Jev must not judge commits now (no client, no calibration, a failed gate, a surface the gate was not calibrated on), or null. */
@@ -92,6 +93,11 @@ function submitRisk(field: Candidate | null, model: ScreenModel, profile: AppPro
 function isEditable(c: Candidate, model: ScreenModel): boolean {
   if (c.role === 'input' || c.role === 'secure-input') return true;
   return c.source === 'tree' && nodeOf(model, c.nodeId)?.flags.editable === true;
+}
+
+/** The element box of `c` on `model`: its tree node's rect as the page or platform reports it (unclipped); null for OCR text. */
+function elementBox(c: Candidate, model: ScreenModel): Rect | null {
+  return c.source === 'tree' ? (nodeOf(model, c.nodeId)?.rect ?? null) : null;
 }
 
 /**
@@ -190,12 +196,12 @@ export class ActionPreparer<Ctx> {
     // Every target-based mutation of a deterministically safe target needs the commit check — an edit included: typing
     // into or clearing a field can still auto-save or search, and only Jev can add that refusal.
     if (!risk.risky && !allowRisky) {
-      // The element the action reaches, identified before Jev is asked: the one at the tap point, for Enter the focused
-      // one. A replacement with the same label, box, state and tree position (a re-rendered button or field) is another
-      // element, and the approval is not its.
+      // The element the action reaches, identified before Jev is asked: the target element at the tap point (by its own
+      // box: a child input reaches may outlive a replaced target), for Enter the focused one. A replacement with the same
+      // label, box, state and tree position (a re-rendered button or field) is another element, and the approval is not its.
       const submit = mutation === 'submit';
-      const before = !target ? undefined : submit ? await this.host.focusedElementId() : await this.host.elementIdAt(target.tapPoint);
-      if (target && before === null) return { status: 'stale_target', reason: submit ? `"${target.name}"이(가) 포커스된 요소로 확인되지 않음 — 실행하지 않음` : `"${target.name}" 탭 지점에 요소가 없음 — 실행하지 않음` };
+      const before = !target ? undefined : submit ? await this.host.focusedElementId() : await this.host.elementIdAt(target.tapPoint, elementBox(target, model));
+      if (target && before === null) return { status: 'stale_target', reason: submit ? `"${target.name}"이(가) 포커스된 요소로 확인되지 않음 — 실행하지 않음` : `"${target.name}" 탭 지점에 대상 요소가 없음 — 실행하지 않음` };
       const commit: Pick<ClaimDecision, 'verdict' | 'reason'> = target ? await this.commit(ctx, model, target) : { verdict: 'error', reason: '대상 없음' };
       // Refusal-add only: 'pass' (commits) blocks, 'fail' lets the deterministic verdict stand, anything else is no answer.
       if (commit.verdict === 'pass') return this.block(ctx, [commit.reason], false);
@@ -216,7 +222,7 @@ export class ActionPreparer<Ctx> {
       if (riskNow.risky) return this.block(ctx, [...riskNow.reasons, 'Jev commit 확인 중 화면이 바뀜'], false);
       const hit = mutation === 'submit' ? null : await this.hitProblem(same.candidate, now);
       if (hit) return { status: 'stale_target', reason: `Jev commit 확인 중 ${hit} — 실행하지 않음` };
-      if (before !== undefined && (submit ? await this.host.focusedElementId() : await this.host.elementIdAt(same.candidate.tapPoint)) !== before) {
+      if (before !== undefined && (submit ? await this.host.focusedElementId() : await this.host.elementIdAt(same.candidate.tapPoint, elementBox(same.candidate, now.model))) !== before) {
         const what = submit ? `포커스된 "${target.name}"이(가)` : `"${target.name}" 탭 지점의 요소가`;
         return { status: 'stale_target', reason: `Jev commit 확인 중 ${what} 다른 요소로 바뀜 — 실행하지 않음` };
       }

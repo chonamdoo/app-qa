@@ -104,6 +104,18 @@ describe('generated test validation', () => {
     }
   });
 
+  test('checkEach rules reading an optional group through missing/missing_some are refused, never saved', () => {
+    // `s` may not match; read by name without a `var`, a line lacking it would be judged on `n` alone.
+    const check = (rule: object) => ({ checkEach: { pattern: '^(?<n>\\d+)(?: (?<s>\\S+))?$', rule } });
+    const cases: Record<string, object> = {
+      missing: { and: [{ '>': [{ var: 'n' }, 0] }, { '!!': { missing: ['s'] } }] },
+      missing_some: { and: [{ '>': [{ var: 'n' }, 0] }, { '!': { missing_some: [1, 'n'] } }] },
+    };
+    for (const [op, rule] of Object.entries(cases)) {
+      assert.match(errorsOf({ ...valid, steps: [check(rule)] }).join('\n'), new RegExp(`checkEach\\.rule\\.and\\[1\\]\\.!!?: 알 수 없는 JSONLogic 연산자 "${op}"`), op);
+    }
+  });
+
   test('literals missing from the screen inventory are warnings, not errors', () => {
     const withScreens: CheckContext = {
       ...ctx,

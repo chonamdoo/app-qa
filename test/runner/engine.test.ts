@@ -190,6 +190,9 @@ describe('deterministic assertions', () => {
       'var with a default': '{ "<": [ { var: [ wait, 0 ] }, 100 ] }',
       // Inside `none` the data is the item (a number): `wait` of it is null, `null > 0` is false, so no item "fails".
       'group read inside a collection’s logic': '{ none: [ { merge: [ { var: wait } ] }, { ">": [ { var: wait }, 0 ] } ] }',
+      // Names read without a `var` escape the unobserved-line check: `level` is never observed here.
+      'missing reading a name without var': '{ and: [ { "<": [ { var: wait }, 100 ] }, { "!!": { missing: [ level ] } } ] }',
+      'missing_some over a key string': '{ and: [ { "<": [ { var: wait }, 100 ] }, { "!": { missing_some: [ 1, wait ] } } ] }',
     };
     for (const [name, rule] of Object.entries(cases)) {
       const { result } = await runYaml({ 'tests/check.e2e.yaml': spec(check(rule)) }, new FakeDriver(screen('tab-departures')));
