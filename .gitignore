@@ -1,0 +1,14 @@
+node_modules/
+.tools/
+.qa/
+.env
+reports/
+.agent-flow/
+.agent-flow/local-skills/
+.codex/
+.Codex/
+.claude/
+.omp/
+AGENTS/
+CLAUDE/
+agent-flow/
