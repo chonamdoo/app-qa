@@ -110,13 +110,15 @@ describe('host command outcome when the adb transport drops', () => {
   });
   afterEach(() => fake.restore());
 
-  // adb's messages for a lost device or stream; exit 255 = shell v2 stream lost, 137 = device command killed by SIGKILL.
+  // adb's messages for a lost device or stream, and error text adb does not document as a refusal; exit 255 = shell v2
+  // stream lost, 137 = device command killed by SIGKILL.
   const DROPS: [stderr: string, exit: number][] = [
     ['error: closed', 1],
     ['adb: device offline', 1],
     ["adb: device 'emulator-5554' not found", 1],
     ['adb: no devices/emulators found', 1],
     ["error: protocol fault (couldn't read status): Connection reset by peer", 1],
+    ['error: failed to read response from device', 1],
     ['', 255],
     ['', 137],
   ];

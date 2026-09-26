@@ -424,17 +424,51 @@ const TRANSPORT_LOSS =
 const SPAWN_FAILURE = /^E[A-Z0-9]+$/;
 
 /**
+ * A command's own answer that it refused before changing anything. Each entry is printed only on a path where the
+ * command checked its target or caller and stopped before acting; any other error text proves nothing.
+ */
+const REFUSALS: readonly RegExp[] = [
+  // pm / `adb install`: the package manager aborted the install session before committing it; the installed app is unchanged.
+  /Failure \[INSTALL_/,
+  // pm / cmd package / am: the named package is not installed, so there was nothing the command could change.
+  /Unknown package/,
+  // am start: the component did not resolve (START_CLASS_NOT_FOUND, printed as `Error type 3`); no activity was started.
+  /Error: Activity class \{[^}]*\} does not exist/,
+  /Error type 3/,
+  // am start: the activity manager returned a failure code for the start request (unresolvable intent, permission denied, …).
+  /Error: Activity not started/,
+  // A system service's permission check threw before the call ran: this caller may not do it, so nothing was done.
+  /java\.lang\.SecurityException/,
+  // simctl: CoreSimulator refused because the simulator is not in a state that accepts the command (e.g. Shutdown).
+  /Unable to lookup in current state/,
+  // simctl: the UDID names no simulator, so no device received the command.
+  /Invalid device/,
+  // simctl `booted`: no simulator is booted, so the command had no target.
+  /No devices are booted/,
+];
+
+/**
+ * `No such file or directory` naming one of the command's own path arguments: the command could not open its input and
+ * stopped before acting (`adb install`/`pull`: `failed to stat <path>`, simctl install of a missing bundle).
+ */
+function missingPathArgument(err: CommandError): boolean {
+  const paths = err.args.filter((arg) => arg.includes('/'));
+  return err.stderr.split('\n').some((line) => line.includes('No such file or directory') && paths.some((path) => line.includes(path)));
+}
+
+/**
  * Host command failure → action status. `rejected` only when the binary never started, or the command itself answered
- * with its own error text while the transport stayed up (e.g. `Failure [INSTALL_FAILED_…]`, simctl `Invalid device`).
- * Everything else may have run on the device and is `uncertain`: killed (signal, timeout), transport-loss text, a
- * failure without error text, and adb exit ≥ 128 (shell v2: 255 = stream lost, 128+n = device command killed by signal n).
+ * with a refusal from `REFUSALS` / `missingPathArgument` while the transport stayed up. Everything else may have run on
+ * the device and is `uncertain`: killed (signal, timeout), transport-loss text, a failure without error text, unknown
+ * error text (e.g. `error: failed to read response from device`), and adb exit ≥ 128 (shell v2: 255 = stream lost,
+ * 128+n = device command killed by signal n).
  */
 function commandStatus(err: CommandError): Exclude<ActionStatus, 'completed'> {
   if (err.spawnCode !== null) return SPAWN_FAILURE.test(err.spawnCode) ? 'rejected' : 'uncertain';
   if (err.exitCode === null) return 'uncertain';
   if (err.exitCode >= 128 && err.file.split('/').pop() === 'adb') return 'uncertain';
-  const stderr = err.stderr.trim();
-  return stderr !== '' && !TRANSPORT_LOSS.test(stderr) ? 'rejected' : 'uncertain';
+  if (TRANSPORT_LOSS.test(err.stderr)) return 'uncertain';
+  return REFUSALS.some((refusal) => refusal.test(err.stderr)) || missingPathArgument(err) ? 'rejected' : 'uncertain';
 }
 
 /**

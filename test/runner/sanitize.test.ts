@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
+import type { QaEventBody } from '../../src/core/events.ts';
 import type { Snapshot } from '../../src/core/types.ts';
 import type { RunSummary } from '../../src/report/types.ts';
-import { captureScreen } from '../../src/runner/index.ts';
+import { captureScreen, runSmoke } from '../../src/runner/index.ts';
 import { EvidenceSanitizer } from '../../src/runner/sanitize.ts';
 import { FakeDriver, fixtureSnapshot } from '../helpers/fake-driver.ts';
 import { choice, commitSafe, jevStub, noul } from '../helpers/jev-stub.ts';
@@ -266,6 +267,55 @@ describe('evidence sanitizer: run evidence', () => {
     assert.equal(result.tests[0]!.verdict, 'PASS', result.tests[0]!.reason);
     assert.ok(driver.logSanitize, 'startLogs received the sanitizer');
     assert.equal(driver.logSanitize('E App: token=tok-7f3a9c flight J27-J35'), `E App: token=${'•'.repeat(10)} flight [REDACTED]`);
+  });
+
+  it('what a failed clear or type leaves in an observed secure field is in no record, raw or quoted (secure omitted in the DSL)', async () => {
+    const field = '{ intent: 편명·도시·항공사, state: { focused: true } }';
+    // clear: the driver reads back what a partial clear left of the password and quotes it in INPUT_UNVERIFIED.
+    const clearing = new FakeDriver(search([PASSWORD_FIELD]));
+    clearing.clearLeft = 'left-s3cret';
+    const cleared = await runYaml({ 'tests/c.e2e.yaml': spec(`  - clear: ${field}\n`) }, clearing, { jev: commitSafe().setup });
+    // type: a driver whose INPUT_UNVERIFIED detail quotes the secure field's raw read-back.
+    const typing = new FakeDriver(search([PASSWORD_FIELD]));
+    typing.typeError = 'INPUT_UNVERIFIED: 기대 "•••••", 실제 "part-s3cret"';
+    const typed = await runYaml({ 'tests/t.e2e.yaml': spec(`  - type: abcde\n    into: ${field}\n`) }, typing, { jev: commitSafe().setup });
+    for (const [run, raw] of [
+      [cleared, 'left-s3cret'],
+      [typed, 'part-s3cret'],
+    ] as const) {
+      const t = run.result.tests[0]!;
+      assert.equal(t.verdict, 'FAIL', t.reason);
+      assert.equal(t.code, 'input_unverified', t.reason);
+      assert.ok(!JSON.stringify(run.events).includes(raw), `SSE stream leaks ${raw}`);
+      assert.ok(!evidenceText(run.result.runDir).includes(raw), `evidence leaks ${raw}`);
+    }
+    assert.match(cleared.result.tests[0]!.reason, /"•{11}"/);
+  });
+
+  it('records written around a session (no automation session, smoke announcement) pass the profile sanitizer too', async () => {
+    const profile = PROFILES.tteonam!.replace('name: 떠남', 'name: 떠남 cust-4821').replace('redact: []', "redact:\n  - 'cust-\\d+'");
+    // runTests: the session cannot open (its error names the customer) for a test whose name names it too.
+    const driver = new FakeDriver(fixtureSnapshot('android', 'tteonam', 'launch', { foreground: APP }));
+    driver.openError = 'cust-4821 세션 거부';
+    const yaml = 'name: 고객 cust-4821 예약 확인\napp: tteonam\nplatforms: [android]\nstart: attach\nsteps:\n  - wait: 50\n';
+    const run = await runYaml({ 'tests/o.e2e.yaml': yaml }, driver, { files: { 'apps/tteonam.yaml': profile } });
+    const t = run.result.tests[0]!;
+    assert.equal(t.code, 'session_failed', t.reason);
+    assert.equal(t.reason, '자동화 세션을 열 수 없음: [REDACTED] 세션 거부');
+    assert.equal(t.name, '고객 [REDACTED] 예약 확인');
+    for (const text of [JSON.stringify(run.events), evidenceText(run.result.runDir)]) assert.ok(!text.includes('cust-4821'), 'test.finished / summary.json / report carry the raw match');
+
+    // runSmoke: `run.started` announces the smoke test by the profile name; the session fails the same way.
+    const root = tempRoot({ 'apps/tteonam.yaml': profile });
+    const smokeDriver = new FakeDriver(fixtureSnapshot('android', 'tteonam', 'launch', { foreground: APP }));
+    smokeDriver.openError = 'cust-4821 세션 거부';
+    const events: QaEventBody[] = [];
+    const smoke = await runSmoke({ app: 'tteonam', platform: 'android', events: { emit: (e) => events.push(e) } }, fakeDeps(root, smokeDriver));
+    const started = events.find((e) => e.type === 'run.started');
+    assert.ok(started && started.type === 'run.started');
+    assert.equal(started.tests[0]!.name, '스모크: 떠남 [REDACTED]');
+    assert.equal(smoke.tests[0]!.code, 'session_failed');
+    for (const text of [JSON.stringify(events), evidenceText(smoke.runDir)]) assert.ok(!text.includes('cust-4821'), 'run.started / summary.json / report carry the raw profile name');
   });
 });
 

@@ -26,15 +26,22 @@ describe('W3C error classification', () => {
     assert.match(e.message, /Bad Gateway/);
   });
 
-  it('host commands: rejected only when the binary never started or the command itself refused; transport loss, signals, timeouts, text-less failures → uncertain', () => {
+  it('host commands: rejected only when the binary never started or the command itself refused; transport loss, signals, timeouts, text-less and unknown failures → uncertain', () => {
     const ADB = '/sdk/platform-tools/adb';
     const SHELL = ['-s', 'emulator-5554', 'shell', "'am' 'start' '-W' '-n' 'kr.tteonam.app/.MainActivity'"];
     const SIMCTL = ['simctl', 'openurl', 'SIM-UDID', 'tteonam://home'];
     const rejected = [
       new CommandError(ADB, ['-s', 'emulator-5554', 'install', '-r', '-d', 'app.apk'], 1, 'adb: failed to install app.apk: Failure [INSTALL_FAILED_VERSION_DOWNGRADE]', null, 'exit 1'),
+      new CommandError(ADB, ['-s', 'emulator-5554', 'install', '-r', '-d', '/builds/app.apk'], 1, 'adb: failed to stat /builds/app.apk: No such file or directory', null, 'exit 1'),
       new CommandError(ADB, SHELL, 1, 'Error: Activity class {kr.tteonam.app/.MainActivity} does not exist.', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'Starting: Intent { cmp=kr.tteonam.app/.MainActivity }\nError type 3', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'Error: Activity not started, unable to resolve Intent { act=android.intent.action.VIEW }', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'Exception occurred while executing: java.lang.SecurityException: Permission Denial: not allowed to send broadcast', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'Error: Unknown package: kr.tteonam.app', null, 'exit 1'),
       new CommandError(ADB, SHELL, null, '', 'ENOENT', 'ENOENT'),
       new CommandError('xcrun', SIMCTL, 149, 'An error was encountered processing the command (domain=com.apple.CoreSimulator.SimError, code=405):\nUnable to lookup in current state: Shutdown', null, 'exit 149'),
+      new CommandError('xcrun', SIMCTL, 148, 'Invalid device: SIM-UDID', null, 'exit 148'),
+      new CommandError('xcrun', ['simctl', 'openurl', 'booted', 'tteonam://home'], 149, 'No devices are booted.', null, 'exit 149'),
     ];
     const uncertain = [
       new CommandError(ADB, SHELL, 1, 'error: closed', null, 'exit 1'),
@@ -50,6 +57,14 @@ describe('W3C error classification', () => {
       new CommandError(ADB, SHELL, null, '', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'),
       new CommandError('xcrun', SIMCTL, 1, 'CoreSimulatorService connection became invalid. Simulator services will no longer be available.', null, 'exit 1'),
       new CommandError('xcrun', SIMCTL, 1, 'Connection interrupted', null, 'exit 1'),
+      // Error text that is not a known refusal proves nothing about whether the command ran.
+      new CommandError(ADB, SHELL, 1, 'error: failed to read response from device', null, 'exit 1'),
+      new CommandError(ADB, SHELL, 1, 'Aborted', null, 'exit 1'),
+      new CommandError('xcrun', SIMCTL, 1, 'An error was encountered processing the command (domain=com.apple.CoreSimulator.SimError, code=164):\nUnknown error', null, 'exit 1'),
+      // A missing file that is not one of the command's path arguments.
+      new CommandError('xcrun', SIMCTL, 1, 'Failed to write /var/folders/tmp/simctl.log: No such file or directory', null, 'exit 1'),
+      // A refusal next to transport-loss text: the loss wins.
+      new CommandError(ADB, ['-s', 'emulator-5554', 'install', '-r', '-d', 'app.apk'], 1, 'Failure [INSTALL_FAILED_INTERNAL_ERROR]\nadb: device offline', null, 'exit 1'),
     ];
     for (const err of rejected) assert.equal(failureStatus(err), 'rejected', `${err.exitCode ?? err.spawnCode}: ${err.stderr}`);
     for (const err of uncertain) assert.equal(failureStatus(err), 'uncertain', `${err.exitCode ?? err.spawnCode}: ${err.stderr}`);

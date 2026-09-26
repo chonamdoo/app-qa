@@ -129,7 +129,10 @@ function message(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** A test × platform that could not run (spec error, no device, locked, session failure, cancelled). */
+/**
+ * A test × platform that could not run (spec error, no device, locked, session failure, cancelled), sanitized like a
+ * session's result by `clean` (profile `redact` and the secrets it knows; a spec that did not load: built-ins only).
+ */
 function unrunResult(
   base: { id: string; name: string; file: string | null; app: string; test: LoadedTest | null },
   platform: Platform,
@@ -137,9 +140,10 @@ function unrunResult(
   code: string,
   reason: string,
   device: DeviceInfo | null,
+  clean: EvidenceSanitizer,
 ): TestResult {
   const spec = base.test?.spec;
-  return {
+  return clean.deep({
     id: base.id,
     name: base.name,
     file: base.file,
@@ -163,7 +167,7 @@ function unrunResult(
     logs: null,
     crash: [],
     evidenceDir: `${base.id}/${platform}`,
-  };
+  });
 }
 
 interface Slot {
@@ -266,7 +270,7 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
       const base = { id: test.id, name: test.spec.name, file: posixRel(d.root, test.file), app: test.spec.app, test };
       if (declared && !declared.includes(platform)) continue;
       if (!available.includes(platform)) {
-        if (declared) early.push(unrunResult(base, platform, 'ERROR', 'app_not_configured', `앱 프로필 ${test.spec.app}에 ${platform} 설정이 없습니다`, null));
+        if (declared) early.push(unrunResult(base, platform, 'ERROR', 'app_not_configured', `앱 프로필 ${test.spec.app}에 ${platform} 설정이 없습니다`, null, new EvidenceSanitizer(test.profile.redact)));
         continue;
       }
       planned.push({ test, platform });
@@ -276,7 +280,7 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
   const errorPlatforms = opts.platform === 'all' && covered.size > 0 ? PLATFORMS.filter((p) => covered.has(p)) : requested;
   for (const e of loaded.errors) {
     for (const platform of errorPlatforms) {
-      early.push(unrunResult({ id: e.id, name: e.id, file: posixRel(d.root, e.file), app: '', test: null }, platform, 'ERROR', 'spec_invalid', e.error.message, null));
+      early.push(unrunResult({ id: e.id, name: e.id, file: posixRel(d.root, e.file), app: '', test: null }, platform, 'ERROR', 'spec_invalid', e.error.message, null, new EvidenceSanitizer([])));
     }
   }
 
@@ -303,8 +307,9 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
       const mine = planned.filter((x) => x.platform === slot.platform);
       const out: TestResult[] = [];
       const skip = (test: LoadedTest, verdict: Verdict, code: string, reason: string) => {
-        const r = unrunResult({ id: test.id, name: test.spec.name, file: posixRel(d.root, test.file), app: test.spec.app, test }, slot.platform, verdict, code, reason, slot.device);
-        store.emit({ type: 'test.finished', runId, testId: r.id, platform: r.platform, verdict, reason, durationMs: 0 });
+        const base = { id: test.id, name: test.spec.name, file: posixRel(d.root, test.file), app: test.spec.app, test };
+        const r = unrunResult(base, slot.platform, verdict, code, reason, slot.device, new EvidenceSanitizer(test.profile.redact));
+        store.emit({ type: 'test.finished', runId, testId: r.id, platform: r.platform, verdict, reason: r.reason, durationMs: 0 });
         out.push(r);
       };
       if (slot.problem || !slot.device) {
@@ -332,7 +337,7 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
                 continue;
               }
               const session = new TestSession(
-                { runId, store, driver, device, clock: d.clock, jev, ocr: d.ocr, relFile: posixRel(d.root, test.file), signal: opts.signal },
+                { runId, store, clean: new EvidenceSanitizer(test.profile.redact), driver, device, clock: d.clock, jev, ocr: d.ocr, relFile: posixRel(d.root, test.file), signal: opts.signal },
                 test,
                 slot.platform,
                 target,
@@ -379,6 +384,8 @@ function smokeTest(profile: AppProfile): LoadedTest {
 export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): Promise<RunResult> {
   const d = resolveDeps(deps);
   const profile = loadAppProfile(opts.app, d.appsDir);
+  // Every record of the smoke run, in the session or around it, passes one sanitizer (built before anything is written).
+  const clean = new EvidenceSanitizer(profile.redact);
   const target = appTarget(profile, opts.platform);
   if (!target) throw new Error(`앱 프로필 ${opts.app}에 ${opts.platform} 설정이 없습니다`);
   const runId = newRunId();
@@ -392,20 +399,20 @@ export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): 
     type: 'run.started',
     runId,
     runDir: store.runDir,
-    tests: [{ id: test.id, name: test.spec.name, platforms: [opts.platform], steps: ['앱 시작: relaunch', '화면 점검: launch', ...(opts.crawl ? ['탭 순회'] : [])] }],
+    tests: [clean.deep({ id: test.id, name: test.spec.name, platforms: [opts.platform], steps: ['앱 시작: relaunch', '화면 점검: launch', ...(opts.crawl ? ['탭 순회'] : [])] })],
     devices: slot.device ? [{ platform: opts.platform, id: slot.device.id, name: slot.device.name }] : [],
   });
   const base = { id: test.id, name: test.spec.name, file: null, app: profile.id, test };
   let result: TestResult;
   if (slot.problem || !slot.device) {
-    result = unrunResult(base, opts.platform, 'ERROR', slot.problem?.code ?? 'no_device', slot.problem?.reason ?? '기기 없음', null);
+    result = unrunResult(base, opts.platform, 'ERROR', slot.problem?.code ?? 'no_device', slot.problem?.reason ?? '기기 없음', null, clean);
   } else {
     const driver = d.createDriver(opts.platform, slot.device.id);
     try {
       await driver.open(target);
       try {
         const session = new TestSession(
-          { runId, store, driver, device: slot.device, clock: d.clock, jev: d.jev(), ocr: d.ocr, relFile: null, signal: opts.signal },
+          { runId, store, clean, driver, device: slot.device, clock: d.clock, jev: d.jev(), ocr: d.ocr, relFile: null, signal: opts.signal },
           test,
           opts.platform,
           target,
@@ -415,7 +422,7 @@ export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): 
         await driver.close().catch(() => undefined);
       }
     } catch (err) {
-      result = unrunResult(base, opts.platform, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`, slot.device);
+      result = unrunResult(base, opts.platform, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`, slot.device, clean);
     } finally {
       slot.lock?.release();
     }

@@ -18,6 +18,7 @@ import type {
   Rect,
   ScreenModel,
   Surface,
+  TypeOutcome,
   Verdict,
 } from '../core/types.ts';
 import type { JevClient } from '../jev/client.ts';
@@ -72,6 +73,11 @@ export type OcrFn = (png: Uint8Array, screen: Rect) => Promise<OcrLine[]>;
 export interface SessionEnv {
   runId: string;
   store: RunStore;
+  /**
+   * The test's evidence sanitizer (profile `redact`); the session adds every secret it learns, so a record the caller
+   * writes for this test outside the session (a session failure) masks them too.
+   */
+  clean: EvidenceSanitizer;
   driver: Driver;
   device: DeviceInfo;
   clock: Clock;
@@ -204,8 +210,8 @@ function pngHash(png: Uint8Array | null): string | null {
 }
 
 export class TestSession {
-  /** Everything but the raw run store: the session reaches the store only through `out`. */
-  private readonly env: Omit<SessionEnv, 'store'>;
+  /** Everything but the raw run store and its sanitizer: the session reaches the store only through `out`. */
+  private readonly env: Omit<SessionEnv, 'store' | 'clean'>;
   private readonly test: LoadedTest;
   private readonly platform: Platform;
   private readonly app: AppTarget;
@@ -235,12 +241,12 @@ export class TestSession {
   private readonly testDir: string;
 
   constructor(env: SessionEnv, test: LoadedTest, platform: Platform, app: AppTarget) {
-    const { store, ...rest } = env;
+    const { store, clean, ...rest } = env;
     this.env = rest;
     this.test = test;
     this.platform = platform;
     this.app = app;
-    this.out = new SanitizedStore(store, new EvidenceSanitizer(test.profile.redact));
+    this.out = new SanitizedStore(store, clean);
     this.preparer = new ActionPreparer<StepCtx>({
       profile: test.profile,
       clock: env.clock,
@@ -621,22 +627,26 @@ export class TestSession {
       // An observed secure field is secure whatever the DSL says; its value is masked in every later write.
       const secure = step.secure === true || t.candidate.role === 'secure-input';
       if (secure) this.out.clean.addSecret(step.type);
-      const typed = await this.act(ctx, 'type', { point, text: secure ? maskValue(step.type) : step.type }, () =>
-        this.env.driver.typeText(point, step.type, { secure, append: step.append, submit: false }),
+      const typed = await this.act(ctx, 'type', { point, text: secure ? maskValue(step.type) : step.type }, async () =>
+        this.secureReadBack(await this.env.driver.typeText(point, step.type, { secure, append: step.append, submit: false }), secure),
       );
       if (typed.error?.startsWith('INPUT_UNVERIFIED')) throw new StepAbort('FAIL', 'input_unverified', `입력 확인 실패: ${typed.error}`);
+      let settleFrom = t.obs;
       if (step.submit) {
-        // Typing may change the screen: Enter is approved only on the observation after typing.
-        approved(await this.preparer.focused(ctx, step.allowRisky ?? false));
+        // Typing may change the screen: Enter is approved on the observation after typing, and its effect is measured
+        // against that observation (pixels included) — an Enter that changes nothing is no_effect unless expectNoChange.
+        const enter = approved(await this.preparer.focused(ctx, step.allowRisky ?? false));
+        settleFrom = { ...enter.obs, png: await this.env.driver.screenshot() };
         await this.act(ctx, 'press', { text: 'enter' }, () => this.env.driver.press('enter'));
       }
-      await this.settle(ctx, t.obs, false, timeout);
+      await this.settle(ctx, settleFrom, step.submit === true && !step.expectNoChange, timeout);
       return PASS(`"${t.candidate.name}"에 입력 확인 (${typed.path})${step.submit ? ' 후 Enter' : ''}`);
     }
     if ('clear' in step) {
       const t = await this.approvedTarget(ctx, obs, q(step.clear), 'edit', step.allowRisky, timeout);
       const point = t.candidate.tapPoint;
-      const cleared = await this.act(ctx, 'clear', { point }, () => this.env.driver.clearText(point));
+      const secure = t.candidate.role === 'secure-input';
+      const cleared = await this.act(ctx, 'clear', { point }, async () => this.secureReadBack(await this.env.driver.clearText(point), secure));
       if (cleared.error?.startsWith('INPUT_UNVERIFIED')) throw new StepAbort('FAIL', 'input_unverified', `지우기 확인 실패: ${cleared.error}`);
       await this.settle(ctx, t.obs, false, timeout);
       return PASS(`"${t.candidate.name}" 지움`);
@@ -961,6 +971,18 @@ export class TestSession {
   }
 
   /**
+   * A secure field's read-back (what a partial type or clear left, which no earlier secret covers) becomes a secret
+   * before `act` records the outcome, and INPUT_UNVERIFIED keeps only its masked form: the driver's detail quotes it raw.
+   */
+  private secureReadBack(out: TypeOutcome, secure: boolean): TypeOutcome {
+    if (!secure || !out.readBack) return out;
+    this.out.clean.addSecret(out.readBack);
+    const readBack = maskValue(out.readBack);
+    if (!out.error?.startsWith('INPUT_UNVERIFIED')) return { ...out, readBack };
+    return { ...out, readBack, error: `INPUT_UNVERIFIED: 보안 입력 필드 값이 기대와 다름 (읽은 값 "${readBack}")` };
+  }
+
+  /**
    * Waits for change (identity/layout fingerprint, dHash fallback) then stability (2 equal observations ≥250 ms apart),
    * saves after.png, runs health. No change when one was required → INCONCLUSIVE no_effect. `page` (website launch/open):
    * a browser shows an empty tree for its first dumps, so an empty screen never counts as settled, and a page still
@@ -1183,7 +1205,9 @@ export class TestSession {
     } catch (err) {
       return { verdict: 'ERROR', code: 'invalid_regex', reason: `checkEach 정규식 오류: ${(err as Error).message}` };
     }
-    const invalid = ruleProblem(check.rule);
+    // Every named group of the pattern: an always-matching empty alternative lists them all in `groups`.
+    const groups = new Set(Object.keys(new RegExp(`(?:${check.pattern})|`, 'u').exec('')!.groups ?? {}));
+    const invalid = ruleProblem(check.rule, groups);
     if (invalid) return { verdict: 'ERROR', code: 'invalid_rule', reason: `checkEach 규칙 오류: ${invalid}` };
     const deadline = this.deadline(timeout);
     let obs = first;

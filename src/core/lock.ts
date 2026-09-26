@@ -3,16 +3,19 @@
 // that changed since it was judged stale.
 import { randomUUID } from 'node:crypto';
 import { closeSync, fstatSync, linkSync, openSync, readFileSync, rmSync, unlinkSync } from 'node:fs';
+import { z } from 'zod';
 import { sha256, writeSecure } from './fsx.ts';
 import { isProcessAlive, PROCESS_STARTED_AT_MS, systemProbe, type ProcessProbe } from './process.ts';
 
-export interface LockRecord {
-  pid: number;
+/** The lock file as written by `acquireFileLock`; anything else on disk is an unreadable record. */
+const LockRecord = z.object({
+  pid: z.number().int().positive(),
   /** Owner process start time (ISO); distinguishes a live owner from a reused pid. */
-  startedAt: string;
-  acquiredAt: string;
-  token: string;
-}
+  startedAt: z.iso.datetime(),
+  acquiredAt: z.iso.datetime(),
+  token: z.string().min(1),
+});
+export type LockRecord = z.infer<typeof LockRecord>;
 
 /** Why a lock was not acquired: a live owner holds it, another process is reclaiming it, or a reclaim race was lost. */
 export type LockConflict = 'held' | 'reclaiming' | 'contended';
@@ -67,10 +70,11 @@ function readLockFile(file: string): LockFile | null {
   }
 }
 
+/** The recorded owner, or null when the bytes are not a whole valid record (then the lock counts as unreadable). */
 function parseRecord(bytes: Buffer): LockRecord | null {
   try {
-    const r = JSON.parse(bytes.toString('utf8')) as LockRecord;
-    return typeof r.pid === 'number' && typeof r.startedAt === 'string' ? r : null;
+    const parsed = LockRecord.safeParse(JSON.parse(bytes.toString('utf8')));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }

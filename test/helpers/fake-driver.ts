@@ -80,6 +80,10 @@ export class FakeDriver implements Driver {
   tapStatus: ActionStatus = 'completed';
   /** Read-back error for typeText (e.g. `INPUT_UNVERIFIED: …`). */
   typeError: string | null = null;
+  /** What `clearText` leaves in the field (non-empty = INPUT_UNVERIFIED quoting it raw, as the real driver does). */
+  clearLeft = '';
+  /** Makes `open` (the automation session) fail with this message. */
+  openError: string | null = null;
   logText = '09-26 08:21:00.000  1234  1234 E ReactNativeJS: boom\n';
   crashes: { name: string; content: string }[] = [];
   /** The sanitizer the runner handed to `startLogs`; captured lines pass it, as in the real drivers. */
@@ -107,6 +111,7 @@ export class FakeDriver implements Driver {
 
   async open(app: AppTarget): Promise<void> {
     this.record('open', app);
+    if (this.openError !== null) throw new Error(this.openError);
   }
   async close(): Promise<void> {
     this.record('close');
@@ -134,6 +139,7 @@ export class FakeDriver implements Driver {
   }
   async clearText(at: Point): Promise<TypeOutcome> {
     this.record('clearText', at);
+    if (this.clearLeft) return { status: 'completed', ms: 5, readBack: this.clearLeft, path: 'setValue', error: `INPUT_UNVERIFIED: 지운 뒤 값 "${this.clearLeft}"` };
     return { status: 'completed', ms: 5, readBack: '', path: 'setValue' };
   }
   async longPress(p: Point, holdMs: number): Promise<ActionOutcome> {

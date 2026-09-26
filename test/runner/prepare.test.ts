@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import type { Snapshot } from '../../src/core/types.ts';
+import type { ClaimDecision, Snapshot } from '../../src/core/types.ts';
 import { runTests } from '../../src/runner/index.ts';
+import type { ActionPreparer } from '../../src/runner/prepare.ts';
 import { FakeDriver, fixtureSnapshot, type FakeCall } from '../helpers/fake-driver.ts';
 import { commitSafe, jevStub, noul, testCalibration } from '../helpers/jev-stub.ts';
 import { fakeDeps, runYaml, tempRoot } from '../helpers/run.ts';
@@ -12,6 +13,12 @@ const APP = 'kr.tteonam.app';
 function spec(steps: string, app = 'tteonam'): string {
   return `name: 준비 테스트\napp: ${app}\nplatforms: [android]\nstart: attach\nsteps:\n${steps}`;
 }
+
+// The commit gate verdict keeps ClaimDecision's literal union (tsc fails here if `commit()` widens it): a renamed or added
+// verdict must be a compile error at the refusal checks (`=== 'pass'` blocks, `!== 'fail'` is no answer).
+type Exactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type Holds<T extends true> = T;
+type CommitVerdictIsTyped = Holds<Exactly<Awaited<ReturnType<ActionPreparer<unknown>['commit']>>['verdict'], ClaimDecision['verdict']>>;
 
 describe('policy on the final fresh observation', () => {
   const tickets = (patch: [string, string][]) => fixtureSnapshot('android', 'example-tickets', 'launch', { foreground: 'example.tickets', patch });
@@ -38,6 +45,33 @@ describe('policy on the final fresh observation', () => {
     assert.equal(driver.called('tap').length, 0);
     assert.ok(events.some((e) => e.type === 'policy' && e.blocked));
   });
+
+  it('does not act on an approval the screen outdated while Jev answered the commit check', async () => {
+    // Freshness sees a plain 확인 and asks Jev; while Jev answers, the destructive dialog appears.
+    const driver = new FakeDriver(tickets([confirm]));
+    const jev = jevStub(() => {
+      driver.screen = tickets([confirm, dialog]);
+      return noul(0.02);
+    });
+    const { result } = await runYaml({ 'tests/c.e2e.yaml': spec('  - tap: 확인\n', 'example') }, driver, { jev: jev.setup });
+    const t = result.tests[0]!;
+    assert.equal(t.verdict, 'FAIL');
+    assert.equal(t.code, 'stale_target', t.reason);
+    assert.match(t.reason, /Jev commit 확인 중 화면이 바뀜/);
+    assert.equal(driver.called('tap').length, 0);
+
+    // Same screen, but the target moved while Jev answered: the judged tap point is no longer on it.
+    const launch = fixtureSnapshot('android', 'tteonam', 'launch', { foreground: APP });
+    const moving = new FakeDriver(launch);
+    const moved = jevStub(() => {
+      moving.screen = { ...launch, nodes: launch.nodes.map((n) => (n.desc === '설정' ? { ...n, rect: { ...n.rect, y: n.rect.y + 40 } } : n)) };
+      return noul(0.02);
+    });
+    const shifted = await runYaml({ 'tests/m.e2e.yaml': spec('  - tap: 설정\n') }, moving, { jev: moved.setup });
+    assert.equal(shifted.result.tests[0]!.code, 'stale_target', shifted.result.tests[0]!.reason);
+    assert.match(shifted.result.tests[0]!.reason, /위치가 바뀜/);
+    assert.equal(moving.called('tap').length, 0);
+  });
 });
 
 describe('press: enter and type.submit go through the policy', () => {
@@ -53,9 +87,24 @@ describe('press: enter and type.submit go through the policy', () => {
     assert.equal(driver.called('press').length, 0);
   });
 
+  it('does not press Enter when a destructive dialog appears while Jev answers the commit check', async () => {
+    const driver = new FakeDriver(search());
+    const jev = jevStub(() => {
+      driver.screen = search([DESTRUCTIVE]);
+      return noul(0.02);
+    });
+    const { result } = await runYaml({ 'tests/e.e2e.yaml': spec('  - press: enter\n    expectNoChange: true\n') }, driver, { jev: jev.setup });
+    assert.equal(result.tests[0]!.code, 'stale_target', result.tests[0]!.reason);
+    assert.match(result.tests[0]!.reason, /Jev commit 확인 중 화면이 바뀜/);
+    assert.equal(driver.called('press').length, 0);
+  });
+
   it('type.submit types without Enter, then approves Enter on the screen after typing', async () => {
-    // Safe screen: typed with submit false, the focused field is commit-checked afresh, then Enter is pressed.
+    // Safe screen: typed with submit false, the focused field is commit-checked afresh, then Enter is pressed (it shows results).
     const safe = new FakeDriver(search());
+    safe.onAction = (method, d) => {
+      if (method === 'press') d.screen = fixtureSnapshot('android', 'tteonam', 'search-results', { foreground: APP, keyboardShown: true });
+    };
     const jev = commitSafe();
     const ok = await runYaml({ 'tests/s.e2e.yaml': spec(`  - type: 인천\n    submit: true\n${into}`) }, safe, { jev: jev.setup });
     assert.equal(ok.result.tests[0]!.verdict, 'PASS', ok.result.tests[0]!.reason);
@@ -73,6 +122,26 @@ describe('press: enter and type.submit go through the policy', () => {
     assert.match(result.tests[0]!.reason, /제출\(Enter\)/);
     assert.deepEqual(driver.called('typeText').map((c) => (c.args[2] as { submit?: boolean }).submit), [false]);
     assert.equal(driver.called('press').length, 0);
+  });
+
+  it('type.submit whose Enter changes nothing is INCONCLUSIVE no_effect, measured from the screen after typing', async () => {
+    // Typing alone brings up results (live search); the Enter after it has no effect. Measured from the step start, the
+    // typing would count as the Enter's effect.
+    const results = fixtureSnapshot('android', 'tteonam', 'search-results', { foreground: APP, keyboardShown: true });
+    const run = async (extra: string) => {
+      const driver = new FakeDriver(search());
+      driver.onAction = (method, d) => {
+        if (method === 'typeText') d.screen = results;
+      };
+      const { result } = await runYaml({ 'tests/s.e2e.yaml': spec(`  - type: 인천\n    submit: true\n${into}${extra}`) }, driver, { jev: commitSafe().setup });
+      assert.deepEqual(driver.called('press').map((c) => c.args[0]), ['enter']);
+      return result.tests[0]!;
+    };
+    const inert = await run('');
+    assert.equal(inert.verdict, 'INCONCLUSIVE', inert.reason);
+    assert.equal(inert.code, 'no_effect');
+    const allowed = await run('    expectNoChange: true\n');
+    assert.equal(allowed.verdict, 'PASS', allowed.reason);
   });
 
   it('press: back is not a submission: no policy block and no commit check', async () => {

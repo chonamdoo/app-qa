@@ -1,6 +1,8 @@
 // `checkEach` rules (invariant 1): a JSONLogic rule is evaluated only after every object in it was checked to be exactly
-// one known operator, and only a boolean result counts. json-logic-js treats `{}` or a multi-key object as a truthy data
-// literal, so an unchecked rule could PASS without testing anything; every such case is an ERROR instead.
+// one known operator with the operands it needs, every `var` names a group of the pattern, and at least one `var` is
+// read; only a boolean result counts. json-logic-js treats `{}` or a multi-key object as a truthy data literal and
+// compares a missing operand as `undefined` (`{"==":[]}` is true), so an unchecked rule could PASS without testing
+// anything; every such case is an ERROR instead.
 import jsonLogic from 'json-logic-js';
 
 /** json-logic-js 2.0.5 operators. `log` is left out: it prints group values to stdout, around the evidence sanitizer. */
@@ -41,25 +43,69 @@ const OPERATORS: Record<string, true> = {
   some: true,
 };
 
-function operandProblem(value: unknown, path: string): string | null {
+/** Operand count [min, max] a comparison or logic operator needs to test anything (`<`/`<=` take 3 for between). */
+const ARITY: Record<string, readonly [number, number]> = {
+  '==': [2, 2],
+  '===': [2, 2],
+  '!=': [2, 2],
+  '!==': [2, 2],
+  '>': [2, 2],
+  '>=': [2, 2],
+  '<': [2, 3],
+  '<=': [2, 3],
+  and: [1, Infinity],
+  or: [1, Infinity],
+  '!': [1, 1],
+  '!!': [1, 1],
+  in: [2, 2],
+  var: [1, 1],
+};
+
+function operandProblem(value: unknown, groups: ReadonlySet<string>, read: Set<string>, path: string): string | null {
   if (Array.isArray(value)) {
     for (const [i, item] of value.entries()) {
-      const problem = operandProblem(item, `${path}[${i}]`);
+      const problem = operandProblem(item, groups, read, `${path}[${i}]`);
       if (problem) return problem;
     }
     return null;
   }
-  return value !== null && typeof value === 'object' ? ruleProblem(value, path) : null;
+  return value !== null && typeof value === 'object' ? operatorProblem(value, groups, read, path) : null;
 }
 
-/** Why `rule` is not a checkable JSONLogic rule (Korean), or null. Every object in it must be one known operator. */
-export function ruleProblem(rule: unknown, path = 'rule'): string | null {
+function operatorProblem(rule: unknown, groups: ReadonlySet<string>, read: Set<string>, path: string): string | null {
   if (rule === null || typeof rule !== 'object' || Array.isArray(rule)) return `${path}: JSONLogic 연산자 객체가 아님`;
   const entries = Object.entries(rule);
   if (entries.length !== 1) return `${path}: 연산자 객체는 키가 정확히 1개여야 함 (${entries.length}개: ${entries.map(([k]) => k).join(', ') || '없음'})`;
   const [op, operand] = entries[0]!;
   if (!Object.hasOwn(OPERATORS, op)) return `${path}: 알 수 없는 JSONLogic 연산자 "${op}"`;
-  return operandProblem(operand, `${path}.${op}`);
+  // json-logic-js passes a non-array operand as the single operand.
+  const operands: unknown[] = Array.isArray(operand) ? operand : [operand];
+  if (Object.hasOwn(ARITY, op)) {
+    const [min, max] = ARITY[op]!;
+    if (operands.length < min || operands.length > max) {
+      const need = min === max ? `${min}개` : max === Infinity ? `${min}개 이상` : `${min}~${max}개`;
+      return `${path}.${op}: 피연산자 ${operands.length}개 (필요: ${need})`;
+    }
+  }
+  if (op === 'var') {
+    const name = operands[0];
+    if (typeof name !== 'string' || !name) return `${path}.var: pattern의 이름 그룹 이름(비어 있지 않은 문자열)이어야 함`;
+    if (!groups.has(name)) return `${path}.var: "${name}"는 pattern의 이름 그룹이 아님`;
+    read.add(name);
+    return null;
+  }
+  return operandProblem(operand, groups, read, `${path}.${op}`);
+}
+
+/**
+ * Why `rule` is not a checkable JSONLogic rule over the pattern's named `groups` (Korean), or null. Every object in it
+ * must be one known operator with the operands it needs, and the rule must read at least one group.
+ */
+export function ruleProblem(rule: unknown, groups: ReadonlySet<string>): string | null {
+  const read = new Set<string>();
+  const problem = operatorProblem(rule, groups, read, 'rule');
+  if (problem) return problem;
+  return read.size ? null : 'rule: var가 없어 아무 값도 검사하지 않음';
 }
 
 export interface LineMatch {
