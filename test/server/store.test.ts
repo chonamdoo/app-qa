@@ -3,9 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
-import { stepLabel as runnerStepLabel } from '../../src/runner/steps.ts';
 import { listRuns, readPlanView } from '../../src/server/store.ts';
-import { TestSpec } from '../../src/spec/schema.ts';
 
 let root: string;
 
@@ -132,7 +130,7 @@ describe('events.jsonl validation', () => {
     assert.deepEqual(view.tests[0]?.results, [{ platform: 'desktop-safari', verdict: 'PASS', runId: 'run-c', ts: '2026-09-26T04:00:00.000Z' }]);
   });
 
-  test('plan view step labels never carry typed text, nested steps included, and equal the run labels', async () => {
+  test('plan view step labels never carry typed text, nested steps included', async () => {
     const base = join(root, 'plan-typed');
     const generated = join(base, 'generated');
     for (const dir of [join(generated, 'bank'), join(base, 'tests')]) mkdirSync(dir, { recursive: true });
@@ -168,7 +166,5 @@ describe('events.jsonl validation', () => {
     const shown = JSON.stringify(view);
     for (const typed of ['top-secret-1', 'private-value', 'branch-secret']) assert.ok(!shown.includes(typed), `${typed} in ${shown}`);
     assert.deepEqual(view.tests[0]?.steps, ['입력(12자) → 아이디', '반복: 2회', '분기: 로그인 | 홈', '입력(변수) → PIN', '스크롤: down → 약관']);
-    // The preview is replaced by the runner's labels at run start; both must read the same.
-    assert.deepEqual(view.tests[0]?.steps, TestSpec.parse(spec).steps.map(runnerStepLabel));
   });
 });

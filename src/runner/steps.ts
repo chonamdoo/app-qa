@@ -1,38 +1,5 @@
-// Step labels (run.started / reports) and run-time `${NAME}` expansion; kinds come from `src/spec/schema.ts`.
-import { STEP_KIND_LABEL, stepKind, type StepSpec } from '../spec/schema.ts';
-
-function describe(value: unknown): string {
-  if (value === true || value === undefined) return '';
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
-  if (value && typeof value === 'object') {
-    if ('regex' in value) return `/${String(value.regex)}/`;
-    return Object.entries(value)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => `${k}=${typeof v === 'string' || typeof v === 'number' ? v : describe(v) || JSON.stringify(v)}`)
-      .join(', ');
-  }
-  return JSON.stringify(value);
-}
-
-/**
- * "탭: 출국장", "입력(2자) → 검색창", "반복: 3회" … Labels are built before the step runs, before the target is
- * observed, so a `type` label never carries the typed text (the field may turn out to be secure): only its length, or
- * `변수` when the text has a `${…}` placeholder. The evidence sanitizer masks profile `redact` matches and known
- * secrets in the rest.
- */
-export function stepLabel(step: StepSpec): string {
-  const kind = stepKind(step);
-  if ('type' in step) return `${STEP_KIND_LABEL[kind]}(${step.type.includes('${') ? '변수' : `${[...step.type].length}자`}) → ${describe(step.into)}`;
-  let detail: string;
-  if ('which' in step) detail = Object.keys(step.which).join(' | ');
-  else if ('repeat' in step) detail = step.repeat.times !== undefined ? `${step.repeat.times}회` : `조건 ${describe(step.repeat.while)}`;
-  else if ('wait' in step) detail = typeof step.wait === 'number' ? `${step.wait}ms` : `${describe(step.wait.until)}까지`;
-  else if ('checkEach' in step) detail = `/${step.checkEach.pattern}/`;
-  else if ('remember' in step) detail = `${step.remember.name} ← ${describe(step.remember.from)}`;
-  else if ('scroll' in step) detail = `${step.scroll.direction}${step.scroll.until ? ` → ${describe(step.scroll.until)}` : ''}`;
-  else detail = describe(Object.entries(step).find(([key]) => key === kind)?.[1]);
-  return detail ? `${STEP_KIND_LABEL[kind]}: ${detail}` : STEP_KIND_LABEL[kind];
-}
+// Run-time `${NAME}` expansion of steps; step labels live with the step kinds in `src/spec/schema.ts`.
+import type { StepSpec } from '../spec/schema.ts';
 
 const VAR = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 

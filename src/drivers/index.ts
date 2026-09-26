@@ -13,7 +13,7 @@ export type { DriverOptions, Key, LaunchOptions, PermissionState } from './base.
 export { failureStatus, RefusedError, StepError } from './base.ts';
 export { androidChromeChecks, iosSafariChecks, prepareAndroidChrome } from './browser-prep.ts';
 export { listDevices, pickDevice } from './devices.ts';
-export { acquireDeviceLock, DeviceLockedError, type DeviceLock } from './lock.ts';
+export { acquireDeviceLock, acquireDisplayLock, clearDisplayUnknown, DeviceLockedError, DISPLAY_DIR, markDisplayUnknown, readDisplayUnknown, type DeviceLock, type DisplayUnknown } from './lock.ts';
 export { grabScreen, startRecording, stopRecording } from './screen.ts';
 
 /** Creates a driver for a device (desktop: the browser platform id); the session opens on `driver.open(app)`. */

@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import type { QaEventBody } from '../../src/core/events.ts';
 import type { Platform, Point, Snapshot } from '../../src/core/types.ts';
-import { RefusedError, StepError } from '../../src/drivers/index.ts';
+import { acquireDisplayLock, clearDisplayUnknown, readDisplayUnknown, RefusedError, StepError } from '../../src/drivers/index.ts';
 import { appTarget, captureScreen, inspectScreen, runSmoke, runTests, type RunnerDeps } from '../../src/runner/index.ts';
 import { AppProfile } from '../../src/spec/schema.ts';
 import { FakeClock, FakeDriver, fixtureSnapshot, hits } from '../helpers/fake-driver.ts';
 import { choice, commitSafe, jevStub, noul, webCalibration } from '../helpers/jev-stub.ts';
-import { fakeDeps, runYaml, tempRoot } from '../helpers/run.ts';
+import { displayDeps, fakeDeps, readJsonl, runYaml, tempRoot } from '../helpers/run.ts';
 
 const index = (opts: { patch?: [string, string][]; pageUrl?: string | null } = {}) => fixtureSnapshot('desktop-chrome', 'web-demo', 'index', opts);
 
@@ -61,6 +62,10 @@ describe('web targets', () => {
           claimed.push(id);
           return { release: () => undefined };
         },
+        acquireDisplayLock: () => {
+          claimed.push('display');
+          return { release: () => undefined };
+        },
       },
     );
     const rows = result.tests.map((t) => `${t.id} ${t.platform} ${t.surface} ${t.verdict}`).sort();
@@ -72,7 +77,7 @@ describe('web targets', () => {
       'site desktop-safari web PASS',
       'site ios web PASS',
     ]);
-    assert.deepEqual(claimed.sort(), ['android-1', 'desktop-chrome-1', 'desktop-display', 'desktop-safari-1', 'ios-1']);
+    assert.deepEqual(claimed.sort(), ['android-1', 'desktop-chrome-1', 'desktop-safari-1', 'display', 'ios-1']);
   });
 
   it('asks the desktop hit-test before a tap and refuses a target the page would not receive', async () => {
@@ -141,6 +146,46 @@ describe('web targets', () => {
     // Asked before the check and again at the point actually tapped.
     assert.equal(same.asked.length, 2);
     assert.deepEqual(same.asked[1], tap!.args[0]);
+  });
+
+  it('refuses Enter (press: enter, type.submit) whose focused field was replaced while Jev answered, even with the same path, id, box, value and state', async () => {
+    // The page re-renders the focused 비밀번호 field during the Enter's commit check: the tree (and so every DFS node id,
+    // resource id, box, value and state) is identical, only document.activeElement is another element.
+    const login = fixtureSnapshot('desktop-chrome', 'web-demo', 'login-email');
+    const steps = {
+      'press: enter': '  - press: enter\n    expectNoChange: true\n',
+      'type.submit': '  - type: pw1234\n    into: { id: password }\n    submit: true\n    expectNoChange: true\n',
+    };
+    const run = async (step: string, after: string | null) => {
+      const driver = new FakeDriver(login);
+      driver.hittable = () => true;
+      let focused: string | null = 'field-old';
+      let reads = 0;
+      driver.focusedElementId = async () => {
+        reads++;
+        return focused;
+      };
+      // Replaced during the Enter's own commit check (type.submit asks one before typing, for the field).
+      const jev = jevStub((_id, q) => {
+        if (!step.includes('submit') || driver.called('typeText').length > 0) focused = after;
+        return q.type === 'noul' ? noul(0.02) : choice(q, 'none', 0.9);
+      }, webCalibration());
+      const { result } = await runYaml({ 'tests/e.e2e.yaml': web(step) }, driver, { platform: 'desktop-chrome', jev: jev.setup });
+      return { driver, reads, t: result.tests[0]! };
+    };
+    for (const [name, step] of Object.entries(steps)) {
+      for (const after of ['field-new', null]) {
+        const replaced = await run(step, after);
+        assert.equal(replaced.t.code, 'stale_target', `${name} ${after}: ${replaced.t.reason}`);
+        assert.match(replaced.t.reason, /Jev commit 확인 중 포커스된 "비밀번호"이\(가\) 다른 요소로 바뀜/, name);
+        assert.equal(replaced.driver.called('press').length, 0, `${name} ${after}`);
+      }
+      const same = await run(step, 'field-old');
+      assert.equal(same.t.verdict, 'PASS', `${name}: ${same.t.reason}`);
+      assert.deepEqual(same.driver.called('press').map((c) => c.args[0]), ['enter'], name);
+      // Read before the check and again on the observation after it.
+      assert.equal(same.reads, 2, name);
+    }
   });
 
   it('launching a website waits through empty first dumps, and a page that never shows content is ERROR page_not_ready', async () => {
@@ -284,15 +329,13 @@ describe('the desktop lane (every desktop browser on one display)', () => {
           if (platform === 'desktop-chrome') throw boom;
           return d[platform];
         },
-        acquireLock: (id) => {
-          const closes = () => (id === 'desktop-display' ? d['desktop-chrome'].called('close').length + d['desktop-safari'].called('close').length : d[id.replace(/-1$/, '') as Platform].called('close').length);
-          return { release: () => released.push(`${id} closes=${closes()}`) };
-        },
+        acquireLock: (id) => ({ release: () => released.push(`${id} closes=${d[id.replace(/-1$/, '') as Platform].called('close').length}`) }),
+        acquireDisplayLock: () => ({ release: () => released.push(`display closes=${d['desktop-chrome'].called('close').length + d['desktop-safari'].called('close').length}`) }),
       }),
       boom,
     );
     // Devices ran both apps (two sessions closed) before their locks went; Safari never ran behind the throwing Chrome.
-    assert.deepEqual(released.sort(), ['android-1 closes=2', 'desktop-chrome-1 closes=0', 'desktop-display closes=0', 'desktop-safari-1 closes=0', 'ios-1 closes=2']);
+    assert.deepEqual(released.sort(), ['android-1 closes=2', 'desktop-chrome-1 closes=0', 'desktop-safari-1 closes=0', 'display closes=0', 'ios-1 closes=2']);
   });
 
   it('holds the display lock from before the first browser opens until the last one closed; a run without a desktop platform never takes it', async () => {
@@ -300,16 +343,13 @@ describe('the desktop lane (every desktop browser on one display)', () => {
     const browsers = (method: string) => d['desktop-chrome'].called(method).length + d['desktop-safari'].called(method).length;
     const log: string[] = [];
     const { rows } = await runAll(d, {
-      acquireLock: (id) => {
-        log.push(`acquire ${id} opens=${browsers('open')}`);
-        return { release: () => log.push(`release ${id} closes=${browsers('close')}`) };
+      acquireDisplayLock: () => {
+        log.push(`acquire display opens=${browsers('open')}`);
+        return { release: () => log.push(`release display closes=${browsers('close')}`) };
       },
     });
     assert.ok(rows.every((r) => r.endsWith('PASS -')), rows.join('\n'));
-    assert.deepEqual(
-      log.filter((l) => l.includes('desktop-display')),
-      ['acquire desktop-display opens=0', 'release desktop-display closes=2'],
-    );
+    assert.deepEqual(log, ['acquire display opens=0', 'release display closes=2']);
 
     // `all` with only an app test plans no desktop platform.
     const root = tempRoot({ 'tests/app.e2e.yaml': 'name: 앱 테스트\napp: tteonam\nstart: attach\nsteps:\n  - wait: 10\n' });
@@ -325,25 +365,25 @@ describe('the desktop lane (every desktop browser on one display)', () => {
           taken.push(id);
           return { release: () => undefined };
         },
+        acquireDisplayLock: () => {
+          taken.push('display');
+          return { release: () => undefined };
+        },
       },
     );
     assert.deepEqual(tests.map((t) => `${t.platform} ${t.verdict}`).sort(), ['android PASS', 'ios PASS']);
     assert.deepEqual(taken.sort(), ['android-1', 'ios-1']);
   });
 
-  it('a display held by another qa process refuses every desktop platform like a busy device; devices still run', async () => {
-    const outcome = async (busy: string) => {
-      const d = drivers();
-      const { result, rows } = await runAll(d, {
-        acquireLock: (id) => {
-          if (id === busy) throw new Error(`${id}: 다른 qa 프로세스(pid 4242)가 사용 중`);
-          return { release: () => undefined };
-        },
-      });
-      return { d, result, rows };
-    };
-    const display = await outcome('desktop-display');
-    assert.deepEqual(display.rows, [
+  it('a display held by a qa process of any checkout refuses every desktop platform like a busy device; devices still run', async () => {
+    // The display lock is one host file, not a project's: a live holder from another checkout (another project root —
+    // here this test process) refuses this run's browsers.
+    const shared = join(tempRoot(), 'app-qa-display');
+    const other = acquireDisplayLock({ dir: shared });
+    const d = drivers();
+    const held = await runAll(d, displayDeps(shared));
+    other.release();
+    assert.deepEqual(held.rows, [
       'app android PASS -',
       'app ios PASS -',
       'site android PASS -',
@@ -351,32 +391,84 @@ describe('the desktop lane (every desktop browser on one display)', () => {
       'site desktop-safari ERROR device_locked',
       'site ios PASS -',
     ]);
-    for (const t of display.result.tests.filter((t) => t.platform.startsWith('desktop'))) {
+    for (const t of held.result.tests.filter((t) => t.platform.startsWith('desktop'))) {
       assert.equal(t.qaStatus, 'BLOCKED');
-      assert.match(t.reason, /데스크톱 화면 사용 중: desktop-display: 다른 qa 프로세스\(pid 4242\)가 사용 중/);
+      assert.match(t.reason, new RegExp(`^데스크톱 화면 사용 중: 데스크톱 화면: 다른 qa 프로세스\\(pid ${process.pid}, `));
     }
-    assert.equal(display.d['desktop-chrome'].called('open').length + display.d['desktop-safari'].called('open').length, 0);
+    assert.equal(d['desktop-chrome'].called('open').length + d['desktop-safari'].called('open').length, 0);
+    // Once released, a run from yet another project root opens its browsers.
+    const free = await runAll(drivers(), displayDeps(shared));
+    assert.ok(free.rows.every((r) => r.endsWith('PASS -')), free.rows.join('\n'));
     // The same outcome as a browser whose own lock is held.
-    const device = await outcome('desktop-chrome-1');
-    const chrome = (r: typeof display) => r.result.tests.find((t) => t.platform === 'desktop-chrome')!;
-    assert.deepEqual([chrome(device).verdict, chrome(device).code, chrome(device).qaStatus], [chrome(display).verdict, chrome(display).code, chrome(display).qaStatus]);
+    const device = await runAll(drivers(), {
+      acquireLock: (id) => {
+        if (id === 'desktop-chrome-1') throw new Error(`${id}: 다른 qa 프로세스(pid 4242)가 사용 중`);
+        return { release: () => undefined };
+      },
+    });
+    const chrome = (r: typeof held) => r.result.tests.find((t) => t.platform === 'desktop-chrome')!;
+    assert.deepEqual([chrome(device).verdict, chrome(device).code, chrome(device).qaStatus], [chrome(held).verdict, chrome(held).code, chrome(held).qaStatus]);
+  });
+
+  it('a display left unknown is recorded host-wide before its lock goes: no run of any checkout opens a browser until it is cleared; devices still run', async () => {
+    const shared = join(tempRoot(), 'app-qa-display');
+    const lost = drivers();
+    lost['desktop-chrome'].closeError = new StepError({ status: 'uncertain', ms: 0, error: '브라우저 세션 종료를 확인하지 못했습니다: socket hang up' });
+    const released: boolean[] = [];
+    const first = await runAll(lost, {
+      ...displayDeps(shared),
+      acquireDisplayLock: () => {
+        const lock = acquireDisplayLock({ dir: shared });
+        return { release: () => (released.push(readDisplayUnknown({ dir: shared }) !== null), lock.release()) };
+      },
+    });
+    assert.ok(first.rows.includes('site desktop-safari ERROR display_unknown'), first.rows.join('\n'));
+    assert.deepEqual(released, [true], 'recorded before the display lock was released');
+    const record = readDisplayUnknown({ dir: shared })!;
+    assert.equal(record.runId, first.result.runId);
+    assert.equal(record.reason, 'Chrome (macOS) 세션 종료를 확인하지 못함 (브라우저 세션 종료를 확인하지 못했습니다: socket hang up)');
+
+    // The next run, from another project root: no browser opens, the devices run.
+    const next = drivers();
+    const blocked = await runAll(next, displayDeps(shared));
+    assert.deepEqual(blocked.rows, [
+      'app android PASS -',
+      'app ios PASS -',
+      'site android PASS -',
+      'site desktop-chrome ERROR display_unknown',
+      'site desktop-safari ERROR display_unknown',
+      'site ios PASS -',
+    ]);
+    for (const t of blocked.result.tests.filter((t) => t.platform.startsWith('desktop'))) {
+      assert.equal(t.qaStatus, 'BLOCKED');
+      assert.match(t.reason, /^데스크톱 화면 상태를 알 수 없어 브라우저를 열지 않음 \(.* 실행 .*: Chrome \(macOS\) 세션 종료를 확인하지 못함 .*\) — 화면에 남은 브라우저 창을 닫은 뒤 qa setup --browsers로 해제하세요$/);
+    }
+    assert.equal(next['desktop-chrome'].called('open').length + next['desktop-safari'].called('open').length, 0);
+
+    // Cleared (`qa setup --browsers`, after the leftover windows were closed): browsers run again.
+    assert.equal(clearDisplayUnknown({ dir: shared }), true);
+    const again = await runAll(drivers(), displayDeps(shared));
+    assert.ok(again.rows.every((r) => r.endsWith('PASS -')), again.rows.join('\n'));
   });
 });
 
 describe('smoke, capture and inspect on a desktop browser', () => {
-  const lockLog = (log: string[], busy: string | null = null): Pick<RunnerDeps, 'acquireLock'> => ({
-    acquireLock: (id) => {
+  const lockLog = (log: string[], busy: string | null = null): Pick<RunnerDeps, 'acquireLock' | 'acquireDisplayLock'> => {
+    const take = (id: string) => {
       if (id === busy) throw new Error(`${id}: 다른 qa 프로세스(pid 4242)가 사용 중`);
       log.push(`acquire ${id}`);
       return { release: () => log.push(`release ${id}`) };
-    },
-  });
-  const smoke = async (driver: FakeDriver, platform: Platform, locks: Pick<RunnerDeps, 'acquireLock'>) => {
+    };
+    return { acquireLock: take, acquireDisplayLock: () => take('display') };
+  };
+  const smoke = async (driver: FakeDriver, platform: Platform, deps: Partial<RunnerDeps>) => {
     const events: QaEventBody[] = [];
     const app = platform.startsWith('desktop') ? 'web-demo' : 'tteonam';
-    const result = await runSmoke({ app, platform, events: { emit: (e) => events.push(e) } }, { ...fakeDeps(tempRoot(), driver), ...locks });
+    const result = await runSmoke({ app, platform, events: { emit: (e) => events.push(e) } }, { ...fakeDeps(tempRoot(), driver), ...deps });
     return { t: result.tests[0]!, result, events };
   };
+  const uncertainClose = () => new StepError({ status: 'uncertain', ms: 0, error: '브라우저 세션 종료를 확인하지 못했습니다: socket hang up' });
+  const phone = () => new FakeDriver(fixtureSnapshot('android', 'tteonam', 'launch', { foreground: 'kr.tteonam.app' }));
 
   it('a smoke whose browser session end is unconfirmed is ERROR display_unknown; a device session end failure changes nothing', async () => {
     const chrome = new FakeDriver(index());
@@ -411,11 +503,83 @@ describe('smoke, capture and inspect on a desktop browser', () => {
     assert.equal((await smoke(device, 'android', lockLog([]))).t.verdict, 'PASS');
   });
 
+  it('the smoke’s one test.finished carries the final verdict, after the session end: the event stream agrees with summary.json', async () => {
+    const chrome = new FakeDriver(index());
+    chrome.closeError = uncertainClose();
+    const lost = await smoke(chrome, 'desktop-chrome', {});
+    assert.equal(lost.t.code, 'display_unknown', lost.t.reason);
+    const finished = lost.events.flatMap((e) => (e.type === 'test.finished' ? [[e.verdict, e.reason, e.durationMs]] : []));
+    assert.deepEqual(finished, [['ERROR', lost.t.reason, lost.t.durationMs]]);
+    // The stored stream (what `qa serve` and the Mac app replay) says what summary.json says.
+    const stored = readJsonl(join(lost.result.runDir, 'events.jsonl')).filter((e) => e.type === 'test.finished');
+    const summary = JSON.parse(readFileSync(join(lost.result.runDir, 'summary.json'), 'utf8')) as { tests: { verdict: string; reason: string }[] };
+    assert.deepEqual(stored.map((e) => [e.verdict, e.reason]), summary.tests.map((t) => [t.verdict, t.reason]));
+
+    const ok = await smoke(new FakeDriver(index()), 'desktop-chrome', {});
+    assert.deepEqual(ok.events.flatMap((e) => (e.type === 'test.finished' ? [e.verdict] : [])), ['PASS']);
+    const refused = await smoke(new FakeDriver(index()), 'desktop-chrome', lockLog([], 'display'));
+    assert.deepEqual(refused.events.flatMap((e) => (e.type === 'test.finished' ? [e.verdict] : [])), ['ERROR']);
+  });
+
+  it('a smoke, capture or inspect that leaves the display unknown records it before its lock goes; none opens a browser until it is cleared; devices still run', async () => {
+    const shared = join(tempRoot(), 'app-qa-display');
+    const log: string[] = [];
+    const chrome = new FakeDriver(index());
+    chrome.closeError = uncertainClose();
+    const lost = await smoke(chrome, 'desktop-chrome', {
+      ...displayDeps(shared),
+      acquireDisplayLock: () => {
+        const lock = acquireDisplayLock({ dir: shared });
+        return { release: () => (log.push(`release display, recorded ${readDisplayUnknown({ dir: shared }) !== null}`), lock.release()) };
+      },
+    });
+    assert.equal(lost.t.code, 'display_unknown', lost.t.reason);
+    assert.deepEqual(log, ['release display, recorded true']);
+    assert.deepEqual(readDisplayUnknown({ dir: shared }), { since: readDisplayUnknown({ dir: shared })!.since, reason: 'Chrome (macOS) 세션 종료를 확인하지 못함 (브라우저 세션 종료를 확인하지 못했습니다: socket hang up)', runId: lost.result.runId });
+
+    // Another smoke (any project root), a capture and an inspect: refused before any browser opens.
+    const safari = new FakeDriver({ ...index(), platform: 'desktop-safari' });
+    const next = await smoke(safari, 'desktop-safari', displayDeps(shared));
+    assert.deepEqual([next.t.verdict, next.t.code, next.t.qaStatus], ['ERROR', 'display_unknown', 'BLOCKED']);
+    assert.match(next.t.reason, /^데스크톱 화면 상태를 알 수 없어 브라우저를 열지 않음 \(.*: Chrome \(macOS\) 세션 종료를 확인하지 못함 .*\) — 화면에 남은 브라우저 창을 닫은 뒤 qa setup --browsers로 해제하세요$/);
+    const screen = new FakeDriver(index());
+    await assert.rejects(captureScreen({ app: 'web-demo', platform: 'desktop-chrome', name: 'shot' }, { ...fakeDeps(tempRoot(), screen), ...displayDeps(shared) }), /qa setup --browsers로 해제하세요/);
+    await assert.rejects(inspectScreen({ app: 'web-demo', platform: 'desktop-chrome' }, { ...fakeDeps(tempRoot(), screen), ...displayDeps(shared) }), /qa setup --browsers로 해제하세요/);
+    assert.equal(safari.called('open').length + screen.called('open').length, 0);
+    assert.equal((await smoke(phone(), 'android', displayDeps(shared))).t.verdict, 'PASS');
+
+    // Cleared: browsers open again. A capture whose session start is unconfirmed records it as well.
+    assert.equal(clearDisplayUnknown({ dir: shared }), true);
+    assert.equal((await smoke(new FakeDriver(index()), 'desktop-chrome', displayDeps(shared))).t.verdict, 'PASS');
+    const hung = new FakeDriver(index());
+    hung.openError = new StepError({ status: 'uncertain', ms: 0, error: '세션 생성 시간 초과' });
+    await assert.rejects(
+      captureScreen({ app: 'web-demo', platform: 'desktop-chrome', name: 'shot' }, { ...fakeDeps(tempRoot(), hung), ...displayDeps(shared) }),
+      /^Error: 데스크톱 화면 상태를 알 수 없음: Chrome \(macOS\) 세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음 \(세션 생성 시간 초과\)$/,
+    );
+    assert.equal(readDisplayUnknown({ dir: shared })?.reason, 'Chrome (macOS) 세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음 (세션 생성 시간 초과)');
+  });
+
+  it('a display state that cannot be recorded keeps the display lock for the rest of the process, and says so', async () => {
+    const log: string[] = [];
+    const chrome = new FakeDriver(index());
+    chrome.closeError = uncertainClose();
+    const lost = await smoke(chrome, 'desktop-chrome', {
+      ...lockLog(log),
+      markDisplayUnknown: () => {
+        throw new Error('EACCES: permission denied');
+      },
+    });
+    assert.equal(lost.t.code, 'display_unknown', lost.t.reason);
+    assert.deepEqual(log, ['acquire display', `acquire ${chrome.deviceId}`, `release ${chrome.deviceId}`]);
+    assert.ok(lost.events.some((e) => e.type === 'log' && e.level === 'error' && /데스크톱 화면 상태를 기록하지 못해 이 프로세스가 끝날 때까지 화면 잠금을 유지함 \(EACCES: permission denied\)/.test(e.message)));
+  });
+
   it('smoke takes the display lock for a desktop browser only and releases it; a held display refuses it like a busy device', async () => {
     const log: string[] = [];
     const chrome = new FakeDriver(index());
     assert.equal((await smoke(chrome, 'desktop-chrome', lockLog(log))).t.verdict, 'PASS');
-    assert.deepEqual(log, ['acquire desktop-display', `acquire ${chrome.deviceId}`, `release ${chrome.deviceId}`, 'release desktop-display']);
+    assert.deepEqual(log, ['acquire display', `acquire ${chrome.deviceId}`, `release ${chrome.deviceId}`, 'release display']);
 
     const deviceLog: string[] = [];
     const device = new FakeDriver(fixtureSnapshot('android', 'tteonam', 'launch', { foreground: 'kr.tteonam.app' }));
@@ -423,7 +587,7 @@ describe('smoke, capture and inspect on a desktop browser', () => {
     assert.deepEqual(deviceLog, [`acquire ${device.deviceId}`, `release ${device.deviceId}`]);
 
     const refused = new FakeDriver(index());
-    const busy = await smoke(refused, 'desktop-chrome', lockLog([], 'desktop-display'));
+    const busy = await smoke(refused, 'desktop-chrome', lockLog([], 'display'));
     assert.equal(busy.t.code, 'device_locked', busy.t.reason);
     assert.equal(busy.t.qaStatus, 'BLOCKED');
     assert.equal(refused.called('open').length, 0);
@@ -434,7 +598,7 @@ describe('smoke, capture and inspect on a desktop browser', () => {
     const lost = new FakeDriver(index());
     lost.closeError = new Error('socket hang up');
     await assert.rejects(captureScreen({ app: 'web-demo', platform: 'desktop-chrome', name: 'shot' }, { ...fakeDeps(tempRoot(), lost), ...lockLog(log) }), /^Error: 데스크톱 화면 상태를 알 수 없음: Chrome \(macOS\) 세션 종료를 확인하지 못함 \(socket hang up\)$/);
-    assert.deepEqual(log, ['acquire desktop-display', `acquire ${lost.deviceId}`, `release ${lost.deviceId}`, 'release desktop-display']);
+    assert.deepEqual(log, ['acquire display', `acquire ${lost.deviceId}`, `release ${lost.deviceId}`, 'release display']);
     await assert.rejects(inspectScreen({ app: 'web-demo', platform: 'desktop-chrome' }, { ...fakeDeps(tempRoot(), lost), ...lockLog([]) }), /데스크톱 화면 상태를 알 수 없음/);
 
     const device = new FakeDriver(fixtureSnapshot('android', 'tteonam', 'launch', { foreground: 'kr.tteonam.app' }));
@@ -444,7 +608,7 @@ describe('smoke, capture and inspect on a desktop browser', () => {
     assert.deepEqual(deviceLog, [`acquire ${device.deviceId}`, `release ${device.deviceId}`]);
 
     const refused = new FakeDriver(index());
-    await assert.rejects(inspectScreen({ app: 'web-demo', platform: 'desktop-chrome' }, { ...fakeDeps(tempRoot(), refused), ...lockLog([], 'desktop-display') }), /desktop-display: 다른 qa 프로세스/);
+    await assert.rejects(inspectScreen({ app: 'web-demo', platform: 'desktop-chrome' }, { ...fakeDeps(tempRoot(), refused), ...lockLog([], 'display') }), /display: 다른 qa 프로세스/);
     assert.equal(refused.called('open').length, 0);
   });
 });

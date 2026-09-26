@@ -7,7 +7,7 @@ import type { EventSink } from '../core/events.ts';
 import { newRunId, sha256, writeJson, writeSecure } from '../core/fsx.ts';
 import { PLATFORM_INFO, PLATFORMS } from '../core/platform.ts';
 import type { DeviceInfo, Driver, Platform, ScreenModel, Verdict, WebTarget } from '../core/types.ts';
-import { acquireDeviceLock, createDriver, failureStatus, pickDevice } from '../drivers/index.ts';
+import { acquireDeviceLock, acquireDisplayLock, createDriver, failureStatus, markDisplayUnknown, pickDevice, readDisplayUnknown, type DisplayUnknown } from '../drivers/index.ts';
 import { JevClient } from '../jev/client.ts';
 import { loadJevConfig } from '../jev/config.ts';
 import { loadCalibration } from '../jev/gates.ts';
@@ -75,6 +75,16 @@ export interface RunnerDeps {
   pickDevice(platform: Platform, id?: string): Promise<DeviceInfo>;
   /** Throws when another live process holds the device. */
   acquireLock(deviceId: string): { release(): void };
+  /**
+   * The lock on this Mac's display, pointer and keyboard focus, taken by every qa process of this OS user (any
+   * checkout) whose work opens a desktop browser: two browsers on one display take each other's input and focus.
+   * Throws when another live process holds it.
+   */
+  acquireDisplayLock(): { release(): void };
+  /** The host-wide record that a browser window may still be on the display (read under the display lock), or null. */
+  readDisplayUnknown(): DisplayUnknown | null;
+  /** Writes that record (throws when it cannot); only `qa setup --browsers` clears it. */
+  markDisplayUnknown(record: DisplayUnknown): void;
   jev(): JevSetup;
   ocr: OcrFn | null;
   clock: Clock;
@@ -110,6 +120,9 @@ function resolveDeps(partial: Partial<RunnerDeps> = {}): RunnerDeps {
     createDriver: partial.createDriver ?? ((platform, id) => createDriver(platform, id)),
     pickDevice: partial.pickDevice ?? pickDevice,
     acquireLock: partial.acquireLock ?? ((id) => acquireDeviceLock(id)),
+    acquireDisplayLock: partial.acquireDisplayLock ?? acquireDisplayLock,
+    readDisplayUnknown: partial.readDisplayUnknown ?? readDisplayUnknown,
+    markDisplayUnknown: partial.markDisplayUnknown ?? markDisplayUnknown,
     jev: partial.jev ?? realJev,
     ocr: partial.ocr !== undefined ? partial.ocr : existsSync(OCR_HELPER) ? runOcr : null,
     clock: partial.clock ?? realClock,
@@ -170,7 +183,10 @@ function unrunResult(
   });
 }
 
-/** A lock released at most once: after its work, and again in the run's cleanup for work that never ran. */
+/**
+ * A lock released at most once: after its work, and again in the run's cleanup for work that never ran. The display
+ * lock is dropped unreleased (held until the process exits) when its unknown state could not be recorded.
+ */
 interface Held {
   lock: { release(): void } | null;
 }
@@ -187,11 +203,25 @@ function releaseHeld(held: Held): void {
   lock?.release();
 }
 
+/** Why no browser opens on this Mac's display while the host-wide record is there, and how the user clears it. */
+function displayUnknownReason(unknown: DisplayUnknown): string {
+  return `데스크톱 화면 상태를 알 수 없어 브라우저를 열지 않음 (${unknown.since}${unknown.runId ? ` 실행 ${unknown.runId}` : ''}: ${unknown.reason}) — 화면에 남은 브라우저 창을 닫은 뒤 qa setup --browsers로 해제하세요`;
+}
+
 /**
- * The lock on this Mac's display, pointer and keyboard focus, taken through `acquireLock` by every qa process whose
- * work opens a desktop browser: two browsers on one display take each other's input and focus.
+ * Records host-wide that a browser window may still be on this Mac's display (`reason` already sanitized) while the
+ * display lock is still held: until `qa setup --browsers` clears it, no qa process of any checkout opens a browser
+ * there. A record that cannot be written keeps the lock until this process exits (logged): releasing it would hand the
+ * display on as if nothing were left.
  */
-const DISPLAY_LOCK = 'desktop-display';
+function recordDisplayUnknown(d: RunnerDeps, display: Held, sink: EventSink | undefined, reason: string, runId?: string): void {
+  try {
+    d.markDisplayUnknown({ since: new Date().toISOString(), reason, runId });
+  } catch (err) {
+    display.lock = null;
+    sink?.emit({ type: 'log', level: 'error', source: 'runner', message: `데스크톱 화면 상태를 기록하지 못해 이 프로세스가 끝날 때까지 화면 잠금을 유지함 (${message(err)}) — 화면에 남은 브라우저 창을 닫으세요` });
+  }
+}
 
 function isDesktop(platform: Platform): boolean {
   return PLATFORM_INFO[platform].host === 'desktop';
@@ -208,20 +238,22 @@ interface Lane {
 }
 
 /**
- * Picks and locks one device per platform, and the display (`DISPLAY_LOCK`) when any platform is a desktop browser;
- * failures become a per-platform problem (tests there ERROR): a display held elsewhere refuses every desktop platform
- * like a device in use.
+ * Picks and locks one device per platform, and the display (`acquireDisplayLock`) when any platform is a desktop
+ * browser; failures become a per-platform problem (tests there ERROR): a display held elsewhere refuses every desktop
+ * platform like a device in use, and one recorded as unknown (read under its lock) refuses them as `display_unknown`.
  */
 async function claimDevices(d: RunnerDeps, platforms: readonly Platform[], ids: Partial<Record<Platform, string>> | undefined): Promise<{ slots: Map<Platform, Slot>; display: Held }> {
   const slots = new Map<Platform, Slot>();
   const display: Held = { lock: null };
-  let displayBusy: string | null = null;
+  let displayProblem: Slot['problem'] = null;
   if (platforms.some(isDesktop)) {
     try {
-      display.lock = d.acquireLock(DISPLAY_LOCK);
+      display.lock = d.acquireDisplayLock();
     } catch (err) {
-      displayBusy = `데스크톱 화면 사용 중: ${message(err)}`;
+      displayProblem = { code: 'device_locked', reason: `데스크톱 화면 사용 중: ${message(err)}` };
     }
+    const unknown = display.lock ? d.readDisplayUnknown() : null;
+    if (unknown) displayProblem = { code: 'display_unknown', reason: displayUnknownReason(unknown) };
   }
   for (const platform of platforms) {
     const slot: Slot = { platform, device: null, lock: null, problem: null };
@@ -232,8 +264,8 @@ async function claimDevices(d: RunnerDeps, platforms: readonly Platform[], ids: 
       slot.problem = { code: 'no_device', reason: `${platform} 기기 없음: ${message(err)}` };
       continue;
     }
-    if (displayBusy !== null && isDesktop(platform)) {
-      slot.problem = { code: 'device_locked', reason: displayBusy };
+    if (displayProblem !== null && isDesktop(platform)) {
+      slot.problem = displayProblem;
       continue;
     }
     try {
@@ -362,9 +394,12 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
         out.push(r);
       };
       // A browser window of this lane may still be on the display: its input and focus would reach the wrong window.
+      // Recorded host-wide before the display lock goes, so later runs of any checkout do not open a browser either.
       const loseDisplay = (clean: EvidenceSanitizer, what: string, err: unknown) => {
-        lane.displayUnknown = clean.text(`데스크톱 화면 상태를 알 수 없어 남은 브라우저 테스트를 실행하지 않음: ${PLATFORM_INFO[slot.platform].label} ${what} (${message(err)})`);
+        const cause = clean.text(`${PLATFORM_INFO[slot.platform].label} ${what} (${message(err)})`);
+        lane.displayUnknown = `데스크톱 화면 상태를 알 수 없어 남은 브라우저 테스트를 실행하지 않음: ${cause}`;
         store.emit({ type: 'log', level: 'error', source: 'runner', message: lane.displayUnknown });
+        recordDisplayUnknown(d, display, store, cause, runId);
       };
       if (slot.problem || !slot.device) {
         for (const { test } of mine) skip(test, 'ERROR', slot.problem?.code ?? 'no_device', slot.problem?.reason ?? '기기 없음');
@@ -416,7 +451,8 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
     };
     // Desktop browsers share this Mac's display, pointer and keyboard focus, so they run one after another (measured:
     // Safari's clicks had no effect while a Chrome window was in front of it) under the display lock, which keeps other
-    // qa processes' browsers off the display until this lane ends; devices run in parallel.
+    // qa processes' browsers off the display until this lane ends (and after it, while its state is recorded as
+    // unknown); devices run in parallel.
     const lanes = new Map<string, Lane>();
     for (const slot of slots.values()) {
       const desktop = isDesktop(slot.platform);
@@ -472,7 +508,8 @@ function smokeTest(profile: AppProfile): LoadedTest {
  * Observe-only smoke on one platform: launch → settle → health (incl. blank) → screenshot → inventory. `crawl:'tabs'`
  * visits role-identified tab bar items only (risk-filtered) and returns to the first tab. Jev is a reference column.
  * A desktop browser whose start or end is unconfirmed may still be on the display: the smoke is then ERROR
- * `display_unknown` (its own result kept in the reason), and the caller must not open another browser.
+ * `display_unknown` (its own result kept in the reason) and the display is recorded as unknown, so no qa process opens
+ * another browser until `qa setup --browsers` clears it. `test.finished` carries that final verdict.
  */
 export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): Promise<RunResult> {
   const d = resolveDeps(deps);
@@ -527,8 +564,10 @@ export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): 
         if (desktop && !opened && failureStatus(err) !== 'rejected') lost = `세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음 (${message(err)})`;
       }
       if (lost !== null) {
-        const reason = clean.text(`데스크톱 화면 상태를 알 수 없음: ${PLATFORM_INFO[opts.platform].label} ${lost}`);
+        const cause = clean.text(`${PLATFORM_INFO[opts.platform].label} ${lost}`);
+        const reason = `데스크톱 화면 상태를 알 수 없음: ${cause}`;
         store.emit({ type: 'log', level: 'error', source: 'runner', message: reason });
+        recordDisplayUnknown(d, display, store, cause, runId);
         const own = result.verdict === 'PASS' ? '' : `; 스모크 결과 ${result.verdict}${result.code ? ` ${result.code}` : ''}: ${result.reason}`;
         result = { ...result, verdict: 'ERROR', code: 'display_unknown', qaStatus: qaStatus({ verdict: 'ERROR', code: 'display_unknown' }), reason: `${reason}${own}` };
       }
@@ -537,7 +576,7 @@ export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): 
     releaseHeld(slot);
     releaseHeld(display);
   }
-  if (result.steps.length === 0) store.emit({ type: 'test.finished', runId, testId: result.id, platform: result.platform, verdict: result.verdict, reason: result.reason, durationMs: 0 });
+  store.emit({ type: 'test.finished', runId, testId: result.id, platform: result.platform, verdict: result.verdict, reason: result.reason, durationMs: result.durationMs });
   return finishRun(store, d, { kind: 'smoke', startedAt, t0, platform: opts.platform, slots, junit: false, profiles: [profile] }, [result]);
 }
 
@@ -559,8 +598,9 @@ async function openStartPage(driver: Driver, target: WebTarget, d: RunnerDeps, p
 
 /**
  * Opens a session on the platform's device (locked; a desktop browser also locks this Mac's display first, see
- * `DISPLAY_LOCK`) without launching an app — a website is opened at its start URL — runs `use`, then cleans up. A
- * desktop session whose end is unconfirmed throws: its window may still be on the display.
+ * `RunnerDeps.acquireDisplayLock`) without launching an app — a website is opened at its start URL — runs `use`, then
+ * cleans up. A desktop browser is refused while the display is recorded as unknown; one whose start or end is
+ * unconfirmed records that (its window may still be on the display) and throws.
  */
 async function withScreen<T>(opts: ScreenOptions, d: RunnerDeps, use: (driver: Driver, device: DeviceInfo, profile: AppProfile) => Promise<T>): Promise<T> {
   const profile = loadAppProfile(opts.app, d.appsDir);
@@ -568,12 +608,22 @@ async function withScreen<T>(opts: ScreenOptions, d: RunnerDeps, use: (driver: D
   if (!target) throw new Error(`앱 프로필 ${opts.app}에 ${opts.platform} 설정이 없습니다`);
   const desktop = isDesktop(opts.platform);
   const device = await d.pickDevice(opts.platform, opts.deviceId);
-  const display = desktop ? d.acquireLock(DISPLAY_LOCK) : null;
+  const display: Held = { lock: desktop ? d.acquireDisplayLock() : null };
   let lock: { release(): void } | null = null;
+  // A browser window may be left on the display: recorded before the display lock goes, then thrown.
+  const lose = (what: string, err: unknown): Error => {
+    const cause = new EvidenceSanitizer(profile.redact).text(`${PLATFORM_INFO[opts.platform].label} ${what} (${message(err)})`);
+    recordDisplayUnknown(d, display, opts.events, cause);
+    return new Error(`데스크톱 화면 상태를 알 수 없음: ${cause}`, { cause: err });
+  };
   try {
+    const unknown = desktop ? d.readDisplayUnknown() : null;
+    if (unknown) throw new Error(displayUnknownReason(unknown));
     lock = d.acquireLock(device.id);
     const driver = d.createDriver(opts.platform, device.id);
-    await driver.open(target);
+    await driver.open(target).catch((err: unknown) => {
+      throw desktop && failureStatus(err) !== 'rejected' ? lose('세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음', err) : err;
+    });
     try {
       if (target.kind === 'web') await openStartPage(driver, target, d, profile);
       opts.signal?.throwIfAborted();
@@ -581,12 +631,12 @@ async function withScreen<T>(opts: ScreenOptions, d: RunnerDeps, use: (driver: D
     } finally {
       await driver.close().catch((err: unknown) => {
         // A device session ends with its driver; a desktop browser whose end is unconfirmed may still be on screen.
-        if (desktop) throw new Error(new EvidenceSanitizer(profile.redact).text(`데스크톱 화면 상태를 알 수 없음: ${PLATFORM_INFO[opts.platform].label} 세션 종료를 확인하지 못함 (${message(err)})`), { cause: err });
+        if (desktop) throw lose('세션 종료를 확인하지 못함', err);
       });
     }
   } finally {
     lock?.release();
-    display?.release();
+    releaseHeld(display);
   }
 }
 

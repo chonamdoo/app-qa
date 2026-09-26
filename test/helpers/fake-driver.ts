@@ -94,6 +94,8 @@ export class FakeDriver implements Driver {
   hittable: (p: Point, target: Rect | null) => boolean | undefined = () => undefined;
   /** Element identity at a point (desktop web `elementFromPoint`); unset = the driver has none (native, mobile web). */
   elementIdAt?: (p: Point) => Promise<string | null>;
+  /** Identity of the element keys go to (desktop web `document.activeElement`); unset = the driver has none. */
+  focusedElementId?: () => Promise<string | null>;
 
   constructor(screen: Snapshot, clock = new FakeClock()) {
     this.platform = screen.platform;

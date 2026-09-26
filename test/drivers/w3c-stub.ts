@@ -29,6 +29,8 @@ export interface FakePage {
   hitBoxes: unknown;
   /** What `elementFromPoint` returns at any point: a W3C element reference (identity while that element lives), null = nothing. Replace it to swap the element. */
   element: unknown;
+  /** What `document.activeElement` resolves to: a W3C element reference (identity while that element lives), null = nothing focused. Replace it to swap the focused element. */
+  active: unknown;
   /** Answer to WEB_EXTRACT_SCRIPT. */
   extract: unknown;
   /** Browser console buffer; `/se/log` drains it. */
@@ -85,6 +87,7 @@ export async function startW3CStub(init: Partial<FakePage> = {}, override?: (req
     front: true,
     raises: true,
     element: null,
+    active: null,
     ...init,
   };
   const sources: Record<string, unknown>[] = [];
@@ -142,6 +145,8 @@ export async function startW3CStub(init: Partial<FakePage> = {}, override?: (req
         return ok(page.hitBoxes);
       case 'element':
         return ok(page.element);
+      case 'active':
+        return ok(page.active);
       case 'extract':
         return ok(page.extract);
       default:

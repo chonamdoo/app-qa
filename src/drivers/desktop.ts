@@ -1,6 +1,7 @@
 // Desktop browser driver (Chrome / Safari on macOS): W3C WebDriver through the project Appium server
 // (appium-chromium-driver / appium-safari-driver). Every action is real input — mouse, wheel and keyboard actions in
-// viewport CSS px. Page scripts only observe: DOM extraction, focused-field read-back, elementFromPoint, history length.
+// viewport CSS px. Page scripts only observe: DOM extraction, focused-field read-back, elementFromPoint, activeElement,
+// history length.
 import { appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -27,26 +28,30 @@ while (el && el.shadowRoot) {
   el = inner;
 }`;
 
+/** The deepest focused element, through open shadow roots, in `active` (null or the body: nothing focused). */
+const ACTIVE = `
+let active = document.activeElement;
+while (active && active.shadowRoot && active.shadowRoot.activeElement) active = active.shadowRoot.activeElement;`;
+
 /**
  * Read-only page scripts (W3C `/execute/sync` bodies). `field`: the element given as argument, else the focused one
  * (through open shadow roots), when it takes typed text; a password's value never leaves the page (length only).
  * `element`: the element input at a point reaches (its W3C reference); `hit`: that element's box and its ancestors'.
+ * `active`: the element keys go to (its W3C reference), null when nothing but the document is focused.
  */
 export const DESKTOP_SCRIPTS = {
   viewport: 'return [window.innerWidth, window.innerHeight];',
-  field: `
+  field: `${ACTIVE}
 const wantSecure = arguments[1] === true;
-let el = arguments[0];
-if (!el) {
-  el = document.activeElement;
-  while (el && el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
-}
+const el = arguments[0] || active;
 if (!el) return null;
 const control = (el.tagName === 'INPUT' && ['text', 'search', 'email', 'url', 'tel', 'password', 'number'].includes(el.type)) || el.tagName === 'TEXTAREA';
 if (!(control ? !el.readOnly && !el.disabled : el.isContentEditable)) return null;
 const value = control ? el.value : el.innerText;
 const secure = wantSecure || (el.tagName === 'INPUT' && el.type === 'password');
 return { el, secure, length: Array.from(value).length, value: secure ? null : value };`,
+  active: `${ACTIVE}
+return active && active !== document.body && active !== document.documentElement ? active : null;`,
   history: "return { length: history.length, canGoBack: typeof navigation === 'object' && navigation !== null ? navigation.canGoBack : null };",
   focused: 'return document.hasFocus();',
   element: `${ELEMENT_AT}
@@ -532,6 +537,14 @@ export class DesktopWebDriver implements Driver {
     const raw = await this.#api.executeScript(DESKTOP_SCRIPTS.element, [Math.round(p.x), Math.round(p.y)]);
     const ref = ElementAt.safeParse(raw);
     if (!ref.success) throw unexpectedResponse('elementFromPoint', raw);
+    return ref.data === null ? null : ref.data[W3C_ELEMENT_KEY];
+  }
+
+  /** W3C reference id of the element keys go to (the deepest `document.activeElement`); null = nothing focused. */
+  async focusedElementId(): Promise<string | null> {
+    const raw = await this.#api.executeScript(DESKTOP_SCRIPTS.active);
+    const ref = ElementAt.safeParse(raw);
+    if (!ref.success) throw unexpectedResponse('activeElement', raw);
     return ref.data === null ? null : ref.data[W3C_ELEMENT_KEY];
   }
 

@@ -9,7 +9,7 @@ import { sha256 } from '../core/fsx.ts';
 import { PLATFORMS } from '../core/platform.ts';
 import type { Platform, Verdict } from '../core/types.ts';
 import { loadAppProfile } from '../spec/load.ts';
-import { AppProfile, PlanFile, profilePlatforms, STEP_KIND_LABEL, stepKind, TestSpec, type StepSpec } from '../spec/schema.ts';
+import { AppProfile, PlanFile, profilePlatforms, stepLabel, TestSpec } from '../spec/schema.ts';
 
 export class PathRejected extends Error {}
 
@@ -293,38 +293,6 @@ async function readPlan(planPath: string): Promise<{ success: true; data: PlanFi
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
-}
-
-function describe(value: unknown): string {
-  if (value === true || value === undefined) return '';
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
-  if (value && typeof value === 'object') {
-    if ('regex' in value) return `/${String(value.regex)}/`;
-    return Object.entries(value)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => `${k}=${typeof v === 'string' || typeof v === 'number' ? v : describe(v) || JSON.stringify(v)}`)
-      .join(', ');
-  }
-  return JSON.stringify(value);
-}
-
-/**
- * Korean checklist label for a DSL step, equal to the runner's (`src/runner/steps.ts`, which the server may not import),
- * whose `run.started` labels replace these once a run starts. A `type` label never carries the typed text — only its
- * length, or `변수` for a `${…}` placeholder — and a `which`/`repeat` label never carries its nested steps.
- */
-function stepLabel(step: StepSpec): string {
-  const kind = stepKind(step);
-  if ('type' in step) return `${STEP_KIND_LABEL[kind]}(${step.type.includes('${') ? '변수' : `${[...step.type].length}자`}) → ${describe(step.into)}`;
-  let detail: string;
-  if ('which' in step) detail = Object.keys(step.which).join(' | ');
-  else if ('repeat' in step) detail = step.repeat.times !== undefined ? `${step.repeat.times}회` : `조건 ${describe(step.repeat.while)}`;
-  else if ('wait' in step) detail = typeof step.wait === 'number' ? `${step.wait}ms` : `${describe(step.wait.until)}까지`;
-  else if ('checkEach' in step) detail = `/${step.checkEach.pattern}/`;
-  else if ('remember' in step) detail = `${step.remember.name} ← ${describe(step.remember.from)}`;
-  else if ('scroll' in step) detail = `${step.scroll.direction}${step.scroll.until ? ` → ${describe(step.scroll.until)}` : ''}`;
-  else detail = describe(Object.entries(step).find(([key]) => key === kind)?.[1]);
-  return detail ? `${STEP_KIND_LABEL[kind]}: ${detail}` : STEP_KIND_LABEL[kind];
 }
 
 export interface PlanTestView {

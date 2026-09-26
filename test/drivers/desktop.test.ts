@@ -491,6 +491,46 @@ describe('elementIdAt', () => {
   });
 });
 
+describe('focusedElementId', () => {
+  const ref = (id: string) => ({ [W3C_ELEMENT_KEY]: id });
+
+  it('is the W3C reference of the focused element; it changes when the page swaps the element', async () => {
+    await withDriver({ active: ref('F-old') }, async (d, stub) => {
+      assert.equal(await d.focusedElementId(), 'F-old');
+      assert.deepEqual(posted(stub, '/execute/sync').at(-1)?.body, { script: DESKTOP_SCRIPTS.active, args: [] });
+      assert.equal(await d.focusedElementId(), 'F-old');
+      stub.page.active = ref('F-new'); // same tree path, box, value and state; another element
+      assert.equal(await d.focusedElementId(), 'F-new');
+    });
+  });
+
+  it('is null when nothing is focused; a garbled answer throws', async () => {
+    await withDriver({ active: null }, async (d, stub) => {
+      assert.equal(await d.focusedElementId(), null);
+      for (const garbled of ['F1', true, { [W3C_ELEMENT_KEY]: '' }, { id: 'F1' }, [ref('F1')]]) {
+        stub.page.active = garbled;
+        await assert.rejects(d.focusedElementId(), /activeElement: unexpected response/, JSON.stringify(garbled));
+      }
+    });
+  });
+
+  it('the page script returns the deepest focused element through open shadow roots, and null for the body or no focus', () => {
+    const body = { shadowRoot: null };
+    const html = { shadowRoot: null };
+    const active = (activeElement: unknown): unknown => new Function('document', DESKTOP_SCRIPTS.active)({ activeElement, body, documentElement: html });
+    const input = { shadowRoot: null };
+    const host = { shadowRoot: { activeElement: input } };
+    const closedHost = { shadowRoot: null };
+    const hostWithoutFocus = { shadowRoot: { activeElement: null } };
+    assert.equal(active(input), input);
+    assert.equal(active(host), input);
+    assert.equal(active({ shadowRoot: { activeElement: host } }), input);
+    assert.equal(active(closedHost), closedHost);
+    assert.equal(active(hostWithoutFocus), hostWithoutFocus);
+    for (const nothing of [body, html, null]) assert.equal(active(nothing), null);
+  });
+});
+
 describe('console logs', () => {
   it('Chrome console lines are sanitized before they reach the file, and sliced by time', async () => {
     const before = new Set(readdirSync(PATHS.logs, { withFileTypes: false }).map(String));

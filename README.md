@@ -18,6 +18,8 @@ node bin/qa.ts doctor         # 전체 상태 점검 (기기 설정은 바꾸지
 
 데스크톱 Safari는 macOS에서 한 번 "원격 자동화 허용"을 켜야 한다: `sudo safaridriver --enable` (또는 Safari 설정 › 고급 › 웹 개발자용 기능 보기 → 개발자 › 원격 자동화 허용).
 
+데스크톱 브라우저 창 종료를 확인하지 못한 실행은 이 Mac의 데스크톱 화면을 "알 수 없음"으로 표시하고(모든 checkout 공통), 표시가 남아 있는 동안 데스크톱 웹 테스트는 모두 BLOCKED(`display_unknown`)다. `qa doctor`가 이유와 시각을 보여 주며, 남은 자동화 브라우저 창을 닫은 뒤 `qa setup --browsers`로 지운다.
+
 ## 대상 프로필 (`apps/<id>.yaml`)
 
 앱과 웹사이트 중 하나만 적는다.

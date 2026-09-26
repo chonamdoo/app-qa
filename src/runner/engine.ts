@@ -32,6 +32,7 @@ import type { LoadedTest } from '../spec/load.ts';
 import {
   profilePlatforms,
   stepKind,
+  stepLabel,
   type Condition as ConditionSchema,
   type Expectation as ExpectationSchema,
   type RepeatStepSpec,
@@ -51,7 +52,7 @@ import { ActionPreparer, TRUNCATED_TARGET, type Approval, type Mutation, type Ob
 import { asSelector, notFoundDiagnostics, resolveDeterministic, stateMatches, targetText, type TargetQuery, type TargetSpec } from './resolve.ts';
 import { groupData, judgeLines, ruleProblem, type LineMatch } from './rule.ts';
 import { EvidenceSanitizer, maskValue, SanitizedStore } from './sanitize.ts';
-import { expandStep, stepLabel, UnsetVariableError } from './steps.ts';
+import { expandStep, UnsetVariableError } from './steps.ts';
 import type { RunStore } from './store.ts';
 import { worstVerdict } from './verdict.ts';
 
@@ -274,6 +275,7 @@ export class TestSession {
       recentScroll: () => this.recentScroll,
       isHittable: async (p, target) => env.driver.isHittable?.(p, target),
       elementIdAt: async (p) => env.driver.elementIdAt?.(p),
+      focusedElementId: async () => env.driver.focusedElementId?.(),
       // The target decides the surface (gate availability and the threshold used): a web target stays web even if a
       // driver mislabels a snapshot (fail-closed). Every Jev decision names it (`jevProblem`, `judgeOpts`).
       commitProblem: () => this.jevProblem('commit', app.kind),
@@ -320,12 +322,15 @@ export class TestSession {
         break;
       }
     }
-    return this.finish();
+    const result = this.finish();
+    this.out.emit({ type: 'test.finished', runId: this.env.runId, testId: result.id, platform: this.platform, verdict: result.verdict, reason: result.reason, durationMs: result.durationMs });
+    return result;
   }
 
   /**
    * Smoke: launch (relaunch) → settle → health (incl. blank) → screenshot + inventory; with `crawl`, visits only
-   * role-identified tab bar items (risk-filtered) and returns to the first tab. Jev answers are reference-only.
+   * role-identified tab bar items (risk-filtered) and returns to the first tab. Jev answers are reference-only. Emits no
+   * `test.finished`: the caller does once the session has ended (an unconfirmed desktop session end changes the verdict).
    */
   async runSmoke(opts: { crawl: boolean; inventoryDir: string }): Promise<TestResult> {
     this.begin();
@@ -431,7 +436,6 @@ export class TestSession {
     const decisive = [...counted].sort((a, b) => a.seq - b.seq).find((r) => r.verdict === verdict && verdict !== 'PASS');
     const durationMs = Math.round(this.env.clock.now() - this.startedAt);
     const reason = decisive ? `${decisive.label}: ${decisive.reason}` : verdict === 'PASS' ? '모든 스텝 통과' : '실행된 스텝 없음';
-    this.out.emit({ type: 'test.finished', runId: this.env.runId, testId: this.test.id, platform: this.platform, verdict, reason, durationMs });
     const result: TestResult = {
       id: this.test.id,
       name: spec.name,

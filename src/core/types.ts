@@ -239,6 +239,12 @@ export interface Driver {
    */
   elementIdAt?(p: Point): Promise<string | null>;
   /**
+   * Identity of the element keys go to (`press`, `type.submit`'s Enter), stable while that element lives (desktop: the
+   * W3C element reference of the deepest `document.activeElement`, through open shadow roots); null = nothing focused
+   * (no active element, or the document body). Absent on native and mobile-web drivers, as `elementIdAt`.
+   */
+  focusedElementId?(): Promise<string | null>;
+  /**
    * Start collecting device logs for the app; slice returns text between two ISO timestamps. Every line passes
    * `sanitize` before it touches disk (the runner's evidence sanitizer) — raw device output is never stored.
    */

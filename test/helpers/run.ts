@@ -6,6 +6,7 @@ import { after } from 'node:test';
 import type { QaEventBody } from '../../src/core/events.ts';
 import { writeSecure } from '../../src/core/fsx.ts';
 import type { Platform } from '../../src/core/types.ts';
+import { acquireDisplayLock, markDisplayUnknown, readDisplayUnknown } from '../../src/drivers/index.ts';
 import type { JevSetup, OcrFn } from '../../src/runner/engine.ts';
 import { runSmoke, runTests, type RunnerDeps, type RunResult } from '../../src/runner/index.ts';
 import type { FakeDriver } from './fake-driver.ts';
@@ -31,11 +32,21 @@ export function tempRoot(files: Record<string, string> = {}): string {
   return root;
 }
 
+/** This Mac's display state (the real lock and record files) kept in `dir`, never the host's `DISPLAY_DIR`. */
+export function displayDeps(dir: string): Pick<RunnerDeps, 'acquireDisplayLock' | 'readDisplayUnknown' | 'markDisplayUnknown'> {
+  return {
+    acquireDisplayLock: () => acquireDisplayLock({ dir }),
+    readDisplayUnknown: () => readDisplayUnknown({ dir }),
+    markDisplayUnknown: (record) => markDisplayUnknown(record, { dir }),
+  };
+}
+
 export function fakeDeps(root: string, driver: FakeDriver, jev: JevSetup = UNCALIBRATED): Partial<RunnerDeps> {
   return {
     createDriver: () => driver,
     pickDevice: async (platform: Platform) => ({ platform, id: driver.deviceId, name: 'Fake Pixel', osVersion: '17', state: 'booted', kind: 'emulator' }),
     acquireLock: () => ({ release: () => undefined }),
+    ...displayDeps(join(root, '.qa', 'display')),
     jev: () => jev,
     ocr: null,
     clock: driver.clock,

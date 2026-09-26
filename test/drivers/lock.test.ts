@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { once } from 'node:events';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
+import { PATHS } from '../../src/core/config.ts';
 import { isStale } from '../../src/core/lock.ts';
 import type { ProcessProbe } from '../../src/core/process.ts';
-import { acquireDeviceLock, DeviceLockedError, type DeviceLock } from '../../src/drivers/lock.ts';
+import { acquireDeviceLock, clearDisplayUnknown, DeviceLockedError, markDisplayUnknown, readDisplayUnknown, type DeviceLock } from '../../src/drivers/lock.ts';
 
 const START = '2026-09-26T00:00:00.000Z';
 const alive = (startedAt: string | null): ProcessProbe => () => ({ alive: true, startedAtMs: startedAt === null ? null : Date.parse(startedAt) });
@@ -137,5 +140,113 @@ describe('device lock', () => {
       assert.equal(token(owner.path), owner.record.token);
       owner.release();
     });
+  });
+});
+
+/** A qa process of one checkout taking the display lock with its defaults; HOLD keeps it (and the lock) alive on its open stdin until killed. */
+const TRY_DISPLAY = `import { PATHS } from './src/core/config.ts';
+import { acquireDisplayLock, DISPLAY_DIR } from './src/drivers/lock.ts';
+let error = null;
+try {
+  acquireDisplayLock();
+} catch (err) {
+  error = \`\${err.name}: \${err.message}\`;
+}
+console.log(JSON.stringify({ root: PATHS.root, dir: DISPLAY_DIR, error }));
+if (!error && process.env.HOLD) process.stdin.resume();
+`;
+
+interface Attempt {
+  root: string;
+  dir: string;
+  error: string | null;
+}
+
+/** The first line a child prints; rejects when it exits without one. */
+function attempt(child: ChildProcess): Promise<Attempt> {
+  const { promise, resolve, reject } = Promise.withResolvers<Attempt>();
+  let out = '';
+  child.stdout?.on('data', (chunk: Buffer) => {
+    out += chunk.toString('utf8');
+    if (out.includes('\n')) resolve(JSON.parse(out.slice(0, out.indexOf('\n'))) as Attempt);
+  });
+  child.on('exit', (code) => reject(new Error(`exited (${code}) without an answer: ${out}`)));
+  return promise;
+}
+
+describe('desktop display lock and display-unknown marker', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'qa-display-'));
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it('is one lock per user, not per checkout: qa processes of two project roots exclude each other; a killed owner is reclaimed', async () => {
+    // Two checkouts (copies of src/), one user: HOME points at a scratch home, so the real display dir is never touched.
+    const home = join(dir, 'home');
+    const [a, b] = ['checkout-a', 'checkout-b'].map((name) => {
+      const root = join(dir, name);
+      cpSync(join(PATHS.root, 'src'), join(root, 'src'), { recursive: true });
+      symlinkSync(join(PATHS.root, 'node_modules'), join(root, 'node_modules'));
+      writeFileSync(join(root, 'package.json'), '{ "type": "module" }\n');
+      writeFileSync(join(root, 'try-display.mjs'), TRY_DISPLAY);
+      return root;
+    }) as [string, string];
+    const run = (root: string, hold: boolean) => spawn(process.execPath, [join(root, 'try-display.mjs')], { cwd: root, env: { ...process.env, HOME: home, HOLD: hold ? '1' : '' }, stdio: [hold ? 'pipe' : 'ignore', 'pipe', 'inherit'] });
+    /** A one-shot attempt, once its process has exited (and released what it took). */
+    const tryOnce = async (root: string) => {
+      const child = run(root, false);
+      return (await Promise.all([attempt(child), once(child, 'exit')]))[0];
+    };
+
+    const holder = run(a, true);
+    try {
+      const held = await attempt(holder);
+      assert.equal(held.error, null);
+      const refused = await tryOnce(b);
+      assert.notEqual(refused.root, held.root);
+      assert.match(refused.error ?? 'acquired', new RegExp(`^DeviceLockedError: 데스크톱 화면: 다른 qa 프로세스\\(pid ${holder.pid}, `));
+      // One per-user directory outside both checkouts (here: under the scratch HOME).
+      assert.equal(refused.dir, held.dir);
+      assert.ok(relative(home, refused.dir) !== '' && !relative(home, refused.dir).startsWith('..'), refused.dir);
+    } finally {
+      holder.kill('SIGKILL');
+      if (holder.exitCode === null && holder.signalCode === null) await once(holder, 'exit');
+    }
+    // The owner died holding the lock (no exit handler ran): the other checkout reclaims it.
+    assert.equal((await tryOnce(b)).error, null);
+  });
+
+  it('the marker round-trips (0600 in a 0700 dir); clear removes it and says whether there was one', () => {
+    const state = join(dir, 'app-qa');
+    assert.equal(readDisplayUnknown({ dir: state }), null);
+    const record = { since: '2026-09-26T05:12:41.000Z', reason: 'Chrome (macOS) 세션 종료를 확인하지 못함 (socket hang up)', runId: '2026-09-26T05-12-41-000Z-1a2b3c' };
+    markDisplayUnknown(record, { dir: state });
+    assert.deepEqual(readDisplayUnknown({ dir: state }), record);
+    assert.equal(statSync(state).mode & 0o777, 0o700);
+    assert.deepEqual(readdirSync(state), ['display-unknown.json']);
+    assert.equal(statSync(join(state, 'display-unknown.json')).mode & 0o777, 0o600);
+    const withoutRun = { since: '2026-09-26T06:00:00.000Z', reason: 'Safari (macOS) 세션 시작 응답 없음' };
+    markDisplayUnknown(withoutRun, { dir: state });
+    assert.deepEqual(readDisplayUnknown({ dir: state }), withoutRun);
+    assert.equal(clearDisplayUnknown({ dir: state }), true);
+    assert.equal(readDisplayUnknown({ dir: state }), null);
+    assert.equal(clearDisplayUnknown({ dir: state }), false);
+  });
+
+  it('a marker that is not a whole valid record, or cannot be read, still means unknown; clear removes it', () => {
+    const file = join(dir, 'display-unknown.json');
+    const malformed = ['', 'not json', '{"since":"2026-09-26T05:12:41.000Z","reason":"x"', '{}', 'null', '{"since":"어제","reason":"x"}', '{"since":"2026-09-26T05:12:41.000Z","reason":""}', '{"since":"2026-09-26T05:12:41.000Z","reason":"x","extra":1}'];
+    for (const bytes of malformed) {
+      writeFileSync(file, bytes);
+      const unknown = readDisplayUnknown({ dir });
+      assert.ok(unknown, JSON.stringify(bytes));
+      assert.match(unknown.reason, /디스플레이 상태 기록 .*display-unknown\.json을\(를\) 확인할 수 없음 \(형식이 잘못됨\)/);
+      assert.ok(!Number.isNaN(Date.parse(unknown.since)));
+      assert.equal(clearDisplayUnknown({ dir }), true);
+      assert.equal(readDisplayUnknown({ dir }), null);
+    }
+    mkdirSync(file);
+    assert.match(readDisplayUnknown({ dir })?.reason ?? '', /확인할 수 없음 \(읽지 못함 \(EISDIR\)\)/);
   });
 });

@@ -2,8 +2,9 @@
 // observation, never a truncated one — refind + hit-test (after scroll/swipe/back: the target must hold still) →
 // deterministic policy on the fresh target and screen → mandatory Jev commit check for deterministically safe targets
 // without `allowRisky` → after that wait, a new observation must show the same screen and target, hit-tested again at
-// its tap point on that observation, and (drivers with element identity) the same element at that point → one explicit
-// approval result carrying that target. Nothing here dispatches; the session acts only on `approved`.
+// its tap point on that observation, and (drivers with element identity) the same element at that point — for Enter,
+// the same focused element → one explicit approval result carrying that target. Nothing here dispatches; the session
+// acts only on `approved`.
 import type { Candidate, ClaimDecision, Point, Rect, ScreenModel } from '../core/types.ts';
 import { isUnoccludedAt, refind } from '../observe/index.ts';
 import { assessRisk, DESTRUCTIVE_CONTEXT, type RiskAssessment } from '../policy/risk.ts';
@@ -57,6 +58,8 @@ export interface PrepareHost<Ctx> {
    * there; undefined = the driver has none (native, mobile web: the tree path, resource id, box and state identify it).
    */
   elementIdAt(p: Point): Promise<string | null | undefined>;
+  /** The identity of the element keys go to (desktop web: the focused element's reference), null = none; undefined as `elementIdAt`. */
+  focusedElementId(): Promise<string | null | undefined>;
   /** Why Jev must not judge commits now (no client, no calibration, a failed gate, a surface the gate was not calibrated on), or null. */
   commitProblem(): string | null;
   /** Asks Jev (budgeted, receipt kept) whether activating `target` on `model` commits an irreversible change. */
@@ -187,10 +190,12 @@ export class ActionPreparer<Ctx> {
     // Every target-based mutation of a deterministically safe target needs the commit check — an edit included: typing
     // into or clearing a field can still auto-save or search, and only Jev can add that refusal.
     if (!risk.risky && !allowRisky) {
-      // A tapped target's element, identified before Jev is asked: a replacement with the same label, box, state and
-      // tree position (a re-rendered button) is another element, and the approval is not its.
-      const before = target && mutation !== 'submit' ? await this.host.elementIdAt(target.tapPoint) : undefined;
-      if (target && before === null) return { status: 'stale_target', reason: `"${target.name}" 탭 지점에 요소가 없음 — 실행하지 않음` };
+      // The element the action reaches, identified before Jev is asked: the one at the tap point, for Enter the focused
+      // one. A replacement with the same label, box, state and tree position (a re-rendered button or field) is another
+      // element, and the approval is not its.
+      const submit = mutation === 'submit';
+      const before = !target ? undefined : submit ? await this.host.focusedElementId() : await this.host.elementIdAt(target.tapPoint);
+      if (target && before === null) return { status: 'stale_target', reason: submit ? `"${target.name}"이(가) 포커스된 요소로 확인되지 않음 — 실행하지 않음` : `"${target.name}" 탭 지점에 요소가 없음 — 실행하지 않음` };
       const commit: Pick<ClaimDecision, 'verdict' | 'reason'> = target ? await this.commit(ctx, model, target) : { verdict: 'error', reason: '대상 없음' };
       // Refusal-add only: 'pass' (commits) blocks, 'fail' lets the deterministic verdict stand, anything else is no answer.
       if (commit.verdict === 'pass') return this.block(ctx, [commit.reason], false);
@@ -211,8 +216,9 @@ export class ActionPreparer<Ctx> {
       if (riskNow.risky) return this.block(ctx, [...riskNow.reasons, 'Jev commit 확인 중 화면이 바뀜'], false);
       const hit = mutation === 'submit' ? null : await this.hitProblem(same.candidate, now);
       if (hit) return { status: 'stale_target', reason: `Jev commit 확인 중 ${hit} — 실행하지 않음` };
-      if (before !== undefined && (await this.host.elementIdAt(same.candidate.tapPoint)) !== before) {
-        return { status: 'stale_target', reason: `Jev commit 확인 중 "${target.name}" 탭 지점의 요소가 다른 요소로 바뀜 — 실행하지 않음` };
+      if (before !== undefined && (submit ? await this.host.focusedElementId() : await this.host.elementIdAt(same.candidate.tapPoint)) !== before) {
+        const what = submit ? `포커스된 "${target.name}"이(가)` : `"${target.name}" 탭 지점의 요소가`;
+        return { status: 'stale_target', reason: `Jev commit 확인 중 ${what} 다른 요소로 바뀜 — 실행하지 않음` };
       }
       this.host.policy(ctx, risk.risky, false, risk.reasons);
       return { status: 'approved', obs: now, target: same.candidate };

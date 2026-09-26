@@ -1,5 +1,6 @@
 // `qa setup` — installs project-local tools (pinned Appium drivers, OCR helper) and checks platform tools. Idempotent.
-// `--browsers` also prepares web testing: desktop Chrome/Safari checks, Android Chrome prep, iOS Safari checks.
+// `--browsers` also prepares web testing: desktop Chrome/Safari checks, clearing the display-unknown marker, Android
+// Chrome prep, iOS Safari checks.
 import { relative } from 'node:path';
 import { parseArgs } from 'node:util';
 import { checkAdb, checkXcode, installDrivers, PINNED_DRIVERS, printChecks, type Check } from '../../appium/setup.ts';
@@ -9,6 +10,7 @@ import type { DeviceInfo } from '../../core/types.ts';
 import { desktopBrowserChecks, iosSafariChecks, listDevices, prepareAndroidChrome } from '../../drivers/index.ts';
 import { buildOcrHelper } from '../../ocr/ocr.ts';
 import { browserReadiness } from '../browsers.ts';
+import { clearDisplayState } from '../display.ts';
 
 const USAGE = `사용법: qa setup [--browsers [--android <serial>] [--ios <udid>]]
   Appium 드라이버(${Object.entries(PINNED_DRIVERS)
@@ -18,6 +20,8 @@ const USAGE = `사용법: qa setup [--browsers [--android <serial>] [--ios <udid
   --browsers: 웹 테스트 준비도 합니다 — 데스크톱 Chrome/Safari 점검, Android Chrome 준비(첫 실행 화면 건너뛰기
               명령줄 플래그·알림 권한: 에뮬레이터 설정을 바꿉니다), iOS 시뮬레이터 Safari 확인.
               Safari(macOS)의 "원격 자동화 허용"은 sudo가 필요해 직접 켜야 합니다: sudo safaridriver --enable
+              이전 실행이 닫지 못한 브라우저 창 때문에 남은 데스크톱 화면 "알 수 없음" 표시도 지웁니다 — 남은 자동화
+              브라우저 창(Chrome·Safari)을 모두 닫은 뒤 실행하세요 (다른 qa 실행이 화면을 쓰는 중이면 지우지 않습니다).
   --android <serial>, --ios <udid>: 준비할 기기 (없으면 부팅된 기기 전부, 부팅된 기기가 없으면 건너뜀)
 종료 코드: 0 = 준비 완료, 1 = 필수 항목 실패, 2 = 사용법 오류`;
 
@@ -86,7 +90,7 @@ export async function cmdSetup(argv: string[]): Promise<number> {
     const groups = await browserReadiness(
       devices ?? [],
       { android: values.android, ios: values.ios },
-      { desktop: desktopBrowserChecks, mobile: { android: prepareAndroidChrome, ios: iosSafariChecks } },
+      { desktop: async () => [...(await desktopBrowserChecks()), clearDisplayState()], mobile: { android: prepareAndroidChrome, ios: iosSafariChecks } },
     );
     for (const group of groups) {
       console.log(`  ${group.title}`);

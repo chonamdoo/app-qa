@@ -188,6 +188,8 @@ describe('deterministic assertions', () => {
       'var naming no group of the pattern': '{ "<": [ { var: minutes }, 100 ] }',
       'empty var name': '{ "<": [ { var: "" }, 100 ] }',
       'var with a default': '{ "<": [ { var: [ wait, 0 ] }, 100 ] }',
+      // Inside `none` the data is the item (a number): `wait` of it is null, `null > 0` is false, so no item "fails".
+      'group read inside a collection’s logic': '{ none: [ { merge: [ { var: wait } ] }, { ">": [ { var: wait }, 0 ] } ] }',
     };
     for (const [name, rule] of Object.entries(cases)) {
       const { result } = await runYaml({ 'tests/check.e2e.yaml': spec(check(rule)) }, new FakeDriver(screen('tab-departures')));

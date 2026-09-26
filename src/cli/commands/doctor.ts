@@ -12,10 +12,12 @@ import { androidChromeChecks, desktopBrowserChecks, iosSafariChecks, listDevices
 import { JEV_MODEL, loadCalibration, loadJevConfig, QUESTION_VERSION } from '../../jev/index.ts';
 import { listAppProfiles } from '../../server/store.ts';
 import { browserReadiness } from '../browsers.ts';
+import { displayStateCheck } from '../display.ts';
 
 const USAGE = `사용법: qa doctor
   Node·의존성·Appium 드라이버·OCR 도우미·adb·Xcode·디바이스·Jev 키·보정 기록과 웹 브라우저(데스크톱 Chrome/Safari,
-  Android Chrome, iOS Safari) 준비 상태를 점검합니다. 읽기만 하며 기기 설정은 바꾸지 않습니다 (준비: qa setup --browsers).
+  데스크톱 화면 "알 수 없음" 표시, Android Chrome, iOS Safari) 준비 상태를 점검합니다. 읽기만 하며 기기 설정은 바꾸지
+  않습니다 (준비: qa setup --browsers).
   웹 항목은 apps/에 웹 프로필이 있을 때만 종료 코드에 반영됩니다.
 종료 코드: 0 = 모두 정상, 1 = 하나 이상 실패, 2 = 사용법 오류`;
 
@@ -134,7 +136,7 @@ export async function cmdDoctor(argv: string[]): Promise<number> {
   const webRequired = profiles.profiles.some((p) => p.web !== undefined);
   console.log(`\n웹 (브라우저)${webRequired ? '' : ' — apps/에 웹 프로필이 없어 참고용'}`);
   const groups = await browserReadiness(devices instanceof Error ? [] : devices, {}, {
-    desktop: desktopBrowserChecks,
+    desktop: async () => [...(await desktopBrowserChecks()), displayStateCheck()],
     mobile: { android: androidChromeChecks, ios: iosSafariChecks },
   });
   let webOk = true;
