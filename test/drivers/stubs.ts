@@ -69,6 +69,7 @@ cmd="$1"; shift
 case "$cmd" in
   shell) PATH="$root/device:$PATH"; export PATH; exec /bin/sh -c "$*" ;;
   pull) cp "$root/sdcard/$(basename "$1")" "$2" ;;
+  logcat) cat "$root/logcat.txt" ;;
 esac
 `;
 
@@ -83,6 +84,7 @@ case "$name $1" in
   "cmd package") echo "$last/.MainActivity" ;;
   "cmd appops") if [ -n "$FAKE_APPOPS_FAIL" ]; then echo "Error: operation failed"; exit 1; fi ;;
   "am start") echo "Status: ok" ;;
+  pidof*) echo 4242 ;;
   screenrecord*) out="$root/sdcard/$(basename "$last")"; trap 'echo mp4 > "$out"; exit 0' INT; while :; do sleep 0.05; done ;;
 esac
 exit 0

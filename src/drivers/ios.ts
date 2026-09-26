@@ -197,13 +197,13 @@ export class IosDriver extends AppiumDriver {
     return (await this.api.elementAttribute(id, 'hittable')) === 'true';
   }
 
-  async startLogs(app: AppTarget): Promise<void> {
+  async startLogs(app: AppTarget, sanitize: (line: string) => string): Promise<void> {
     const bundleId = this.appId(app);
-    this.logApp = app;
+    this.logTarget = { app, sanitize };
     this.logs ??= new LogCapture('ios', this.deviceId);
     const exe = await iosAppExecutable(this.deviceId, bundleId);
     if (!exe) throw new Error(`${bundleId}의 실행 파일 이름을 알 수 없습니다.`);
-    this.logs.arm(`exec:${exe}`, 'xcrun', iosLogArgs(this.deviceId, exe));
+    await this.logs.arm(`exec:${exe}`, 'xcrun', iosLogArgs(this.deviceId, exe), sanitize);
   }
 
   async crashArtifacts(app: AppTarget, sinceIso: string): Promise<{ name: string; content: string }[]> {

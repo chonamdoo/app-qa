@@ -259,12 +259,7 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
     type: 'run.started',
     runId,
     runDir: store.runDir,
-    tests: loaded.tests.map((t) => ({
-      id: t.id,
-      name: t.spec.name,
-      platforms: planned.filter((x) => x.test === t).map((x) => x.platform),
-      steps: TestSession.stepLabels(t),
-    })),
+    tests: loaded.tests.map((t) => TestSession.announce(t, planned.filter((x) => x.test === t).map((x) => x.platform))),
     devices: [...slots.values()].flatMap((s) => (s.device ? [{ platform: s.platform, id: s.device.id, name: s.device.name }] : [])),
   });
   if (!d.ocr) store.emit({ type: 'log', level: 'warn', source: 'runner', message: 'OCR 도우미가 없어 OCR 없이 실행합니다 (qa setup으로 설치)' });

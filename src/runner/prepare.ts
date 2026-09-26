@@ -20,12 +20,15 @@ export type TargetSource = 'selector' | 'fast_path' | 'jev';
 
 /**
  * What the action does: `activate` (tap, longPress), `edit` a field's text (type, clear), `submit` a form or dialog
- * (type.submit, press: enter). Activation and submission need the Jev commit check; submission also treats a
- * destructive-dialog screen as risky whatever the field is called.
+ * (Enter: `press: enter`, and `type.submit` after the text is typed). Activation and submission need the Jev commit
+ * check; submission also treats a destructive-dialog screen as risky whatever the field is called. Editing needs an
+ * editable target.
  */
 export type Mutation = 'activate' | 'edit' | 'submit';
 
-export type Approval<T extends object> = ({ status: 'approved' } & T) | { status: 'blocked_by_policy' | 'commit_check_unavailable' | 'stale_target'; reason: string };
+export type Approval<T extends object> =
+  | ({ status: 'approved' } & T)
+  | { status: 'blocked_by_policy' | 'commit_check_unavailable' | 'stale_target' | 'not_editable'; reason: string };
 
 /** A resolution result (the session's resolver); only the reason of a failure is used here. */
 export type Resolution = { ok: true; candidate: Candidate; source: TargetSource; obs: Obs } | { ok: false; outcome: { reason: string } };
@@ -66,6 +69,12 @@ function submitRisk(field: Candidate | null, model: ScreenModel, profile: AppPro
   return risk;
 }
 
+/** A text field: input / secure-input role, or a tree node the platform reports as editable. */
+function isEditable(c: Candidate, model: ScreenModel): boolean {
+  if (c.role === 'input' || c.role === 'secure-input') return true;
+  return c.source === 'tree' && nodeOf(model, c.nodeId)?.flags.editable === true;
+}
+
 export class ActionPreparer<Ctx> {
   private readonly host: PrepareHost<Ctx>;
 
@@ -76,6 +85,7 @@ export class ActionPreparer<Ctx> {
   /**
    * Target-based mutation of a resolved candidate. A target that is gone, covered or not hittable on the fresh
    * observation is re-resolved once (`reresolve`, when given); one that keeps moving after a scroll is stale at once.
+   * An `edit` whose fresh target is not a text field is `not_editable` (the driver taps the target before typing).
    */
   async target(
     ctx: Ctx,
@@ -95,11 +105,14 @@ export class ActionPreparer<Ctx> {
       source = again.source;
       fresh = second;
     }
+    if (mutation === 'edit' && !isEditable(fresh.candidate, fresh.obs.model)) {
+      return { status: 'not_editable', reason: `"${fresh.candidate.name}"(${fresh.candidate.role})은(는) 입력 필드가 아님 — 입력·지우기 대상은 편집 가능한 필드여야 합니다` };
+    }
     const verdict = await this.judge(ctx, fresh.candidate, source === 'jev', fresh.obs.model, mutation, allowRisky);
     return verdict.status === 'approved' ? { status: 'approved', candidate: fresh.candidate, obs: fresh.obs } : verdict;
   }
 
-  /** `press: enter`: the focused field (none = risk unknown) and the screen of a fresh observation. */
+  /** Enter (`press: enter`, `type.submit` after typing): the focused field (none = risk unknown) on a fresh observation. */
   async focused(ctx: Ctx, allowRisky: boolean): Promise<Approval<{ obs: Obs }>> {
     const obs = await this.host.observe('never');
     const field = obs.model.candidates.find((c) => c.state.includes('focused')) ?? null;
@@ -119,6 +132,8 @@ export class ActionPreparer<Ctx> {
     // Risky elements act only through selector/fast path: allowRisky never unlocks a Jev-grounded risky target.
     if (risk.risky && viaJev) return this.block(ctx, [...risk.reasons, JEV_RISKY], allowRisky);
     if (risk.risky && !allowRisky) return this.block(ctx, risk.reasons, false);
+    // Editing an editable field needs no commit check: typing or clearing without submit changes no external state
+    // (Enter is a separate `submit`, checked on its own fresh observation).
     if (!risk.risky && !allowRisky && mutation !== 'edit') {
       const commit = target ? await this.commit(ctx, model, target) : { verdict: 'error', reason: '대상 없음' };
       // Refusal-add only: 'pass' (commits) blocks, 'fail' lets the deterministic verdict stand, anything else is no answer.

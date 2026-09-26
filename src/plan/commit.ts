@@ -1,11 +1,13 @@
 // Atomic plan generations (architecture invariant 9). A new generation (test files + plan.json) is written and fsynced
 // into `<planDir>/.qa/staging-<pid>-<planId>/new/` (`.qa` is skipped by test discovery); a manifest written last marks
-// the staging as complete. The swap then moves each existing target aside into `old/` and renames the staged file into
-// place, plan.json last — that rename is the commit point. Only after it are the previous generation's files that the
-// new plan no longer references pruned. Any failure before the commit runs the exact inverse of the swap, so the
-// previous generation stays byte-identical; a staging directory left by a dead process is rolled back (or, when it had
-// already committed, its prune is finished) by the next plan of the same app.
-import { closeSync, existsSync, fsyncSync, openSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync } from 'node:fs';
+// the staging as complete. The swap first hard-links every existing target into `old/` — the target itself stays in
+// place — and then renames each staged file over its target: rename(2) replaces the path atomically, so a reader always
+// finds a previous-generation file (old or new version) and never a gap. plan.json goes last; that rename is the commit
+// point. Only after it are the previous generation's files that the new plan no longer references pruned. Any failure
+// before the commit runs the exact inverse of the swap, so the previous generation stays byte-identical (the very same
+// inodes); a staging directory left by a dead process is rolled back (or, when it had already committed, its prune is
+// finished) by the next plan of the same app.
+import { closeSync, existsSync, fsyncSync, linkSync, openSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, normalize, sep } from 'node:path';
 import { z } from 'zod';
 import { ensureDir, writeAtomic, writeJsonAtomic } from '../core/fsx.ts';
@@ -48,6 +50,7 @@ export function commitGeneration(planDir: string, planId: string, gen: Generatio
     phase = 'ready';
     beforeSwap();
     phase = 'swap';
+    backUp(planDir, stage, manifest.files);
     const tests = manifest.files.slice(0, -1);
     fsyncDirs(tests.flatMap((rel) => swapIn(planDir, stage, rel)));
     fsyncDirs(swapIn(planDir, stage, PLAN_FILE));
@@ -96,41 +99,59 @@ export function recoverStaging(planDir: string): string[] {
   return notes;
 }
 
-/** target → old/ (when present), new/ → target. Returns the directories whose entries changed. */
+/**
+ * Hard-links every existing target into `old/` (the target stays in place) and makes the links durable before any
+ * target is replaced.
+ */
+function backUp(planDir: string, stage: string, files: readonly string[]): void {
+  const dirs: string[] = [];
+  for (const rel of files) {
+    const target = join(planDir, rel);
+    if (!existsSync(target)) continue;
+    const backup = join(stage, 'old', rel);
+    ensureDir(dirname(backup));
+    linkSync(target, backup);
+    for (let dir = dirname(backup); dir !== dirname(stage); dir = dirname(dir)) dirs.push(dir);
+  }
+  fsyncDirs(dirs);
+}
+
+/** new/ → target: atomically replaces a backed-up target, or creates a new file. Returns the directories that changed. */
 function swapIn(planDir: string, stage: string, rel: string): string[] {
   const target = join(planDir, rel);
-  const backup = join(stage, 'old', rel);
-  const dirs = [dirname(target), dirname(join(stage, 'new', rel))];
-  if (existsSync(target)) {
-    ensureDir(dirname(backup));
-    renameSync(target, backup);
-    dirs.push(dirname(backup));
-  }
+  const staged = join(stage, 'new', rel);
   ensureDir(dirname(target));
-  renameSync(join(stage, 'new', rel), target);
-  return dirs;
+  renameSync(staged, target);
+  return [dirname(target), dirname(staged)];
 }
 
 /**
- * Exact inverse of `swapIn` for every file, in reverse order. Idempotent at every intermediate state, so a crash during
+ * Exact inverse of the swap, in reverse order: first every swapped-in file returns to `new/` — as a second link while
+ * a backup is about to replace it, so no previous file ever disappears; a file without backup did not exist before and
+ * is moved out — then each backup is renamed over its target. Idempotent at every intermediate state, so a crash during
  * the rollback itself is recovered by running it again.
  */
 function rollback(planDir: string, stage: string, files: readonly string[]): void {
-  const dirs: string[] = [];
-  for (const rel of [...files].reverse()) {
-    const target = join(planDir, rel);
-    const staged = join(stage, 'new', rel);
-    const backup = join(stage, 'old', rel);
-    if (!existsSync(staged) && existsSync(target)) {
-      ensureDir(dirname(staged));
-      renameSync(target, staged);
-    }
-    if (existsSync(backup)) renameSync(backup, target);
-    dirs.push(dirname(target));
+  const paths = [...files].reverse().map((rel) => ({ target: join(planDir, rel), staged: join(stage, 'new', rel), backup: join(stage, 'old', rel) }));
+  for (const { target, staged, backup } of paths) {
+    if (existsSync(staged) || !existsSync(target)) continue;
+    ensureDir(dirname(staged));
+    if (existsSync(backup)) linkSync(target, staged);
+    else renameSync(target, staged);
   }
+  fsyncDirs(paths.flatMap(({ target, staged }) => [dirname(staged), dirname(target)]));
+  // A backup that is still the target's own inode was linked but never replaced: the target already is the old file.
+  for (const { target, backup } of paths) if (existsSync(backup) && !sameFile(backup, target)) renameSync(backup, target);
+  const dirs = paths.map(({ target }) => dirname(target));
   fsyncDirs(dirs);
   for (const dir of new Set(dirs)) removeEmptyDir(dir, planDir);
   discard(planDir, stage);
+}
+
+function sameFile(a: string, b: string): boolean {
+  const x = statSync(a, { bigint: true, throwIfNoEntry: false });
+  const y = statSync(b, { bigint: true, throwIfNoEntry: false });
+  return x !== undefined && y !== undefined && x.dev === y.dev && x.ino === y.ino;
 }
 
 function prune(planDir: string, stage: string, stale: readonly string[]): void {

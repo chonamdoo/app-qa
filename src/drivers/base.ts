@@ -108,7 +108,8 @@ export abstract class AppiumDriver implements Driver {
   protected client: AppiumClient | null = null;
   protected screen: Rect | null = null;
   protected logs: LogCapture | null = null;
-  protected logApp: AppTarget | null = null;
+  /** App and sanitizer of the last `startLogs`, so a relaunch can re-arm the capture for the new process. */
+  protected logTarget: { app: AppTarget; sanitize: (line: string) => string } | null = null;
 
   constructor(deviceId: string, opts: DriverOptions = {}) {
     this.deviceId = deviceId;
@@ -139,7 +140,7 @@ export abstract class AppiumDriver implements Driver {
   abstract openUrl(app: AppTarget, url: string): Promise<ActionOutcome>;
   abstract setLocation(lat: number, lon: number): Promise<ActionOutcome>;
   abstract foregroundApp(): Promise<string | null>;
-  abstract startLogs(app: AppTarget): Promise<void>;
+  abstract startLogs(app: AppTarget, sanitize: (line: string) => string): Promise<void>;
   abstract crashArtifacts(app: AppTarget, sinceIso: string): Promise<{ name: string; content: string }[]>;
 
   protected get api(): AppiumClient {
@@ -170,7 +171,7 @@ export abstract class AppiumDriver implements Driver {
   }
 
   async close(): Promise<void> {
-    this.logs?.stop();
+    await this.logs?.stop();
     this.logs = null;
     const client = this.client;
     this.client = null;

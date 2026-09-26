@@ -1,6 +1,6 @@
 // Host process helpers (adb, xcrun, appium CLI). Never routed through a host shell.
 // Bottom layer of the drivers module: `src/drivers/*` builds on `src/appium/*`, never the reverse.
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { adbPath, androidHome, PATHS } from '../core/config.ts';
 
 export class CommandError extends Error {
@@ -26,6 +26,27 @@ export function childEnv(): NodeJS.ProcessEnv {
   const home = androidHome();
   return { ...process.env, ANDROID_HOME: home, ANDROID_SDK_ROOT: home, APPIUM_HOME: PATHS.appiumHome };
 }
+
+/** Liveness and start time (ms, null when unknown) of a pid. */
+export type ProcessProbe = (pid: number) => { alive: boolean; startedAtMs: number | null };
+
+/** `ps` reports start time with 1 s resolution; allow slack for rounding when comparing it to a recorded time. */
+export const START_SLACK_MS = 2000;
+
+export const systemProbe: ProcessProbe = (pid) => {
+  try {
+    process.kill(pid, 0);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EPERM') return { alive: false, startedAtMs: null };
+  }
+  try {
+    const out = execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C', TZ: process.env.TZ } }).trim();
+    const ms = Date.parse(out);
+    return { alive: true, startedAtMs: Number.isNaN(ms) ? null : ms };
+  } catch {
+    return { alive: true, startedAtMs: null };
+  }
+};
 
 export interface RunOptions {
   timeoutMs?: number;

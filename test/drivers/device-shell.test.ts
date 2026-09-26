@@ -48,7 +48,7 @@ describe('device shell safety', () => {
         assert.match(o.error ?? '', /ID가 올바르지 않습니다/);
       }
       await assert.rejects(android.open(a), /ID가 올바르지 않습니다/);
-      await assert.rejects(android.startLogs(a), /ID가 올바르지 않습니다/);
+      await assert.rejects(android.startLogs(a, (line) => line), /ID가 올바르지 않습니다/);
     }
     assert.deepEqual(fake.hostCalls(), []);
   });

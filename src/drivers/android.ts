@@ -156,7 +156,7 @@ export class AndroidDriver extends AppiumDriver {
       if (opts.permissions) await this.applyPermissions(appId, opts.permissions);
       const component = await this.launchActivity(app);
       assertAmStarted(await adbShell(this.deviceId, ['am', 'start', '-W', '-n', component, ...(opts.arguments ?? [])], { timeoutMs: 60_000 }));
-      if (this.logApp?.appId === appId) await this.startLogs(app);
+      if (this.logTarget?.app.appId === appId) await this.startLogs(app, this.logTarget.sanitize);
     });
   }
 
@@ -204,19 +204,19 @@ export class AndroidDriver extends AppiumDriver {
   }
 
   /** logcat for the app's current pid (re-armed after every launch); falls back to the app uid when it is not running. */
-  async startLogs(app: AppTarget): Promise<void> {
+  async startLogs(app: AppTarget, sanitize: (line: string) => string): Promise<void> {
     const appId = this.appId(app);
-    this.logApp = app;
+    this.logTarget = { app, sanitize };
     this.logs ??= new LogCapture('android', this.deviceId);
     const pid = (await adbShell(this.deviceId, ['pidof', appId], { allowFail: true })).trim().split(/\s+/)[0] ?? '';
     const since = Date.now() - 30_000;
     if (/^\d+$/.test(pid)) {
-      this.logs.arm(`pid:${pid}`, 'adb', androidLogArgs(this.deviceId, { pid }, since));
+      await this.logs.arm(`pid:${pid}`, 'adb', androidLogArgs(this.deviceId, { pid }, since), sanitize);
       return;
     }
     const uid = /uid:(\d+)/.exec(await adbShell(this.deviceId, ['pm', 'list', 'packages', '-U', appId]))?.[1];
     if (!uid) throw new Error(`${appId}가 설치되어 있지 않습니다.`);
-    this.logs.arm(`uid:${uid}`, 'adb', androidLogArgs(this.deviceId, { uid }, since));
+    await this.logs.arm(`uid:${uid}`, 'adb', androidLogArgs(this.deviceId, { uid }, since), sanitize);
   }
 
   async crashArtifacts(app: AppTarget, sinceIso: string): Promise<{ name: string; content: string }[]> {

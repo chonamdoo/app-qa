@@ -13,8 +13,54 @@ export const maskValue = (value: string): string => '•'.repeat([...value].leng
 /** A value that is already only mask characters (a password field shows bullets) is not a secret worth tracking. */
 const MASKED = /^[•●*]+$/u;
 
-/** Fields holding run-relative evidence paths: masking them would break the links, and they carry no screen text. */
-const PATH_KEYS: Record<string, true> = { screenshot: true, evidenceDir: true, before: true, after: true, logs: true, crash: true, file: true };
+/**
+ * Fields the deep sanitizer never rewrites: run-relative evidence paths (masking them would break the links; they carry
+ * no screen text) and structural fields — enums, ids, keys, counters, timestamps. A secret that happens to equal
+ * `ERROR`, `tap` or `android` must not corrupt verdicts, event kinds or platforms; only free text is masked.
+ */
+const VERBATIM_KEYS: Record<string, true> = {
+  screenshot: true,
+  evidenceDir: true,
+  before: true,
+  after: true,
+  logs: true,
+  crash: true,
+  file: true,
+  plan: true,
+  $schema: true,
+  type: true,
+  kind: true,
+  verdict: true,
+  status: true,
+  code: true,
+  platform: true,
+  platforms: true,
+  source: true,
+  role: true,
+  state: true,
+  region: true,
+  level: true,
+  severity: true,
+  phase: true,
+  runId: true,
+  testId: true,
+  jobId: true,
+  planId: true,
+  deviceId: true,
+  requestId: true,
+  nodeId: true,
+  id: true,
+  key: true,
+  app: true,
+  model: true,
+  seq: true,
+  index: true,
+  step: true,
+  ts: true,
+  takenAt: true,
+  startedAt: true,
+  finishedAt: true,
+};
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
 const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;', '\n': '&#10;', '\r': '&#13;', '\t': '&#9;' };
@@ -67,13 +113,13 @@ export class EvidenceSanitizer {
     return this.redact(out);
   };
 
-  /** Deep copy with every string sanitized; object keys are ids and evidence paths stay as they are. */
+  /** Deep copy with every free-text string sanitized; object keys and `VERBATIM_KEYS` fields stay as they are. */
   deep<T>(value: T): T {
     if (typeof value === 'string') return this.text(value) as T;
     if (Array.isArray(value)) return value.map((v: unknown) => this.deep(v)) as T;
     if (value === null || typeof value !== 'object' || value instanceof Uint8Array) return value;
     const out: Record<string, unknown> = {};
-    for (const [key, v] of Object.entries(value)) out[key] = Object.hasOwn(PATH_KEYS, key) ? v : this.deep(v);
+    for (const [key, v] of Object.entries(value)) out[key] = Object.hasOwn(VERBATIM_KEYS, key) ? v : this.deep(v);
     return out as T;
   }
 

@@ -61,6 +61,7 @@ export type QaEventBody =
 /** Exactly the DSL action performed; never substituted by a neighbouring kind. */
 export type ActionKind =
   | 'tap'
+  | 'tapAt'
   | 'longPress'
   | 'type'
   | 'clear'

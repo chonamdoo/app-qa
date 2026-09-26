@@ -128,6 +128,20 @@ const ElementRef = z.union([
 ]);
 const Base64 = z.string().regex(/^[A-Za-z0-9+/\r\n]+={0,2}\s*$/);
 const PNG_MAGIC = 0x89504e47;
+/**
+ * The only success answer of a mutating command (`/actions`, element click/clear/value, `/keys`): W3C `value: null`.
+ * Checked against the pinned stack — every one of these answers exactly null, never `true`/`""`:
+ * - Appium base-driver 10.8.1 turns a command's `undefined` result into null (`lib/protocol/helpers.ts:15-18`
+ *   `formatResponseValue`, applied at `lib/protocol/protocol.ts:518` and to proxied bodies at `lib/jsonwp-proxy/proxy.ts:417`).
+ * - UiAutomator2 8.7.0 serves all four in the driver (no-proxy list, `lib/driver.ts:155,172`) and returns `Promise<void>`:
+ *   `performActions` (`lib/commands/actions.ts:62`), `click` / `clear` (`lib/commands/element.ts:122,139`), `setValue`
+ *   (appium-android-driver 14.2.0 `lib/commands/element.ts:150`).
+ * - XCUITest 12.13.2 returns `Promise<void>` from `performActions` (`lib/commands/gesture.ts:66`), `setValue` / `keys` /
+ *   `clear` (`lib/commands/element.ts:234,287,298`); a native element click is proxied to WDA 16.12.10, whose
+ *   `handleClick` answers `FBResponseWithOK()` (`WebDriverAgentLib/Commands/FBElementCommands.m:251`) = `value: NSNull`
+ *   (`WebDriverAgentLib/Routing/FBResponsePayload.m:96`).
+ */
+const Done = z.null();
 
 export interface W3CPointerAction {
   type: 'pointer';
@@ -267,7 +281,7 @@ export class AppiumClient {
   }
 
   async performActions(actions: W3CPointerAction[], timeoutMs?: number): Promise<void> {
-    await this.cmd('POST', '/actions', { actions }, timeoutMs);
+    decode(Done, await this.cmd('POST', '/actions', { actions }, timeoutMs), 'POST /actions');
   }
 
   /** `mobile:` extension result, undecoded: callers check the shape they use. */
@@ -309,15 +323,15 @@ export class AppiumClient {
   }
 
   async click(id: string): Promise<void> {
-    await this.cmd('POST', `/element/${id}/click`, {});
+    decode(Done, await this.cmd('POST', `/element/${id}/click`, {}), 'POST /element/:id/click');
   }
 
   async clear(id: string): Promise<void> {
-    await this.cmd('POST', `/element/${id}/clear`, {});
+    decode(Done, await this.cmd('POST', `/element/${id}/clear`, {}), 'POST /element/:id/clear');
   }
 
   async setValue(id: string, text: string): Promise<void> {
-    await this.cmd('POST', `/element/${id}/value`, { text, value: [...text] });
+    decode(Done, await this.cmd('POST', `/element/${id}/value`, { text, value: [...text] }), 'POST /element/:id/value');
   }
 
   async elementText(id: string): Promise<string> {
@@ -335,6 +349,6 @@ export class AppiumClient {
 
   /** XCUITest only: XCTest typeText at the caret via WDA `/wda/keys` (Appium route `/keys`; Unicode-safe, no clipboard). */
   async wdaKeys(text: string): Promise<void> {
-    await this.cmd('POST', '/keys', { value: [text] });
+    decode(Done, await this.cmd('POST', '/keys', { value: [text] }), 'POST /keys');
   }
 }

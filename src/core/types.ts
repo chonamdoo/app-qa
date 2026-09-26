@@ -194,8 +194,11 @@ export interface Driver {
   foregroundApp(): Promise<string | null>;
   /** iOS: WDA `hittable` of the element at/around a point; Android: undefined (geometry test is authoritative). */
   isHittable?(p: Point): Promise<boolean | undefined>;
-  /** Start collecting device logs for the app; slice returns text between two ISO timestamps. */
-  startLogs(app: AppTarget): Promise<void>;
+  /**
+   * Start collecting device logs for the app; slice returns text between two ISO timestamps. Every line passes
+   * `sanitize` before it touches disk (the runner's evidence sanitizer) — raw device output is never stored.
+   */
+  startLogs(app: AppTarget, sanitize: (line: string) => string): Promise<void>;
   logSlice(fromIso: string, toIso: string): Promise<string>;
   /** Crash evidence since `sinceIso`: Android logcat crash buffer / ANR traces, iOS DiagnosticReports *.ips for the app. */
   crashArtifacts(app: AppTarget, sinceIso: string): Promise<{ name: string; content: string }[]>;

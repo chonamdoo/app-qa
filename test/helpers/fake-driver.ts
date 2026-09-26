@@ -79,6 +79,8 @@ export class FakeDriver implements Driver {
   typeError: string | null = null;
   logText = '09-26 08:21:00.000  1234  1234 E ReactNativeJS: boom\n';
   crashes: { name: string; content: string }[] = [];
+  /** The sanitizer the runner handed to `startLogs`; captured lines pass it, as in the real drivers. */
+  logSanitize: ((line: string) => string) | null = null;
 
   constructor(screen: Snapshot, clock = new FakeClock()) {
     this.platform = screen.platform;
@@ -181,12 +183,13 @@ export class FakeDriver implements Driver {
   async foregroundApp(): Promise<string | null> {
     return this.screen.foregroundApp;
   }
-  async startLogs(app: AppTarget): Promise<void> {
+  async startLogs(app: AppTarget, sanitize: (line: string) => string): Promise<void> {
     this.record('startLogs', app);
+    this.logSanitize = sanitize;
   }
   async logSlice(fromIso: string, toIso: string): Promise<string> {
     this.record('logSlice', fromIso, toIso);
-    return this.logText;
+    return this.logSanitize ? this.logText.split('\n').map(this.logSanitize).join('\n') : this.logText;
   }
   async crashArtifacts(app: AppTarget, sinceIso: string): Promise<{ name: string; content: string }[]> {
     this.record('crashArtifacts', app, sinceIso);

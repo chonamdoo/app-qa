@@ -1,6 +1,8 @@
 // Driver actions over a scripted Appium server: lost or garbled answers are `uncertain`, never `completed`/`rejected`.
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
+import { W3C_ELEMENT_KEY } from '../../src/appium/client.ts';
+import type { ActionOutcome } from '../../src/core/types.ts';
 import { AndroidDriver } from '../../src/drivers/android.ts';
 import { IosDriver } from '../../src/drivers/ios.ts';
 import { scriptOf, startAppiumStub, type AppiumStub, type Reply } from './stubs.ts';
@@ -76,5 +78,60 @@ describe('gesture outcome on unvalidated 200 answers', () => {
     await driver.open({ platform: 'android', appId: 'kr.tteonam.app' });
     assert.equal((await driver.tap({ x: 10, y: 10 })).status, 'rejected');
     await driver.close();
+  });
+});
+
+describe('mutating commands succeed only with W3C value null', () => {
+  const AT = { x: 10, y: 10 };
+  /** Driver actions whose last device command is `path`. */
+  const COMMANDS: Record<string, { path: string; platform: 'android' | 'ios'; act: (d: AndroidDriver | IosDriver) => Promise<ActionOutcome> }> = {
+    'POST /actions (tap)': { path: '/session/s1/actions', platform: 'android', act: (d) => d.tap(AT) },
+    'POST /element/:id/click (iOS back button)': { path: '/session/s1/element/B1/click', platform: 'ios', act: (d) => d.back() },
+    'POST /element/:id/clear (clearText)': { path: '/session/s1/element/E1/clear', platform: 'android', act: (d) => d.clearText(AT) },
+    'POST /element/:id/value (typeText)': { path: '/session/s1/element/E1/value', platform: 'android', act: (d) => d.typeText(AT, '대한항공') },
+    'POST /keys (iOS enter)': { path: '/session/s1/keys', platform: 'ios', act: (d) => d.press('enter') },
+  };
+
+  /** Runs one command's action with `value` as that command's answer; the rest of the stub is a screen with one focused field and a nav-bar back button. */
+  async function outcome(name: string, value: unknown): Promise<ActionOutcome> {
+    const { path, platform, act } = COMMANDS[name]!;
+    let typed = '';
+    const stub = await startAppiumStub((req) => {
+      if (req.path === path) {
+        if (value === null && typeof req.body?.text === 'string') typed = req.body.text;
+        return { body: { value } };
+      }
+      if (req.path === '/session/s1/element/active') return { body: { value: { [W3C_ELEMENT_KEY]: 'E1' } } };
+      if (req.path === '/session/s1/element/E1/text') return { body: { value: typed } };
+      if (req.path === '/session/s1/elements') return { body: { value: [{ [W3C_ELEMENT_KEY]: 'B1' }] } };
+      if (req.path === '/session/s1/element/B1/rect') return { body: { value: { x: 0, y: 40, width: 60, height: 40 } } };
+      if (scriptOf(req) === 'mobile: isKeyboardShown') return { body: { value: true } };
+      return undefined;
+    });
+    const driver = platform === 'android' ? new AndroidDriver('emulator-5554', { serverUrl: stub.url }) : new IosDriver('SIM-UDID', { serverUrl: stub.url });
+    try {
+      await driver.open({ platform, appId: 'kr.tteonam.app' });
+      return await act(driver);
+    } finally {
+      await driver.close();
+      stub.close();
+    }
+  }
+
+  it('any other 200 value (object, false, true, "") is uncertain, never completed', async () => {
+    for (const name of Object.keys(COMMANDS)) {
+      for (const value of [{ done: true }, false, true, '']) {
+        const o = await outcome(name, value);
+        assert.equal(o.status, 'uncertain', `${name} → ${JSON.stringify(value)}: ${o.error}`);
+      }
+    }
+  });
+
+  it('value null is completed', async () => {
+    for (const name of Object.keys(COMMANDS)) {
+      const o = await outcome(name, null);
+      assert.equal(o.status, 'completed', `${name}: ${o.error}`);
+      assert.equal(o.error, undefined, name);
+    }
   });
 });

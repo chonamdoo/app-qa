@@ -6,7 +6,7 @@ import type { Snapshot } from '../../src/core/types.ts';
 import { captureScreen, inspectScreen, runTests } from '../../src/runner/index.ts';
 import { FakeDriver, fixtureSnapshot } from '../helpers/fake-driver.ts';
 import { choice, jevStub } from '../helpers/jev-stub.ts';
-import { fakeDeps, runYaml, tempRoot } from '../helpers/run.ts';
+import { fakeDeps, readJsonl, runYaml, tempRoot } from '../helpers/run.ts';
 
 const APP = 'kr.tteonam.app';
 const screen = (name: string, opts: { keyboardShown?: boolean } = {}): Snapshot => fixtureSnapshot('android', 'tteonam', name, { foreground: APP, ...opts });
@@ -89,9 +89,10 @@ describe('navigation and device steps', () => {
     assert.equal(tapAt.result.tests[0]!.code, 'blocked_by_policy', 'coordinates have no label: risk unknown');
   });
 
-  it('action events name the DSL action exactly (hideKeyboard, press, location — not back/type/launch)', async () => {
+  it('action events name the DSL action exactly (hideKeyboard, press, location, tapAt — not back/type/launch/tap)', async () => {
     const driver = new FakeDriver(screen('search-empty-keyboard', { keyboardShown: true }));
-    const steps = '  - hideKeyboard: true\n  - press: back\n    expectNoChange: true\n  - location: { lat: 37.46, lon: 126.44 }\n';
+    const steps =
+      '  - hideKeyboard: true\n  - press: back\n    expectNoChange: true\n  - location: { lat: 37.46, lon: 126.44 }\n  - tapAt: { x: 0.5, y: 0.5 }\n    allowRisky: true\n    expectNoChange: true\n';
     const { result, events } = await runYaml({ 'tests/k.e2e.yaml': spec(steps) }, driver);
     assert.equal(result.tests[0]!.verdict, 'PASS', result.tests[0]!.reason);
     const actions = events.flatMap((e) => (e.type === 'action' ? [[e.kind, e.text]] : []));
@@ -99,7 +100,11 @@ describe('navigation and device steps', () => {
       ['hideKeyboard', null],
       ['press', 'back'],
       ['location', '37.46,126.44'],
+      ['tapAt', null],
     ]);
+    const journal = readJsonl(join(result.runDir, 'journal.jsonl'));
+    assert.deepEqual([...new Set(journal.map((j) => j.kind))], ['hideKeyboard', 'press', 'location', 'tapAt']);
+    assert.equal(driver.called('tap').length, 1);
   });
 
   it('which runs the branch Jev picks for the current screen', async () => {

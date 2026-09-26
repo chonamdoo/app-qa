@@ -51,11 +51,26 @@ describe('press: enter and type.submit go through the policy', () => {
     assert.equal(driver.called('press').length, 0);
   });
 
-  it('blocks type with submit: true into a field on a destructive-context screen', async () => {
-    const driver = new FakeDriver(search([DESTRUCTIVE]));
+  it('type.submit types without Enter, then approves Enter on the screen after typing', async () => {
+    // Safe screen: typed with submit false, the focused field is commit-checked afresh, then Enter is pressed.
+    const safe = new FakeDriver(search());
+    const jev = commitSafe();
+    const ok = await runYaml({ 'tests/s.e2e.yaml': spec(`  - type: 인천\n    submit: true\n${into}`) }, safe, { jev: jev.setup });
+    assert.equal(ok.result.tests[0]!.verdict, 'PASS', ok.result.tests[0]!.reason);
+    assert.deepEqual(safe.called('typeText').map((c) => (c.args[2] as { submit?: boolean }).submit), [false]);
+    assert.deepEqual(safe.called('press').map((c) => c.args[0]), ['enter']);
+    assert.ok(jev.requests.some((r) => 'commits' in r.questions), 'Enter was commit-checked');
+
+    // A destructive dialog that appears only after typing blocks Enter.
+    const driver = new FakeDriver(search());
+    driver.onAction = (method, d) => {
+      if (method === 'typeText') d.screen = search([DESTRUCTIVE]);
+    };
     const { result } = await runYaml({ 'tests/s.e2e.yaml': spec(`  - type: 인천\n    submit: true\n${into}`) }, driver, { jev: commitSafe().setup });
     assert.equal(result.tests[0]!.code, 'blocked_by_policy', result.tests[0]!.reason);
-    assert.equal(driver.called('typeText').length, 0);
+    assert.match(result.tests[0]!.reason, /제출\(Enter\)/);
+    assert.deepEqual(driver.called('typeText').map((c) => (c.args[2] as { submit?: boolean }).submit), [false]);
+    assert.equal(driver.called('press').length, 0);
   });
 
   it('press: back is not a submission: no policy block and no commit check', async () => {
@@ -77,6 +92,19 @@ describe('press: enter and type.submit go through the policy', () => {
     const refused = await runYaml({ 'tests/e.e2e.yaml': spec('  - press: enter\n    expectNoChange: true\n') }, unchecked);
     assert.equal(refused.result.tests[0]!.code, 'commit_check_unavailable');
     assert.equal(unchecked.called('press').length, 0);
+  });
+});
+
+describe('edit targets must be text fields', () => {
+  it('type into / clear of a button is FAIL not_editable and nothing is dispatched', async () => {
+    for (const step of ['  - type: "3"\n    into: Add\n', '  - clear: Add\n']) {
+      const driver = new FakeDriver(fixtureSnapshot('android', 'example-tickets', 'launch', { foreground: 'example.tickets' }));
+      const { result } = await runYaml({ 'tests/n.e2e.yaml': spec(step, 'example') }, driver, { jev: commitSafe().setup });
+      const t = result.tests[0]!;
+      assert.equal(t.verdict, 'FAIL', step);
+      assert.equal(t.code, 'not_editable', t.reason);
+      for (const method of ['tap', 'longPress', 'typeText', 'clearText', 'press']) assert.equal(driver.called(method).length, 0, `${step}: ${method}`);
+    }
   });
 });
 

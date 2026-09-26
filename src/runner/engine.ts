@@ -134,10 +134,10 @@ interface StepCtx {
 
 type Resolved = { ok: true; candidate: Candidate; source: 'selector' | 'fast_path' | 'jev'; obs: Obs } | { ok: false; outcome: Outcome; obs: Obs };
 
-/** The approved preparation, or the step's verdict: stale → FAIL, blocked/unavailable → ERROR (nothing dispatched). */
+/** The approved preparation, or the step's verdict: stale / not editable → FAIL, blocked/unavailable → ERROR (nothing dispatched). */
 function approved<T extends object>(approval: Approval<T>): { status: 'approved' } & T {
   if (approval.status === 'approved') return approval;
-  throw new StepAbort(approval.status === 'stale_target' ? 'FAIL' : 'ERROR', approval.status, approval.reason);
+  throw new StepAbort(approval.status === 'stale_target' || approval.status === 'not_editable' ? 'FAIL' : 'ERROR', approval.status, approval.reason);
 }
 
 const PASS = (reason: string): Outcome => ({ verdict: 'PASS', code: null, reason });
@@ -187,7 +187,8 @@ function pngHash(png: Uint8Array | null): string | null {
 }
 
 export class TestSession {
-  private readonly env: SessionEnv;
+  /** Everything but the raw run store: the session reaches the store only through `out`. */
+  private readonly env: Omit<SessionEnv, 'store'>;
   private readonly test: LoadedTest;
   private readonly platform: Platform;
   private readonly app: AppTarget;
@@ -217,11 +218,12 @@ export class TestSession {
   private readonly testDir: string;
 
   constructor(env: SessionEnv, test: LoadedTest, platform: Platform, app: AppTarget) {
-    this.env = env;
+    const { store, ...rest } = env;
+    this.env = rest;
     this.test = test;
     this.platform = platform;
     this.app = app;
-    this.out = new SanitizedStore(env.store, new EvidenceSanitizer(test.profile.redact));
+    this.out = new SanitizedStore(store, new EvidenceSanitizer(test.profile.redact));
     this.preparer = new ActionPreparer<StepCtx>({
       platform,
       profile: test.profile,
@@ -240,11 +242,11 @@ export class TestSession {
     this.testDir = `${test.id}/${platform}`;
   }
 
-  /** Static step list for `run.started` (sanitized like every event): implicit start + setup + steps + teardown. */
-  static stepLabels(test: LoadedTest): string[] {
+  /** The test's `run.started` entry, sanitized like every event: implicit start + setup + steps + teardown labels. */
+  static announce(test: LoadedTest, platforms: Platform[]): { id: string; name: string; platforms: Platform[]; steps: string[] } {
     const s = test.spec;
-    const clean = new EvidenceSanitizer(test.profile.redact);
-    return [startLabel(test), ...[...(s.setup ?? []), ...s.steps, ...(s.teardown ?? [])].map(stepLabel)].map(clean.text);
+    const steps = [startLabel(test), ...[...(s.setup ?? []), ...s.steps, ...(s.teardown ?? [])].map(stepLabel)];
+    return new EvidenceSanitizer(test.profile.redact).deep({ id: test.id, name: s.name, platforms, steps });
   }
 
   async run(): Promise<TestResult> {
@@ -458,7 +460,7 @@ export class TestSession {
   ): Promise<StepResult> {
     const ctx = this.newCtx({ index, phase, ...meta, optional: meta.optional || ownOptional }, label);
     const ref = { runId: this.env.runId, testId: this.test.id, platform: this.platform, index };
-    this.env.store.emit({ type: 'step.started', ...ref, label });
+    this.out.emit({ type: 'step.started', ...ref, label });
     const t0 = this.env.clock.now();
     let outcome: Outcome;
     try {
@@ -581,22 +583,27 @@ export class TestSession {
       const s = obs.model.snapshot.screen;
       const point = { x: Math.round(s.x + step.tapAt.x * s.width), y: Math.round(s.y + step.tapAt.y * s.height) };
       approved(this.preparer.label(ctx, labelRisk(null), step.allowRisky ?? false));
-      await this.act(ctx, 'tap', { point }, () => this.env.driver.tap(point));
+      await this.act(ctx, 'tapAt', { point }, () => this.env.driver.tap(point));
       await this.settle(ctx, obs, !step.expectNoChange, timeout);
       return PASS(`좌표 ${point.x},${point.y} 탭`);
     }
     if ('type' in step) {
-      const t = await this.approvedTarget(ctx, obs, q(step.into), step.submit ? 'submit' : 'edit', step.allowRisky, timeout);
+      const t = await this.approvedTarget(ctx, obs, q(step.into), 'edit', step.allowRisky, timeout);
       const point = t.candidate.tapPoint;
       // An observed secure field is secure whatever the DSL says; its value is masked in every later write.
       const secure = step.secure === true || t.candidate.role === 'secure-input';
       if (secure) this.out.clean.addSecret(step.type);
       const typed = await this.act(ctx, 'type', { point, text: secure ? maskValue(step.type) : step.type }, () =>
-        this.env.driver.typeText(point, step.type, { secure, append: step.append, submit: step.submit }),
+        this.env.driver.typeText(point, step.type, { secure, append: step.append, submit: false }),
       );
       if (typed.error?.startsWith('INPUT_UNVERIFIED')) throw new StepAbort('FAIL', 'input_unverified', `입력 확인 실패: ${typed.error}`);
+      if (step.submit) {
+        // Typing may change the screen: Enter is approved only on the observation after typing.
+        approved(await this.preparer.focused(ctx, step.allowRisky ?? false));
+        await this.act(ctx, 'press', { text: 'enter' }, () => this.env.driver.press('enter'));
+      }
       await this.settle(ctx, t.obs, false, timeout);
-      return PASS(`"${t.candidate.name}"에 입력 확인 (${typed.path})`);
+      return PASS(`"${t.candidate.name}"에 입력 확인 (${typed.path})${step.submit ? ' 후 Enter' : ''}`);
     }
     if ('clear' in step) {
       const t = await this.approvedTarget(ctx, obs, q(step.clear), 'edit', step.allowRisky, timeout);
@@ -1048,7 +1055,7 @@ export class TestSession {
     } else if (reset === 'relaunch') await this.act(ctx, 'terminate', {}, () => driver.terminate(this.app));
     if (reset === 'none' || reset === 'relaunch' || custom) await this.act(ctx, 'launch', {}, () => driver.launch(this.app, opts));
     try {
-      await driver.startLogs(this.app);
+      await driver.startLogs(this.app, this.out.clean.text);
     } catch (err) {
       this.warnOnce('startLogs', `기기 로그 수집 시작 실패: ${err instanceof Error ? err.message : String(err)}`);
     }

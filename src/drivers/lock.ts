@@ -1,9 +1,9 @@
 // Per-device exclusive lock: .qa/locks/<deviceId>.lock = {pid, startedAt, acquiredAt, token}. A dead (or pid-reused)
 // owner is reclaimed; reclaiming never deletes a lock that changed since it was judged stale.
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import { closeSync, fstatSync, linkSync, openSync, readFileSync, rmSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
+import { START_SLACK_MS, systemProbe, type ProcessProbe } from '../appium/exec.ts';
 import { PATHS } from '../core/config.ts';
 import { sha256, writeSecure } from '../core/fsx.ts';
 
@@ -14,9 +14,6 @@ export interface LockRecord {
   acquiredAt: string;
   token: string;
 }
-
-/** Liveness and start time (ms, null when unknown) of a pid. */
-export type ProcessProbe = (pid: number) => { alive: boolean; startedAtMs: number | null };
 
 export class DeviceLockedError extends Error {
   /** Recorded owner; null when the lock file is unreadable. */
@@ -33,9 +30,6 @@ export class DeviceLockedError extends Error {
   }
 }
 
-/** `ps` reports start time with 1 s resolution; allow slack for rounding. */
-const START_SLACK_MS = 2000;
-
 /**
  * True when the recorded owner no longer holds the device: unreadable record, dead pid,
  * or a live pid whose start time differs from the record (pid reused by another process).
@@ -48,21 +42,6 @@ export function isStale(record: LockRecord | null, probe: ProcessProbe): boolean
   if (p.startedAtMs === null || Number.isNaN(recorded)) return false;
   return Math.abs(p.startedAtMs - recorded) > START_SLACK_MS;
 }
-
-export const systemProbe: ProcessProbe = (pid) => {
-  try {
-    process.kill(pid, 0);
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'EPERM') return { alive: false, startedAtMs: null };
-  }
-  try {
-    const out = execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C', TZ: process.env.TZ } }).trim();
-    const ms = Date.parse(out);
-    return { alive: true, startedAtMs: Number.isNaN(ms) ? null : ms };
-  } catch {
-    return { alive: true, startedAtMs: null };
-  }
-};
 
 /** One lock file generation as read from disk: inode + exact bytes (tokens make every generation's bytes unique). */
 interface LockFile {
