@@ -20,11 +20,12 @@ qa run ─► runner ─► per step: observe → normalize(가림/중복/키보
 
 | 모듈 | 경로 | 공개 계약 |
 |---|---|---|
-| 공통 | `src/core/{types,config,fsx}.ts`, `src/spec/schema.ts` | 타입·경로·DSL 스키마 (통합 담당만 수정) |
+| 공통(계약) | `src/core/*`, `src/spec/{schema,load}.ts` | 타입·경로·이벤트·DSL 스키마·스펙/프로필 로더·Jev 후보 행 형식(`src/core/candidate-row.ts`) (통합 담당만 수정) |
 | 관찰 | `src/observe/*`, `src/ocr/*` | `parseAndroidSource`, `parseIosSource`, `buildScreenModel`, `topmostAt`, `refind`, `renderCandidateTable`, `normLabel`, `runOcr`, `buildOcrHelper` |
-| Jev | `src/jev/*` | `JevClient`, `loadJevConfig`, `groundChoice`, `judgeClaim`, `judgeWhich`, `judgeCommit`, `reviewGenerated`, `loadCalibration`, `cmdCalibrate` |
+| 위험 정책 | `src/policy/*` | `labelRisk`, `assessRisk`, 키워드·대화상자 문맥 표 (결정적) |
+| Jev | `src/jev/*` | `JevClient`, `loadJevConfig`, `groundChoice`, `judgeClaim`, `judgeWhich`, `judgeCommit`, `reviewGenerated`, `loadCalibration` (`cmdCalibrate`는 CLI `src/cli/commands/calibrate.ts` 소유) |
 | 드라이버 | `src/appium/*`, `src/drivers/*` | `ensureAppium`, `createDriver`, `listDevices`, `pickDevice`, `listApps`, `backupApp`, `acquireDeviceLock`, `cmdSetup/cmdDoctor/cmdDevices/cmdApps` |
-| 러너 | `src/runner/*`, `src/spec/load.ts`, `src/report/*`, `src/cli/index.ts`, `bin/qa.ts` | `runTests`, `cmdRun/cmdSmoke/cmdInspect/cmdCapture/cmdReport`, CLI 디스패처 |
+| 러너 | `src/runner/*`, `src/report/*`, `src/cli/index.ts`, `bin/qa.ts` | `runTests`, `cmdRun/cmdSmoke/cmdInspect/cmdCapture/cmdReport`, CLI 디스패처 |
 | 문서→테스트 | `src/plan/*` | `cmdPlan`, `ingestDocuments`, `segmentRequirements`, `generateTests` |
 
 CLI 명령 모듈은 `src/cli/commands/<name>.ts`에서 `export async function cmd<Name>(argv: string[]): Promise<number>` (반환 = exit code) 형태로 내보내고, 인자 파싱은 `node:util` `parseArgs`. 디스패처는 러너 담당.
@@ -78,7 +79,9 @@ CLI 명령 모듈은 `src/cli/commands/<name>.ts`에서 `export async function c
 - 파일: `tests/**/*.e2e.yaml`, 앱 프로필 `apps/<id>.yaml`. 로딩 시 zod 검증, `type`의 `${ENV}`는 **실행 시** 치환.
 - 스텝 대상 해석 순서: selector(정확 일치) → fast path(정규화 라벨 **유일** 일치; 유일성은 가림 필터 후·병합 전 기준) → Jev grounding. `within`(컨테이너 rect 안), `nth`(읽는 순서), `near`(거리). `decisionSource` 기록(가짜 Jev 응답 금지).
 - 게이트 결과: pass → 진행 / not_found → 스텝 timeout 내 재관찰(트리 지문이 바뀔 때만 Jev 재질의) / ambiguous → 즉시 FAIL(문구 수정 필요) / error → ERROR.
-- **위험 정책**(`src/runner/risk.ts`): 한·영 키워드(삭제, 지우기, 제거, 결제, 구매, 주문, 탈퇴, 로그아웃, 초기화, 송금, 이체, 전송, 보내기, 공유, 신고, 차단, 구독, 해지, 전화, 권한 허용 / delete, remove, erase, pay, purchase, buy, order, checkout, unsubscribe, sign out, log out, reset, send, transfer, share, report, block, call — 영어는 단어 경계) + 앱 프로필 deny/allow. 파괴적 확인 대화상자 문맥(삭제하시겠|정말|되돌릴 수 없|cannot be undone|are you sure …)에서는 확인/예/네/OK/Yes/계속도 위험. 라벨 없는 대상(`tapAt`, 이름 없는 아이콘) = 위험 미상. Jev commit Noul ≥ 0.5 → 위험(거부 추가 전용). 위험 + `allowRisky` 없음 → 스텝 ERROR `blocked_by_policy`(행동 안 함). 위험 요소는 Jev grounding 불가 — selector/fast path만.
+- **위험 정책**(`src/policy/risk.ts`): 한·영 키워드(삭제, 지우기, 제거, 결제, 구매, 주문, 탈퇴, 로그아웃, 초기화, 송금, 이체, 전송, 보내기, 공유, 신고, 차단, 구독, 해지, 전화, 권한 허용 / delete, remove, erase, pay, purchase, buy, order, checkout, unsubscribe, sign out, log out, reset, send, transfer, share, report, block, call — 영어는 단어 경계) + 앱 프로필 deny/allow. 파괴적 확인 대화상자 문맥(삭제하시겠|정말|되돌릴 수 없|cannot be undone|are you sure …)에서는 확인/예/네/OK/Yes/계속도 위험. 라벨 없는 대상(`tapAt`, 이름 없는 아이콘) = 위험 미상. 정책은 **행동 직전 새 관찰의 최종 대상·화면**에 적용한다(freshness 이후 재평가). `press: enter`와 `type.submit`도 포커스된 필드와 화면 문맥으로 같은 정책을 거친다. Jev commit Noul(보정된 임계값 이상 → 위험)은 거부 추가 전용이며, `allowRisky` 없이 결정적으로 안전한 대상에 대한 모든 대상 기반 변경 행동(tap, longPress, submit/enter)에 **필수**다: commit 판단이 오류이거나 commit 게이트가 `calibrated`가 아니면 스텝 ERROR `commit_check_unavailable`(행동 안 함). advisory 등급은 두지 않는다. 위험 + `allowRisky` 없음 → 스텝 ERROR `blocked_by_policy`(행동 안 함). 위험 요소는 Jev grounding 불가 — selector/fast path만.
+- **증거 정제**: journal·events·SSE·`source.xml`·`elements.json`·로그로 가는 모든 기록은 한 정제 경계를 지난다 — 관찰된 `secure-input` 역할(DSL `secure` 플래그와 무관), `${ENV}`로 치환된 값, 앱 프로필 `redact` 일치를 가린다. Appium 서버는 요청 본문을 기록하지 않는 로그 수준으로 실행한다.
+- **원자적 기록**: 보정 레코드, `plan.json`, 생성 테스트, `summary.json`, `.qa/server.json`은 임시 파일 → fsync → rename으로 쓴다. 계획 재생성은 새 세대를 완성한 뒤에만 이전 테스트를 정리한다.
 - freshness: 행동 직전 재관찰 → `refind` → hit-test(Android 기하, iOS 추가로 `isHittable`) → 새 tapPoint. 실패 → 재해석 1회, 그래도 실패 → FAIL `stale_target`.
 - 행동 journal: 디스패치 **전** intent를 `journal.jsonl`에 fsync, 결과로 갱신. `uncertain` → 테스트 ERROR, 자동 재시도 없음.
 - settle: 폴링 150ms. (1) 변화 감지: 행동 전 대비 identity 또는 layout 지문 변경(최대 = 스텝 timeout, 기본 5s) → (2) 안정: identity·layout 2회 연속 동일(간격 ≥ 250ms). 캔버스처럼 트리가 안 바뀌면 스크린샷 dHash 보조(같음 ≤4, 다름 ≥7). 기본 사후조건 = "변화 발생"(`expectNoChange:true`면 생략). 변화 없음 → INCONCLUSIVE `no_effect`. 안정 실패 → `settled:false` 기록(이후 freshness가 보호).
@@ -132,6 +135,6 @@ Jev 0.69s/`jev-1.13.0`/한국어 OK · Choice 255개(none 포함) OK, 256개 →
 ## 11. Maestro 코드 리뷰 반영 (`docs/research/Maestro.md` §6)
 
 - **DSL 추가**(schema.ts): `open`(딥링크), `press`(enter/back/tab/escape/delete), `longPress`(+`holdMs`), `hideKeyboard`(보일 때만, 확인), `clear`, `type.append/submit`, 셀렉터 `{intent|text|desc|id(문자열=정확 일치, {regex})}` + `state{enabled,checked,selected,focused}`, `remember{name, from}` → 이후 모든 문자열에서 `${name}`, `use: *.flow.yaml`(+`with`), 테스트 `setup`/`teardown`(teardown은 항상 실행·판정 불변·경고로 보고), 스텝별 `platforms`, `repeat{times≤10 | while}`(예산 적용), `location{lat,lon}`, `launch{reset, permissions, arguments}`. 문자열의 `${ENV}`/`${remembered}`는 모든 스텝에서 실행 시 치환.
-- **러너 규칙**: 대기 기한은 마지막 변경 행동 시각부터 계산(`timeout − (now − lastActionAt)`), 직전 스텝이 scroll/swipe/back이면 대상 rect가 연속 2회 관찰에서 같을 때까지(100ms 폴링, 최대 3s) 기다린 뒤 탭, not_found 진단(`within` 컨테이너 일치 여부, 화면 다른 곳의 일치 수), 증거 `manifest.json`(버전·kind·상대경로·크기), 크래시 FAIL 시 `crashArtifacts` 첨부.
+- **러너 규칙**: 대기 기한은 마지막 변경 행동 시각부터 계산(`timeout − (now − lastActionAt)`), 직전 스텝이 scroll/swipe/back이면 대상 rect가 연속 2회 관찰에서 같을 때까지(100ms 폴링, 최대 3s) 기다린 뒤 탭 — 3s 안에 안정되지 않으면 FAIL `stale_target`(탭 안 함), not_found 진단(`within` 컨테이너 일치 여부, 화면 다른 곳의 일치 수), 증거 `manifest.json`(버전·kind·상대경로·크기), 크래시 FAIL 시 `crashArtifacts` 첨부. 이벤트 `action.kind`는 DSL 행동을 그대로 표현한다(longPress, press, clear, hideKeyboard, open, location 포함; 다른 종류로 대체 금지).
 - **드라이버**: iOS `snapshotMaxDepth: 70` + `depthCapped` 기록, iOS clear = 재설치 + `simctl keychain reset`, 권한은 명시적으로만(기본 부여 금지).
 - **거부(버그 원인)**: 무변화 시 탭 재시도, 변경 스텝 재실행 `retry`, 빈 iOS back, 무조건 BACK인 hideKeyboard, 스크린샷 SHA 동일성 기반 settle, 정규식 전체 일치를 기본 문자열 매칭으로 쓰는 것, AI 판정을 기본 경고 처리, 기본 권한 전부 허용.
