@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>글쓰기 · 하루기록 블로그</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="editor.html">하루기록 블로그</a>
+    <nav><a href="magazine.html">내 블로그</a></nav>
+  </header>
+
+  <main class="narrow">
+    <form class="card" data-done="글이 발행되었습니다">
+      <label for="title">제목</label>
+      <input id="title" value="3월의 제주, 비 오는 날 가볼 만한 곳" style="width: 100%">
+      <label for="body">본문</label>
+      <textarea id="body" style="min-height: 180px">비가 오면 오름 대신 실내 전시와 카페 투어가 좋아요. 동선을 정리해 봤습니다.</textarea>
+      <label for="vis">공개 범위</label>
+      <select id="vis"><option>전체 공개</option><option>이웃 공개</option><option>비공개</option></select>
+      <div class="row end" style="margin-top: 12px">
+        <button type="button" class="ghost" data-status="맞춤법 오류 없음">맞춤법 검사</button>
+        <button type="button" class="ghost" data-status="미리 보기를 열었습니다">미리 보기</button>
+        <button type="submit">발행</button>
+      </div>
+    </form>
+    <p role="status"></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

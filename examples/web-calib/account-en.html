@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Workspace settings · Tasklane</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="account-en.html">Tasklane</a>
+    <nav><span class="muted">jordan@acme.io</span><button type="button" class="ghost">Sign out</button></nav>
+  </header>
+
+  <main class="with-side">
+    <div>
+      <section class="card">
+        <h2>Profile</h2>
+        <p>Jordan Lee · Product designer</p>
+        <button type="button" class="ghost">Edit profile</button>
+      </section>
+      <section class="card">
+        <h2>Appearance</h2>
+        <button type="button" role="switch" class="switch" aria-checked="true">Dark mode</button>
+      </section>
+    </div>
+    <div>
+      <form class="card" data-done="Preferences saved">
+        <h2>Email preferences</h2>
+        <label class="inline"><input type="checkbox" checked> Weekly summary</label>
+        <label class="inline"><input type="checkbox"> Mentions only</label>
+        <label for="tz">Time zone</label>
+        <select id="tz"><option>Pacific Time (US)</option><option selected>Central European Time</option></select>
+        <div class="row end" style="margin-top: 10px"><button type="submit">Save changes</button></div>
+      </form>
+      <form class="card" data-done="Invitation emailed">
+        <h2>Team members</h2>
+        <p class="muted">3 of 5 seats used</p>
+        <div class="row">
+          <label for="invite" class="sr">Email address</label>
+          <input id="invite" type="email" value="sam.kim@acme.io" autocomplete="off" style="flex: 1">
+          <button type="submit">Invite member</button>
+        </div>
+      </form>
+      <section class="card">
+        <h2>Danger zone</h2>
+        <p class="muted">Closing your account removes you from all workspaces.</p>
+        <button type="button" class="danger">Close account</button>
+      </section>
+      <p role="status"></p>
+    </div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

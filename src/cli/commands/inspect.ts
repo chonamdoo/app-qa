@@ -1,13 +1,11 @@
-// `qa inspect --app <id> --platform android|ios [--device <id>] [--json]`
+// `qa inspect --app <id> --platform <platform> [--device <id>] [--json]`
 import { parseArgs } from 'node:util';
-import type { Platform } from '../../core/types.ts';
 import { inspectScreen } from '../../runner/index.ts';
+import { parsePlatform, PLATFORM_LIST } from '../platforms.ts';
 
-const USAGE = `사용법: qa inspect --app <id> --platform android|ios [--device <id>] [--json]
-  현재 화면(앱을 실행하지 않음)의 후보 표: 역할·이름·상태·영역·위험·fast path 유일성·탭 지점
+const USAGE = `사용법: qa inspect --app <id> --platform ${PLATFORM_LIST} [--device <id>] [--json]
+  현재 화면(앱을 실행하지 않음, 웹 프로필은 시작 URL을 엶)의 후보 표: 역할·이름·상태·영역·위험·fast path 유일성·탭 지점
 종료 코드: 0 = 성공, 2 = 사용법·환경 오류`;
-
-const PLATFORMS: Record<string, Platform> = { android: 'android', ios: 'ios' };
 
 export async function cmdInspect(argv: string[]): Promise<number> {
   let values;
@@ -25,7 +23,11 @@ export async function cmdInspect(argv: string[]): Promise<number> {
     console.log(USAGE);
     return 0;
   }
-  const platform = values.platform ? PLATFORMS[values.platform] : undefined;
+  const platform = values.platform === undefined ? undefined : parsePlatform(values.platform, false);
+  if (typeof platform === 'object') {
+    console.error(`${platform.error}\n${USAGE}`);
+    return 2;
+  }
   if (!values.app || !platform) {
     console.error(USAGE);
     return 2;

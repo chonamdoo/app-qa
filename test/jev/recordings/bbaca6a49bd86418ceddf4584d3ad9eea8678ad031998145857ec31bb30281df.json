@@ -1,0 +1,63 @@
+{
+  "key": "bbaca6a49bd86418ceddf4584d3ad9eea8678ad031998145857ec31bb30281df",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb52b6c7f00a91f39ef46a3bd92",
+  "latencyMs": 204,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 두근옥션 | - | top",
+          "e2 | link | 내 경매 | - | top",
+          "e3 | heading | 빈티지 필름 카메라 (1978년식) | - | top",
+          "e4 | text | 현재가 · 입찰 14회 · 남은 시간 2시간 13분 | - | top",
+          "e5 | text | 51,000원 | - | top",
+          "e6 | button | 입찰 기록 보기 | - | top",
+          "e7 | text | 입찰 금액 | - | top",
+          "e8 | input | 입찰 금액 | value=\"52,000\" | middle",
+          "e9 | text | 원 (최소 51,500원) | - | middle",
+          "e10 | text | 낙찰되면 입찰 금액으로 구매가 확정되며 입찰은 철회할 수 없습니다. | - | middle",
+          "e11 | button | 입찰하기 | - | middle"
+        ],
+        "texts": [
+          "두근옥션",
+          "내 경매",
+          "빈티지 필름 카메라 (1978년식)",
+          "현재가 · 입찰 14회 · 남은 시간 2시간 13분",
+          "51,000원",
+          "입찰 기록 보기",
+          "입찰 금액",
+          "52,000",
+          "원 (최소 51,500원)",
+          "낙찰되면 입찰 금액으로 구매가 확정되며 입찰은 철회할 수 없습니다.",
+          "입찰하기"
+        ]
+      },
+      "target": "e11 | button | 입찰하기 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.88
+      }
+    },
+    "usage": {
+      "input_tokens": 782,
+      "output_tokens": 21
+    }
+  }
+}

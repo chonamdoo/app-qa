@@ -1,0 +1,233 @@
+{
+ "url": "http://localhost:4173/login.html",
+ "title": "로그인 · QA 데모 상점",
+ "width": 1280,
+ "height": 800,
+ "dpr": 1,
+ "scrollX": 0,
+ "scrollY": 0,
+ "truncated": false,
+ "nodes": [
+  {
+   "parent": -1,
+   "kind": "document",
+   "name": "로그인 · QA 데모 상점",
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 0,
+   "kind": "generic",
+   "name": null,
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 55,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 1,
+   "kind": "heading",
+   "name": null,
+   "text": "로그인",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 16,
+   "y": 12,
+   "w": 51.90625,
+   "h": 30,
+   "flags": [
+    "enabled",
+    "heading"
+   ]
+  },
+  {
+   "parent": 1,
+   "kind": "generic",
+   "name": null,
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 1208.625,
+   "y": 15,
+   "w": 55.375,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 3,
+   "kind": "link",
+   "name": null,
+   "text": "상점으로",
+   "id": "home-link",
+   "value": null,
+   "hint": null,
+   "x": 1208.625,
+   "y": 15,
+   "w": 55.375,
+   "h": 24,
+   "flags": [
+    "clickable",
+    "focusable",
+    "enabled"
+   ]
+  },
+  {
+   "parent": 0,
+   "kind": "generic",
+   "name": null,
+   "text": null,
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 280,
+   "y": 55,
+   "w": 720,
+   "h": 304,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 5,
+   "kind": "generic",
+   "name": null,
+   "text": null,
+   "id": "login-form",
+   "value": null,
+   "hint": null,
+   "x": 296,
+   "y": 71,
+   "w": 360,
+   "h": 216,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 6,
+   "kind": "text",
+   "name": null,
+   "text": "이메일",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 296,
+   "y": 71,
+   "w": 360,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 6,
+   "kind": "input",
+   "name": "이메일",
+   "text": null,
+   "id": "email",
+   "value": "qa@example.com",
+   "hint": "name@example.com",
+   "x": 296,
+   "y": 103,
+   "w": 360,
+   "h": 46,
+   "flags": [
+    "clickable",
+    "focusable",
+    "enabled",
+    "editable"
+   ]
+  },
+  {
+   "parent": 6,
+   "kind": "text",
+   "name": null,
+   "text": "비밀번호",
+   "id": null,
+   "value": null,
+   "hint": null,
+   "x": 296,
+   "y": 157,
+   "w": 360,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  },
+  {
+   "parent": 6,
+   "kind": "password",
+   "name": "비밀번호",
+   "text": null,
+   "id": "password",
+   "value": "••••••",
+   "hint": null,
+   "x": 296,
+   "y": 189,
+   "w": 360,
+   "h": 46,
+   "flags": [
+    "clickable",
+    "focusable",
+    "enabled",
+    "focused",
+    "editable",
+    "password"
+   ]
+  },
+  {
+   "parent": 6,
+   "kind": "button",
+   "name": null,
+   "text": "로그인",
+   "id": "login",
+   "value": null,
+   "hint": null,
+   "x": 296,
+   "y": 243,
+   "w": 360,
+   "h": 44,
+   "flags": [
+    "clickable",
+    "focusable",
+    "enabled"
+   ]
+  },
+  {
+   "parent": 5,
+   "kind": "text",
+   "name": null,
+   "text": "로그인하지 않음",
+   "id": "login-status",
+   "value": null,
+   "hint": null,
+   "x": 296,
+   "y": 303,
+   "w": 688,
+   "h": 24,
+   "flags": [
+    "enabled"
+   ]
+  }
+ ]
+}

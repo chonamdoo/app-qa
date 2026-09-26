@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>계정 설정 · 모아마켓</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="shop.html">모아마켓</a>
+    <nav><span class="muted">haneul@example.com</span><button type="button" class="ghost">로그아웃</button></nav>
+  </header>
+
+  <main class="with-side">
+    <div>
+      <form class="card" data-done="프로필을 저장했습니다">
+        <h2>프로필</h2>
+        <label for="nick">닉네임</label>
+        <input id="nick" value="하늘바다">
+        <label for="phone">휴대폰</label>
+        <input id="phone" value="010-2345-5678">
+        <div class="row end" style="margin-top: 10px"><button type="submit">변경사항 저장</button></div>
+      </form>
+      <section class="card">
+        <h2>화면</h2>
+        <button type="button" role="switch" class="switch" aria-checked="false">다크 모드</button>
+      </section>
+    </div>
+    <div>
+      <form class="card" data-done="비밀번호가 바뀌었습니다">
+        <h2>비밀번호</h2>
+        <label for="cur">현재 비밀번호</label>
+        <input id="cur" type="password" value="oldpass12" autocomplete="off">
+        <label for="new">새 비밀번호</label>
+        <input id="new" type="password" value="newpass34!" autocomplete="off">
+        <div class="row end" style="margin-top: 10px"><button type="submit">비밀번호 변경</button></div>
+      </form>
+      <section class="card">
+        <div class="spread">
+          <div><h2>주문·배송 알림</h2><p class="muted">현재 켜짐 · 앱 푸시와 문자</p></div>
+          <button type="button" class="ghost" data-status="알림을 껐습니다">알림 끄기</button>
+        </div>
+      </section>
+      <section class="card">
+        <h2>계정</h2>
+        <p class="muted">비활성화하면 다른 사람에게 프로필과 리뷰가 보이지 않고, 다시 로그인해야 복구됩니다.</p>
+        <div class="row">
+          <button type="button" class="danger">계정 비활성화</button>
+          <button type="button" class="link">탈퇴하기</button>
+        </div>
+      </section>
+      <p role="status"></p>
+    </div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

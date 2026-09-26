@@ -48,10 +48,23 @@ struct DevicesResponse: Decodable, Sendable { let devices: [DeviceInfo] }
 struct AppProfile: Decodable, Identifiable, Hashable, Sendable {
     struct Android: Decodable, Hashable, Sendable { let package: String }
     struct IOS: Decodable, Hashable, Sendable { let bundleId: String }
+    struct Web: Decodable, Hashable, Sendable {
+        struct Viewport: Decodable, Hashable, Sendable {
+            let width: Int
+            let height: Int
+        }
+        let url: String
+        let origins: [String]?
+        /// Desktop browser viewport in CSS px (= tap units of desktop events).
+        let viewport: Viewport
+    }
     let id: String
     let name: String
     let android: Android?
     let ios: IOS?
+    let web: Web?
+    /// Platforms the profile runs on, in display order (engine-derived: app → configured android/ios, web → its browsers).
+    let platforms: [String]
     let docs: [String]
 }
 
@@ -191,10 +204,8 @@ struct CandidateRow: Decodable, Identifiable, Hashable, Sendable {
 
 // MARK: - job requests (mirror of src/server/jobs.ts zod schemas)
 
-struct DeviceIds: Encodable, Sendable {
-    var android: String?
-    var ios: String?
-}
+/// Device id per platform (`desktop-*` → the platform id itself); keys are platform ids, as the engine's partial record.
+typealias DeviceIds = [String: String]
 
 struct RunJobParams: Encodable, Sendable {
     var paths: [String]

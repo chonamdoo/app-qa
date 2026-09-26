@@ -1,0 +1,50 @@
+{
+  "key": "b04321c19fd852701ae93927bfe55a9bda068d32ec207fccb0903bb8807e8b39",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb5279d72ba9131cf57fcf05974",
+  "latencyMs": 255,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | other | 주문을 확정할까요? | - | bottom",
+          "e2 | heading | 주문을 확정할까요? | - | top",
+          "e3 | text | 신한카드(1234)로 12,300원이 청구되고 판매자에게 주문이 전달됩니다. | - | middle",
+          "e4 | button | 취소 | - | middle",
+          "e5 | button | 확인 | - | middle"
+        ],
+        "texts": [
+          "주문을 확정할까요?",
+          "신한카드(1234)로 12,300원이 청구되고 판매자에게 주문이 전달됩니다.",
+          "취소",
+          "확인"
+        ]
+      },
+      "target": "e5 | button | 확인 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.95
+      }
+    },
+    "usage": {
+      "input_tokens": 566,
+      "output_tokens": 21
+    }
+  }
+}

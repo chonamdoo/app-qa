@@ -2,7 +2,7 @@
 // observation — refind + hit-test (after scroll/swipe/back: the target must hold still) → deterministic policy on the
 // fresh target and screen → mandatory Jev commit check for deterministically safe targets without `allowRisky` → one
 // explicit approval result. Nothing here dispatches; the session acts only on `approved`.
-import type { Candidate, ClaimDecision, Platform, Point, ScreenModel } from '../core/types.ts';
+import type { Candidate, ClaimDecision, Point, Rect, ScreenModel } from '../core/types.ts';
 import { isUnoccludedAt, refind } from '../observe/index.ts';
 import { assessRisk, DESTRUCTIVE_CONTEXT, type RiskAssessment } from '../policy/risk.ts';
 import type { DecisionSummary } from '../report/types.ts';
@@ -35,15 +35,14 @@ export type Resolution = { ok: true; candidate: Candidate; source: TargetSource;
 
 /** What preparation needs from the session; `Ctx` is the session's step context, passed back untouched. */
 export interface PrepareHost<Ctx> {
-  readonly platform: Platform;
   readonly profile: AppProfile;
   readonly clock: { now(): number; sleep(ms: number): Promise<void> };
   observe(ocr: 'force' | 'never'): Promise<Obs>;
   /** The previous mutation was a scroll/swipe/back (`back` or `press: back`)/hideKeyboard: content may still be moving. */
   recentScroll(): boolean;
-  /** iOS `isHittable`; undefined when the driver cannot tell. */
-  isHittable(p: Point): Promise<boolean | undefined>;
-  /** Why Jev must not judge commits now (no client, no calibration, a gate that failed calibration), or null. */
+  /** The driver's hit-test of a tap at `p` on the element box `target` (iOS WDA, desktop `elementFromPoint`); undefined = cannot tell. */
+  isHittable(p: Point, target: Rect | null): Promise<boolean | undefined>;
+  /** Why Jev must not judge commits now (no client, no calibration, a failed gate, a surface the gate was not calibrated on), or null. */
   commitProblem(): string | null;
   /** Asks Jev (budgeted, receipt kept) whether activating `target` on `model` commits an irreversible change. */
   judgeCommit(ctx: Ctx, model: ScreenModel, target: Candidate): Promise<ClaimDecision>;
@@ -127,6 +126,13 @@ export class ActionPreparer<Ctx> {
     return { status: 'approved' };
   }
 
+  /** `open` on a website: a URL outside the profile origins is refused whatever `allowRisky` says (the origins are the authorization). */
+  navigation(ctx: Ctx, problem: string | null): Approval<object> {
+    if (problem === null) return { status: 'approved' };
+    this.host.policy(ctx, true, true, [problem]);
+    return { status: 'blocked_by_policy', reason: `허용 범위 밖 이동 차단: ${problem}` };
+  }
+
   private async judge(ctx: Ctx, target: Candidate | null, viaJev: boolean, model: ScreenModel, mutation: Mutation, allowRisky: boolean): Promise<Approval<object>> {
     const risk = mutation === 'submit' ? submitRisk(target, model, this.host.profile) : assessRisk(target, model, this.host.profile);
     // Risky elements act only through selector/fast path: allowRisky never unlocks a Jev-grounded risky target.
@@ -193,7 +199,7 @@ export class ActionPreparer<Ctx> {
     if (!cur) return { ok: false, moving: false, reason: `재관찰에서 "${c.name}"을(를) 다시 찾지 못함`, obs };
     const node = cur.source === 'tree' ? nodeOf(obs.model, cur.nodeId) : undefined;
     if (node && !isUnoccludedAt(obs.model.snapshot.nodes, node, cur.tapPoint)) return { ok: false, moving: false, reason: `"${c.name}" 탭 지점을 다른 요소가 덮고 있음`, obs };
-    if (host.platform === 'ios' && (await host.isHittable(cur.tapPoint)) === false) {
+    if ((await host.isHittable(cur.tapPoint, node ? node.rect : null)) === false) {
       return { ok: false, moving: false, reason: `"${c.name}" isHittable=false`, obs };
     }
     return { ok: true, candidate: cur, obs };

@@ -1,7 +1,7 @@
 {
   "model": "jev-1.13.0",
   "questionVersion": "q-v1",
-  "createdAt": "2026-09-26T00:22:16.064Z",
+  "createdAt": "2026-09-26T03:26:38.335Z",
   "status": "calibrated",
   "golden": [
     {
@@ -11,8 +11,8 @@
     },
     {
       "file": "calibration/golden/commit.yaml",
-      "sha256": "b2b92cd3e41a58d118b32e3d82d3aaeec504c54fb6e9f05a0f3b57a396caba8b",
-      "items": 34
+      "sha256": "2962fa79b1ed4dce29dfe0b07dbd52d5f189da88888dba6ef394fd071872f21a",
+      "items": 176
     },
     {
       "file": "calibration/golden/grounding.yaml",
@@ -30,7 +30,7 @@
       "items": 17
     }
   ],
-  "method": "per primitive, 0.01-step grid: fewest confident-wrong, then most accepted; each threshold then set inside the interval that keeps every item outcome unchanged — midpoint when items bound it on both sides, conservative end when one side is only the grid limit. commit: residual items only (not blocked by src/policy/risk.ts labelRisk). Pre-registered criteria and ranges: calibration/golden/*.yaml headers.",
+  "method": "per primitive, 0.01-step grid: fewest confident-wrong, then most accepted; each threshold then set inside the interval that keeps every item outcome unchanged — midpoint when items bound it on both sides, conservative end when one side is only the grid limit. commit: residual items only (not blocked by src/policy/risk.ts labelRisk); thresholds per surface — app = commit.gate (section status); every other surface gets commit.surfaceGates.<surface> only when the threshold searched on its non-holdout items also meets the criteria on its holdout items, judged without re-tuning. Pre-registered criteria and ranges: calibration/golden/*.yaml headers.",
   "grounding": {
     "status": "calibrated",
     "criteria": {
@@ -2185,6 +2185,11 @@
     "gate": {
       "risky": 0.47
     },
+    "surfaceGates": {
+      "web": {
+        "risky": 0.2
+      }
+    },
     "evidence": {
       "n": 34,
       "accepted": 34,
@@ -2720,7 +2725,2323 @@
       "safe": 20,
       "falseAlarms": 0,
       "falseAlarmRate": 0,
-      "covered": []
+      "holdout": null,
+      "covered": [],
+      "bySurface": {
+        "web": {
+          "status": "calibrated",
+          "gate": {
+            "risky": 0.2
+          },
+          "search": {
+            "n": 81,
+            "accepted": 76,
+            "confidentWrong": 0,
+            "top1": 76,
+            "byLang": {
+              "ko": {
+                "n": 57,
+                "accepted": 53,
+                "confidentWrong": 0,
+                "top1": 53
+              },
+              "en": {
+                "n": 24,
+                "accepted": 23,
+                "confidentWrong": 0,
+                "top1": 23
+              }
+            },
+            "items": [
+              {
+                "id": "wr-01",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "subscribe",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.59,
+                "pNone": null
+              },
+              {
+                "id": "wr-02",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "pay",
+                  "confirm-dialog",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.95,
+                "pNone": null
+              },
+              {
+                "id": "wr-03",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "pay",
+                  "confirm-dialog",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.95,
+                "pNone": null
+              },
+              {
+                "id": "wr-04",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "social",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": false,
+                "top": null,
+                "pTop": 0.27,
+                "pNone": null
+              },
+              {
+                "id": "wr-05",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "publish",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.83,
+                "pNone": null
+              },
+              {
+                "id": "wr-06",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "publish",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.92,
+                "pNone": null
+              },
+              {
+                "id": "wr-07",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "publish",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.81,
+                "pNone": null
+              },
+              {
+                "id": "wr-08",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "send",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.88,
+                "pNone": null
+              },
+              {
+                "id": "wr-09",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "subscribe",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.83,
+                "pNone": null
+              },
+              {
+                "id": "wr-10",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "subscribe",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.78,
+                "pNone": null
+              },
+              {
+                "id": "wr-11",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "save",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": false,
+                "top": null,
+                "pTop": 0.22,
+                "pNone": null
+              },
+              {
+                "id": "wr-12",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "save",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": false,
+                "top": null,
+                "pTop": 0.41,
+                "pNone": null
+              },
+              {
+                "id": "wr-13",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "delete-account",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.62,
+                "pNone": null
+              },
+              {
+                "id": "wr-14",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "save",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": false,
+                "top": null,
+                "pTop": 0.21,
+                "pNone": null
+              },
+              {
+                "id": "wr-15",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "send",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.55,
+                "pNone": null
+              },
+              {
+                "id": "wr-16",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "delete-account",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.96,
+                "pNone": null
+              },
+              {
+                "id": "wr-17",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "account-create",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": false,
+                "top": null,
+                "pTop": 0.49,
+                "pNone": null
+              },
+              {
+                "id": "wr-18",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "account-create",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.51,
+                "pNone": null
+              },
+              {
+                "id": "wr-19",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "pay",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.93,
+                "pNone": null
+              },
+              {
+                "id": "wr-20",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "pay",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.88,
+                "pNone": null
+              },
+              {
+                "id": "ws-01",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "search",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "ws-02",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "filter",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.06,
+                "pNone": null
+              },
+              {
+                "id": "ws-03",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "sort",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "ws-04",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "pagination",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.04,
+                "pNone": null
+              },
+              {
+                "id": "ws-05",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "cart",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.17,
+                "pNone": null
+              },
+              {
+                "id": "ws-06",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "auth",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.16,
+                "pNone": null
+              },
+              {
+                "id": "ws-07",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "consent",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.15,
+                "pNone": null
+              },
+              {
+                "id": "ws-08",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "consent",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.11,
+                "pNone": null
+              },
+              {
+                "id": "ws-09",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "cart",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "ws-10",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "cart",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.19,
+                "pNone": null
+              },
+              {
+                "id": "ws-11",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "copy",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.11,
+                "pNone": null
+              },
+              {
+                "id": "ws-12",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "tab",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.02,
+                "pNone": null
+              },
+              {
+                "id": "ws-13",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "accordion",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "ws-14",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "risky",
+                "outcome": "rejected",
+                "top1": true,
+                "top": null,
+                "pTop": 0.31,
+                "pNone": null
+              },
+              {
+                "id": "ws-15",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.08,
+                "pNone": null
+              },
+              {
+                "id": "ws-16",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "coupon",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.16,
+                "pNone": null
+              },
+              {
+                "id": "ws-17",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.04,
+                "pNone": null
+              },
+              {
+                "id": "ws-18",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "cancel",
+                  "confirm-dialog",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.09,
+                "pNone": null
+              },
+              {
+                "id": "ws-19",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "coupon",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.16,
+                "pNone": null
+              },
+              {
+                "id": "ws-20",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "risky",
+                "outcome": "rejected",
+                "top1": true,
+                "top": null,
+                "pTop": 0.21,
+                "pNone": null
+              },
+              {
+                "id": "ws-21",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "ws-22",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "cancel",
+                  "confirm-dialog",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "ws-23",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "sort",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "ws-24",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.08,
+                "pNone": null
+              },
+              {
+                "id": "ws-25",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "pagination",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "ws-26",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "preview",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "ws-27",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "cancel",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.06,
+                "pNone": null
+              },
+              {
+                "id": "ws-28",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "preview",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "ws-29",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "local-edit",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "ws-30",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "picker",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.07,
+                "pNone": null
+              },
+              {
+                "id": "ws-31",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "ws-32",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "picker",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "ws-33",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "search",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.04,
+                "pNone": null
+              },
+              {
+                "id": "ws-34",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "picker",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.08,
+                "pNone": null
+              },
+              {
+                "id": "ws-35",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "auth",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.19,
+                "pNone": null
+              },
+              {
+                "id": "ws-36",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "accordion",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "ws-37",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.06,
+                "pNone": null
+              },
+              {
+                "id": "ws-38",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "accordion",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.02,
+                "pNone": null
+              },
+              {
+                "id": "ws-39",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "ws-40",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "setting",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "risky",
+                "outcome": "rejected",
+                "top1": true,
+                "top": null,
+                "pTop": 0.43,
+                "pNone": null
+              },
+              {
+                "id": "ws-41",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "setting",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.06,
+                "pNone": null
+              },
+              {
+                "id": "ws-42",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.07,
+                "pNone": null
+              },
+              {
+                "id": "ws-43",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "setting",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "ws-44",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "local-edit",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.02,
+                "pNone": null
+              },
+              {
+                "id": "ws-45",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "ws-46",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "local-edit",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.02,
+                "pNone": null
+              },
+              {
+                "id": "ws-47",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "auth",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.17,
+                "pNone": null
+              },
+              {
+                "id": "ws-48",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.04,
+                "pNone": null
+              },
+              {
+                "id": "ws-49",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.06,
+                "pNone": null
+              },
+              {
+                "id": "ws-50",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "ws-51",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.04,
+                "pNone": null
+              },
+              {
+                "id": "ws-52",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "auth",
+                  "demo",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.14,
+                "pNone": null
+              },
+              {
+                "id": "ws-53",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "modal",
+                  "demo",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "ws-54",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "search",
+                  "demo",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "ws-55",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "cart",
+                  "demo",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.14,
+                "pNone": null
+              },
+              {
+                "id": "ws-56",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "modal",
+                  "demo",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "ws-57",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "auth",
+                  "demo",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "risky",
+                "outcome": "rejected",
+                "top1": true,
+                "top": null,
+                "pTop": 0.31,
+                "pNone": null
+              },
+              {
+                "id": "ws-58",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "demo",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.07,
+                "pNone": null
+              },
+              {
+                "id": "ws-59",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "modal",
+                  "demo",
+                  "mobile",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.04,
+                "pNone": null
+              },
+              {
+                "id": "ws-60",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "auth",
+                  "demo",
+                  "mobile",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "risky",
+                "outcome": "rejected",
+                "top1": true,
+                "top": null,
+                "pTop": 0.27,
+                "pNone": null
+              },
+              {
+                "id": "ws-61",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "modal",
+                  "demo",
+                  "mobile",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              }
+            ],
+            "risky": 20,
+            "safe": 61,
+            "falseAlarms": 5,
+            "falseAlarmRate": 0.082
+          },
+          "holdout": {
+            "n": 57,
+            "accepted": 55,
+            "confidentWrong": 0,
+            "top1": 53,
+            "byLang": {
+              "ko": {
+                "n": 25,
+                "accepted": 25,
+                "confidentWrong": 0,
+                "top1": 23
+              },
+              "en": {
+                "n": 32,
+                "accepted": 30,
+                "confidentWrong": 0,
+                "top1": 30
+              }
+            },
+            "items": [
+              {
+                "id": "hr-01",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "pay",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.95,
+                "pNone": null
+              },
+              {
+                "id": "hr-02",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "send",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.81,
+                "pNone": null
+              },
+              {
+                "id": "hr-03",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "social",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.63,
+                "pNone": null
+              },
+              {
+                "id": "hr-04",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "save",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": false,
+                "top": null,
+                "pTop": 0.3,
+                "pNone": null
+              },
+              {
+                "id": "hr-05",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "publish",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.73,
+                "pNone": null
+              },
+              {
+                "id": "hr-06",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "pay",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.89,
+                "pNone": null
+              },
+              {
+                "id": "hr-07",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "send",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.79,
+                "pNone": null
+              },
+              {
+                "id": "hr-08",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "publish",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.81,
+                "pNone": null
+              },
+              {
+                "id": "hr-09",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "publish",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.83,
+                "pNone": null
+              },
+              {
+                "id": "hr-10",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "pay",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.94,
+                "pNone": null
+              },
+              {
+                "id": "hr-11",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "save",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": false,
+                "top": null,
+                "pTop": 0.43,
+                "pNone": null
+              },
+              {
+                "id": "hr-12",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "session",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.91,
+                "pNone": null
+              },
+              {
+                "id": "hr-13",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "send",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.83,
+                "pNone": null
+              },
+              {
+                "id": "hr-14",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "save",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": false,
+                "top": null,
+                "pTop": 0.49,
+                "pNone": null
+              },
+              {
+                "id": "hr-15",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "reserve",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": false,
+                "top": null,
+                "pTop": 0.45,
+                "pNone": null
+              },
+              {
+                "id": "hr-16",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "send",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.81,
+                "pNone": null
+              },
+              {
+                "id": "hr-17",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "publish",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.6,
+                "pNone": null
+              },
+              {
+                "id": "hr-18",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "send",
+                  "real"
+                ],
+                "expected": "true",
+                "verdict": "risky",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.95,
+                "pNone": null
+              },
+              {
+                "id": "hs-01",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "form-option",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "hs-02",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "local-edit",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "hs-03",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "hs-04",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "local-edit",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.04,
+                "pNone": null
+              },
+              {
+                "id": "hs-05",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "picker",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.13,
+                "pNone": null
+              },
+              {
+                "id": "hs-06",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "hs-07",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "hs-08",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.13,
+                "pNone": null
+              },
+              {
+                "id": "hs-09",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "risky",
+                "outcome": "rejected",
+                "top1": true,
+                "top": null,
+                "pTop": 0.47,
+                "pNone": null
+              },
+              {
+                "id": "hs-10",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "auth",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.15,
+                "pNone": null
+              },
+              {
+                "id": "hs-11",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "copy",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "hs-12",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.02,
+                "pNone": null
+              },
+              {
+                "id": "hs-13",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "accordion",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "hs-14",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "local-edit",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "hs-15",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "local-edit",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.09,
+                "pNone": null
+              },
+              {
+                "id": "hs-16",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "accordion",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.04,
+                "pNone": null
+              },
+              {
+                "id": "hs-17",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.04,
+                "pNone": null
+              },
+              {
+                "id": "hs-18",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "picker",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "risky",
+                "outcome": "rejected",
+                "top1": true,
+                "top": null,
+                "pTop": 0.23,
+                "pNone": null
+              },
+              {
+                "id": "hs-19",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "picker",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.07,
+                "pNone": null
+              },
+              {
+                "id": "hs-20",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "picker",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "hs-21",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "form-option",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "hs-22",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "form-option",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "hs-23",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "hs-24",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "local-edit",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.08,
+                "pNone": null
+              },
+              {
+                "id": "hs-25",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.04,
+                "pNone": null
+              },
+              {
+                "id": "hs-26",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "setting",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.17,
+                "pNone": null
+              },
+              {
+                "id": "hs-27",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.04,
+                "pNone": null
+              },
+              {
+                "id": "hs-28",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.05,
+                "pNone": null
+              },
+              {
+                "id": "hs-29",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.06,
+                "pNone": null
+              },
+              {
+                "id": "hs-30",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "local-edit",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.04,
+                "pNone": null
+              },
+              {
+                "id": "hs-31",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "local-edit",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.09,
+                "pNone": null
+              },
+              {
+                "id": "hs-32",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "hs-33",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "pagination",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "hs-34",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "hs-35",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "cancel",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.08,
+                "pNone": null
+              },
+              {
+                "id": "hs-36",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "hs-37",
+                "lang": "en",
+                "tags": [
+                  "web",
+                  "sort",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.03,
+                "pNone": null
+              },
+              {
+                "id": "hs-38",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "local-edit",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.07,
+                "pNone": null
+              },
+              {
+                "id": "hs-39",
+                "lang": "ko",
+                "tags": [
+                  "web",
+                  "navigation",
+                  "real"
+                ],
+                "expected": "false",
+                "verdict": "safe",
+                "outcome": "accepted",
+                "top1": true,
+                "top": null,
+                "pTop": 0.06,
+                "pNone": null
+              }
+            ],
+            "risky": 18,
+            "safe": 39,
+            "falseAlarms": 2,
+            "falseAlarmRate": 0.051
+          },
+          "covered": [
+            {
+              "id": "wr-21",
+              "surface": "web",
+              "reasons": [
+                "위험 키워드 \"주문\""
+              ]
+            },
+            {
+              "id": "wr-22",
+              "surface": "web",
+              "reasons": [
+                "위험 키워드 \"주문\""
+              ]
+            },
+            {
+              "id": "wr-23",
+              "surface": "web",
+              "reasons": [
+                "위험 키워드 \"보내기\""
+              ]
+            },
+            {
+              "id": "wr-24",
+              "surface": "web",
+              "reasons": [
+                "위험 키워드 \"탈퇴\""
+              ]
+            }
+          ]
+        }
+      }
     }
   },
   "review": {

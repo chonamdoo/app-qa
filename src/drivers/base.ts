@@ -4,8 +4,11 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { actionStatusOf, AppiumClient, swipeGesture, tapGesture } from '../appium/client.ts';
 import { CommandError } from '../appium/exec.ts';
 import { ensureAppium } from '../appium/server.ts';
+import type { Check } from '../appium/setup.ts';
+import { PLATFORM_INFO } from '../core/platform.ts';
 import type { ActionOutcome, ActionStatus, AppTarget, Driver, Platform, Point, RawNode, Rect, ResetMode, Snapshot, TypeOutcome } from '../core/types.ts';
-import { appIdProblem } from './appid.ts';
+import { targetProblem } from './appid.ts';
+import { readinessProblem } from './browser-prep.ts';
 import { findBackup } from './backup.ts';
 import { LogCapture } from './logs.ts';
 
@@ -14,6 +17,13 @@ export type PermissionState = 'allow' | 'deny' | 'unset';
 export interface LaunchOptions {
   permissions?: Record<string, PermissionState>;
   arguments?: string[];
+}
+
+/** Web targets test the site, not the browser app: app permissions or launch arguments would change the browser, so they are refused. */
+export function assertNoWebLaunchOptions(opts: LaunchOptions): void {
+  if (Object.keys(opts.permissions ?? {}).length > 0 || (opts.arguments?.length ?? 0) > 0) {
+    throw new RefusedError('웹 대상 실행에는 앱 권한·실행 인자를 쓸 수 없습니다 (브라우저 앱이 아니라 사이트를 시험합니다)');
+  }
 }
 
 /**
@@ -110,6 +120,8 @@ export abstract class AppiumDriver implements Driver {
   protected logs: LogCapture | null = null;
   /** App and sanitizer of the last `startLogs`, so a relaunch can re-arm the capture for the new process. */
   protected logTarget: { app: AppTarget; sanitize: (line: string) => string } | null = null;
+  /** Target of the open session: web targets make snapshots `surface: 'web'` with the address bar's page URL. */
+  protected opened: AppTarget | null = null;
 
   constructor(deviceId: string, opts: DriverOptions = {}) {
     this.deviceId = deviceId;
@@ -132,8 +144,12 @@ export abstract class AppiumDriver implements Driver {
   abstract hideKeyboard(): Promise<ActionOutcome>;
   abstract launch(app: AppTarget, opts?: LaunchOptions): Promise<ActionOutcome>;
   abstract terminate(app: AppTarget): Promise<ActionOutcome>;
-  /** iOS clear = reinstall from `binary` + keychain reset; Android = `pm clear` (binary unused). */
+  /** iOS clear = reinstall from `binary` + keychain reset, web: Safari website data wipe; Android = `pm clear` (binary unused), web: + Chrome prep. */
   protected abstract clearData(app: AppTarget, binary: string | null): Promise<void>;
+  /** Read-only readiness of the device browser; `open` refuses a web target unless every check passes. */
+  protected abstract readonly browserChecks: (deviceId: string) => Promise<Check[]>;
+  /** resource-id (Android) / name (iOS) of the browser's address field, read into `Snapshot.pageUrl`. */
+  protected abstract readonly addressBarId: string;
   /** True when the page source itself shows the keyboard (iOS); otherwise it is queried separately. */
   protected abstract readonly keyboardInSource: boolean;
   protected abstract reinstall(app: AppTarget, binary: string): Promise<void>;
@@ -148,19 +164,24 @@ export abstract class AppiumDriver implements Driver {
     return this.client;
   }
 
-  /** The app's id once validated (it reaches device shells, simctl and backup paths); refused otherwise. */
+  /** The target's app id (browser id for web) once the whole target is validated — ids reach device shells, simctl and backup paths, URLs reach the browser; refused otherwise. */
   protected appId(app: AppTarget): string {
-    const problem = appIdProblem(this.platform, app.appId);
+    const problem = targetProblem(this.platform, app);
     if (problem) throw new RefusedError(problem);
     return app.appId;
   }
 
   async open(app: AppTarget): Promise<void> {
     this.appId(app);
+    if (app.kind === 'web') {
+      const problem = readinessProblem(PLATFORM_INFO[this.platform].webLabel, await this.browserChecks(this.deviceId));
+      if (problem) throw new RefusedError(problem);
+    }
     const url = this.opts.serverUrl ?? (await ensureAppium()).url;
     const client = new AppiumClient(url);
     await client.createSession(this.capabilities(app));
     this.client = client;
+    this.opened = app;
     try {
       await client.updateSettings(this.settings());
       this.screen = await client.windowRect();
@@ -189,14 +210,21 @@ export abstract class AppiumDriver implements Driver {
     const facts = this.sourceFacts(xml);
     const screen = this.screen ?? (this.screen = await api.windowRect());
     const maxDepth = xmlMaxDepth(xml);
+    const nodes = this.parse(xml, screen);
+    const web = this.opened?.kind === 'web';
+    const bar = web ? nodes.find((n) => n.resourceId === this.addressBarId) : undefined;
+    // Safari prefixes the host with a left-to-right mark (U+200E); bidi marks are never part of a URL.
+    const pageUrl = (bar?.value ?? bar?.text ?? '').replace(/[\u200E\u200F]/g, '').trim();
     return {
       platform: this.platform,
+      surface: web ? 'web' : 'app',
       takenAt,
       screen,
-      nodes: this.parse(xml, screen),
+      nodes,
       rawSource: xml,
       screenshotPng: png,
       foregroundApp: facts.foregroundApp,
+      pageUrl: pageUrl || null,
       keyboardShown: facts.keyboardShown ?? kb ?? false,
       maxDepth,
       depthCapped: maxDepth >= this.depthLimit,
@@ -334,6 +362,10 @@ export abstract class AppiumDriver implements Driver {
     let binary: string | null = null;
     const pre = await this.act(async () => {
       const appId = this.appId(app);
+      if (app.kind === 'web') {
+        if (mode === 'reinstall') throw new RefusedError(`웹 대상은 브라우저(${appId})를 재설치하지 않습니다. 사이트 데이터를 지우려면 reset: clear를 쓰세요.`);
+        return;
+      }
       if (mode === 'reinstall' || (mode === 'clear' && this.platform === 'ios')) {
         binary = app.binaryPath ?? findBackup(this.platform, appId);
         if (!binary || !existsSync(binary)) throw new RefusedError(`${appId} 백업이 없어 ${mode} 초기화를 거부합니다. \`qa apps --backup ${appId}\`로 먼저 백업하세요.`);

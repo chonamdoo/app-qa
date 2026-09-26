@@ -1,0 +1,85 @@
+{
+  "key": "7ee4a890aea4e6429e04ac71d547f420df1f7ace189507be85c94140f88fc169",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb52a0b78ff9fb66d67e689d28e",
+  "latencyMs": 197,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | Sign out | - | top",
+          "e2 | link | Tasklane | - | top",
+          "e3 | text | [REDACTED] | - | top",
+          "e4 | heading | Profile | - | top",
+          "e5 | heading | Email preferences | - | top",
+          "e6 | text | Jordan Lee · Product designer | - | top",
+          "e7 | text | Weekly summary | - | top",
+          "e8 | text | Mentions only | - | top",
+          "e9 | checkbox | Weekly summary | checked | top",
+          "e10 | checkbox | Mentions only | unchecked | top",
+          "e11 | text | Time zone | - | top",
+          "e12 | button | Edit profile | - | top",
+          "e13 | input | Time zone | value=\"Central European Time\" | top",
+          "e14 | button | Save changes | - | top",
+          "e15 | heading | Appearance | - | middle",
+          "e16 | switch | Dark mode | checked | middle",
+          "e17 | heading | Team members | - | middle",
+          "e18 | text | 3 of 5 seats used | - | middle",
+          "e19 | input | Email address | value=\"[REDACTED]\" | middle",
+          "e20 | button | Invite member | - | middle",
+          "e21 | heading | Danger zone | - | middle",
+          "e22 | text | Closing your account removes you from all workspaces. | - | middle",
+          "e23 | button | Close account | - | bottom"
+        ],
+        "texts": [
+          "Sign out",
+          "Tasklane",
+          "[REDACTED]",
+          "Profile",
+          "Email preferences",
+          "Jordan Lee · Product designer",
+          "Weekly summary",
+          "Mentions only",
+          "Time zone",
+          "Edit profile",
+          "Time zone",
+          "Save changes",
+          "Appearance",
+          "Dark mode",
+          "Team members",
+          "3 of 5 seats used",
+          "[REDACTED]",
+          "Invite member",
+          "Danger zone",
+          "Closing your account removes you from all workspaces.",
+          "Close account"
+        ]
+      },
+      "target": "e14 | button | Save changes | - | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.21
+      }
+    },
+    "usage": {
+      "input_tokens": 884,
+      "output_tokens": 21
+    }
+  }
+}

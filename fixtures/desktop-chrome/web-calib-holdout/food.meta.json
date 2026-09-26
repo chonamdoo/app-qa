@@ -1,0 +1,17 @@
+{
+  "platform": "desktop-chrome",
+  "app": "web-calib-holdout",
+  "name": "food",
+  "surface": "web",
+  "pageUrl": "http://localhost:4174/holdout/food.html",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  },
+  "capturedAt": "2026-09-26T03:20:54+00:00",
+  "device": "macOS Chrome/153.0.8010.53 --headless=new, viewport 1280x800 @1x",
+  "source": "WEB_EXTRACT_SCRIPT via CDP Runtime.evaluate → webSourceFromExtract (canonical web XML)",
+  "notes": "배달 주문 확인: 일회용 수저 안 받기 체크, 요청사항 입력(펼침), 가게 정보 링크, 배달 요청하기(카드 청구 안내). (examples/web-calib/holdout — v4 확인용 홀드아웃, 입력값은 HTML value로 채워 둠)"
+}

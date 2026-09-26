@@ -6,12 +6,16 @@ export type Redactor = (text: string) => string;
 
 export const REDACTED = '[REDACTED]';
 
-/** Always masked, whatever the app profile says: e-mail, KR mobile number, KR resident registration number, card number. */
+/**
+ * Always masked, whatever the app profile says: e-mail, KR mobile number, KR resident registration number, card number,
+ * and the value of a sensitive URL query/fragment parameter (`?token=…`, `&code=…`, `#access_token=…`; the name stays).
+ */
 const BUILTIN: readonly RegExp[] = [
   /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}/gu,
   /(?<!\d)01[016789][- ]?\d{3,4}[- ]?\d{4}(?!\d)/g,
   /(?<!\d)\d{6}-[1-8]\d{6}(?!\d)/g,
   /(?<!\d)\d{4}(?:[- ]\d{4}){3}(?!\d)/g,
+  /(?<=[?&#;](?:token|access_token|id_token|code|session|sid|auth|key|api_key|secret|password|sig|signature)=)[^&#\s"'<>]+/gi,
 ];
 
 /** Compiles app-profile `redact` regexes (plus the built-ins) into one redactor. Invalid patterns are a config error. */

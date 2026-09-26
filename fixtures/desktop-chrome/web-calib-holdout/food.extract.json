@@ -1,0 +1,377 @@
+{
+  "url": "http://localhost:4174/holdout/food.html",
+  "title": "배달 주문 확인 · 한끼배달",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "배달 주문 확인 · 한끼배달",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "한끼배달",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 62.28125,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1200.140625,
+      "y": 12.25,
+      "w": 55.859375,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "가게 정보",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1200.140625,
+      "y": 12.25,
+      "w": 55.859375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 421,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "heading",
+      "name": null,
+      "text": "성수동 국수집",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 113,
+      "w": 592,
+      "h": 182,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "text",
+      "name": null,
+      "text": "비빔국수 × 1 — 8,500원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 130,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "text",
+      "name": null,
+      "text": "만두 반 접시 × 1 — 5,000원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 160.5,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "text",
+      "name": null,
+      "text": "배달팁 3,000원 · 예상 도착 35~45분",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 191,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "text",
+      "name": null,
+      "text": "일회용 수저 안 받기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 222.5,
+      "w": 133.9375,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "checkbox",
+      "name": "일회용 수저 안 받기",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 365,
+      "y": 226.5,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 247.5,
+      "w": 558,
+      "h": 30.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 13,
+      "kind": "button",
+      "name": null,
+      "text": "요청사항 입력",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 247.5,
+      "w": 93.796875,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 309,
+      "w": 592,
+      "h": 105,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 326,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "text",
+      "name": null,
+      "text": "현대카드 (5521)로 청구",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 326,
+      "w": 136.546875,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "text",
+      "name": null,
+      "text": "총 16,500원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 844.375,
+      "y": 326,
+      "w": 74.625,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 358.5,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "button",
+      "name": null,
+      "text": "배달 요청하기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 809.203125,
+      "y": 358.5,
+      "w": 109.796875,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 428,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

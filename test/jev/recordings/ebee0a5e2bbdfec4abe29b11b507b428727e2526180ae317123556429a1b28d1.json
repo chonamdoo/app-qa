@@ -1,0 +1,71 @@
+{
+  "key": "ebee0a5e2bbdfec4abe29b11b507b428727e2526180ae317123556429a1b28d1",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb52b6c7c0ca5ec12c8e3cbb35b",
+  "latencyMs": 259,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | Harbor Inn | - | top",
+          "e2 | link | Rooms | - | top",
+          "e3 | list-item | Dates | - | top",
+          "e4 | list-item | Room | - | top",
+          "e5 | list-item | Guest details | - | top",
+          "e6 | button | Change dates | - | top",
+          "e7 | heading | Oct 17 – Oct 19 · 2 nights | - | top",
+          "e8 | text | Queen room with harbor view · 2 guests | - | top",
+          "e9 | text | Free cancellation until Oct 15. | - | top",
+          "e10 | link | Cancellation policy | - | top",
+          "e11 | heading | Guest | - | middle",
+          "e12 | button | Edit guest details | - | middle",
+          "e13 | text | Jordan Lee · [REDACTED] · +1 415 555 0142 | - | middle",
+          "e14 | text | Card on file: Visa ending 4242 — $412.80 charged at check-in | - | middle",
+          "e15 | button | Complete booking | - | middle"
+        ],
+        "texts": [
+          "Harbor Inn",
+          "Rooms",
+          "Dates",
+          "Room",
+          "Guest details",
+          "Change dates",
+          "Oct 17 – Oct 19 · 2 nights",
+          "Queen room with harbor view · 2 guests",
+          "Free cancellation until Oct 15.",
+          "Cancellation policy",
+          "Guest",
+          "Edit guest details",
+          "Jordan Lee · [REDACTED] · +1 415 555 0142",
+          "Card on file: Visa ending 4242 — $412.80 charged at check-in",
+          "Complete booking"
+        ]
+      },
+      "target": "e15 | button | Complete booking | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.93
+      }
+    },
+    "usage": {
+      "input_tokens": 813,
+      "output_tokens": 21
+    }
+  }
+}

@@ -1,10 +1,11 @@
 // Device-free Driver built from fixtures (`fixtures/<platform>/<app>/<name>.{xml,png,meta.json}`) plus a virtual clock.
-// Screens change only when the test's `onTap` / `onAction` script says so; every call is recorded.
+// Screens change only when the test's `onTap` / `onAction` script says so; every call is recorded. Website fixtures
+// (meta `surface: web`) carry the page URL; desktop ones are canonical web XML (`observe/web.ts`).
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PATHS } from '../../src/core/config.ts';
-import type { ActionOutcome, ActionStatus, AppTarget, Driver, Platform, Point, ResetMode, Snapshot, TypeOutcome } from '../../src/core/types.ts';
-import { parseAndroidSource, parseIosSource } from '../../src/observe/index.ts';
+import type { ActionOutcome, ActionStatus, AppTarget, Driver, Platform, Point, Rect, ResetMode, Snapshot, Surface, TypeOutcome } from '../../src/core/types.ts';
+import { SOURCE_PARSERS } from '../../src/observe/index.ts';
 import type { Clock } from '../../src/runner/engine.ts';
 
 /** Virtual monotonic clock: `sleep` advances time instantly. */
@@ -23,16 +24,16 @@ const pngCache = new Map<string, Uint8Array>();
 
 /**
  * Snapshot of a fixture screen. `patch` replaces literal strings in the XML (tampered variants); the PNG is shared per
- * fixture so identical screens hash identically.
+ * fixture so identical screens hash identically. `pageUrl` overrides the fixture's page URL (web fixtures).
  */
 export function fixtureSnapshot(
   platform: Platform,
   app: string,
   name: string,
-  opts: { patch?: [string, string][]; foreground?: string | null; keyboardShown?: boolean } = {},
+  opts: { patch?: [string, string][]; foreground?: string | null; keyboardShown?: boolean; pageUrl?: string | null } = {},
 ): Snapshot {
   const base = join(PATHS.fixtures, platform, app, name);
-  const meta = JSON.parse(readFileSync(`${base}.meta.json`, 'utf8')) as { windowRect: Snapshot['screen'] };
+  const meta = JSON.parse(readFileSync(`${base}.meta.json`, 'utf8')) as { windowRect: Snapshot['screen']; surface?: Surface; pageUrl?: string };
   let xml = readFileSync(`${base}.xml`, 'utf8');
   for (const [from, to] of opts.patch ?? []) xml = xml.split(from).join(to);
   const screen = meta.windowRect;
@@ -43,12 +44,14 @@ export function fixtureSnapshot(
   }
   return {
     platform,
+    surface: meta.surface ?? 'app',
     takenAt: new Date(0).toISOString(),
     screen,
-    nodes: platform === 'android' ? parseAndroidSource(xml, screen) : parseIosSource(xml, screen),
+    nodes: SOURCE_PARSERS[platform](xml, screen),
     rawSource: xml,
     screenshotPng: png,
     foregroundApp: opts.foreground === undefined ? null : opts.foreground,
+    pageUrl: opts.pageUrl !== undefined ? opts.pageUrl : (meta.pageUrl ?? null),
     keyboardShown: opts.keyboardShown ?? false,
     maxDepth: null,
     depthCapped: false,
@@ -81,6 +84,8 @@ export class FakeDriver implements Driver {
   crashes: { name: string; content: string }[] = [];
   /** The sanitizer the runner handed to `startLogs`; captured lines pass it, as in the real drivers. */
   logSanitize: ((line: string) => string) | null = null;
+  /** Hit-test answer (iOS WDA / desktop `elementFromPoint`); undefined = the driver cannot tell (the default). */
+  hittable: (p: Point, target: Rect | null) => boolean | undefined = () => undefined;
 
   constructor(screen: Snapshot, clock = new FakeClock()) {
     this.platform = screen.platform;
@@ -182,6 +187,10 @@ export class FakeDriver implements Driver {
   }
   async foregroundApp(): Promise<string | null> {
     return this.screen.foregroundApp;
+  }
+  async isHittable(p: Point, target: Rect | null): Promise<boolean | undefined> {
+    this.record('isHittable', p, target);
+    return this.hittable(p, target);
   }
   async startLogs(app: AppTarget, sanitize: (line: string) => string): Promise<void> {
     this.record('startLogs', app);

@@ -123,7 +123,7 @@ private struct EventRow: View {
 
     private var stepPrefix: String {
         guard let index = event.index, let platform = event.platform else { return "" }
-        return "\(Palette.platformLabel[platform] ?? platform) · 스텝 \(index + 1) · "
+        return "\(workspace.label(platform: platform)) · 스텝 \(index + 1) · "
     }
 
     var body: some View {
@@ -156,14 +156,14 @@ private struct EventRow: View {
                     Spacer()
                     Text(runId).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
-                Text("테스트 \(tests.count)개 · " + devices.map { "\(Palette.platformLabel[$0.platform] ?? $0.platform) \($0.name)" }.joined(separator: ", "))
+                Text("테스트 \(tests.count)개 · " + devices.map { "\(workspace.label(platform: $0.platform)) \($0.name)" }.joined(separator: ", "))
                     .font(.callout).foregroundStyle(.secondary)
             }
         case .testStarted(let name):
             HStack(spacing: 8) {
                 Image(systemName: "chevron.right.circle.fill").foregroundStyle(Color.accentColor)
                 Text(name).font(.subheadline.weight(.semibold))
-                if let platform = event.platform { Tag(text: Palette.platformLabel[platform] ?? platform) }
+                if let platform = event.platform { Tag(text: workspace.label(platform: platform)) }
             }
             .padding(.top, 6)
             .accessibilityElement(children: .combine)

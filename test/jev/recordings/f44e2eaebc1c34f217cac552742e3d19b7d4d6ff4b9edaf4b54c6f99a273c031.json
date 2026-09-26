@@ -1,0 +1,63 @@
+{
+  "key": "f44e2eaebc1c34f217cac552742e3d19b7d4d6ff4b9edaf4b54c6f99a273c031",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfd8be7e6b8c2cc658f6ab7e22",
+  "latencyMs": 247,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | Gatherly | - | top",
+          "e2 | link | Explore | - | top",
+          "e3 | link | Log in | - | top",
+          "e4 | heading | Autumn Makers Meetup | - | top",
+          "e5 | text | Sat, Oct 18 · 2:00 PM · Riverside Library, Room B | - | top",
+          "e6 | text | Hosted by Priya N. · 23 of 40 spots taken · attendees are shown on the event page | - | top",
+          "e7 | button | See who's going | - | top",
+          "e8 | button | Get directions | - | top",
+          "e9 | button | Ask the host | - | top",
+          "e10 | text | Bring a small project to show. Snacks provided. | - | middle",
+          "e11 | button | RSVP | - | middle"
+        ],
+        "texts": [
+          "Gatherly",
+          "Explore",
+          "Log in",
+          "Autumn Makers Meetup",
+          "Sat, Oct 18 · 2:00 PM · Riverside Library, Room B",
+          "Hosted by Priya N. · 23 of 40 spots taken · attendees are shown on the event page",
+          "See who's going",
+          "Get directions",
+          "Ask the host",
+          "Bring a small project to show. Snacks provided.",
+          "RSVP"
+        ]
+      },
+      "target": "e7 | button | See who's going | - | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.03
+      }
+    },
+    "usage": {
+      "input_tokens": 712,
+      "output_tokens": 21
+    }
+  }
+}

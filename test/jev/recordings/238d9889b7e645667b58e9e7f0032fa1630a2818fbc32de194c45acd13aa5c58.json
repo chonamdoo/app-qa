@@ -1,0 +1,50 @@
+{
+  "key": "238d9889b7e645667b58e9e7f0032fa1630a2818fbc32de194c45acd13aa5c58",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb52f7f77f787f1cd3b355ce124",
+  "latencyMs": 194,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | other | Ready to buy? | - | bottom",
+          "e2 | heading | Ready to buy? | - | top",
+          "e3 | text | Your Visa ending 4242 will be charged $55.70 and the seller will start packing right away. | - | middle",
+          "e4 | button | Go back | - | middle",
+          "e5 | button | Confirm | - | middle"
+        ],
+        "texts": [
+          "Ready to buy?",
+          "Your Visa ending 4242 will be charged $55.70 and the seller will start packing right away.",
+          "Go back",
+          "Confirm"
+        ]
+      },
+      "target": "e4 | button | Go back | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.05
+      }
+    },
+    "usage": {
+      "input_tokens": 527,
+      "output_tokens": 21
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "key": "d8442a30b30cf4ac4eaea986cf8f6f2a62b73d47ea9f10dd9f4233a5213af87e",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb5372d74ae897a2df51db83e0e",
+  "latencyMs": 191,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | heading | 로그인 | - | top",
+          "e2 | link | 상점으로 | - | top",
+          "e3 | text | 이메일 | - | top",
+          "e4 | input | 이메일 | value=\"[REDACTED]\" | top",
+          "e5 | text | 비밀번호 | - | top",
+          "e6 | secure-input | 비밀번호 | value=\"••••••\", focused | top",
+          "e7 | button | 로그인 | - | top",
+          "e8 | text | 로그인하지 않음 | - | middle"
+        ],
+        "texts": [
+          "로그인",
+          "상점으로",
+          "이메일",
+          "[REDACTED]",
+          "비밀번호",
+          "로그인",
+          "로그인하지 않음"
+        ]
+      },
+      "target": "e2 | link | 상점으로 | - | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.07
+      }
+    },
+    "usage": {
+      "input_tokens": 573,
+      "output_tokens": 21
+    }
+  }
+}

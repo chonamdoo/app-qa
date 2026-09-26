@@ -1,0 +1,17 @@
+{
+  "platform": "desktop-chrome",
+  "app": "web-calib-holdout",
+  "name": "ride",
+  "surface": "web",
+  "pageUrl": "http://localhost:4174/holdout/ride.html",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  },
+  "capturedAt": "2026-09-26T03:20:56+00:00",
+  "device": "macOS Chrome/153.0.8010.53 --headless=new, viewport 1280x800 @1x",
+  "source": "WEB_EXTRACT_SCRIPT via CDP Runtime.evaluate → webSourceFromExtract (canonical web XML)",
+  "notes": "택시 호출 화면: 출발지 수정, 경유지 추가, 예상 요금 자세히(펼침), 택시 호출(배차 후 취소 수수료 안내). (examples/web-calib/holdout — v4 확인용 홀드아웃, 입력값은 HTML value로 채워 둠)"
+}

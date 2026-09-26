@@ -37,14 +37,38 @@ function recorded(cal: Calibration, primitive: Primitive): Map<string, string> {
   return new Map(items.map((i) => [i.id, i.verdict]));
 }
 
+type Verdicts = { id: string; verdict: string }[];
+type CommitSliceEvidence = { items: Verdicts; confidentWrong: number };
+type CommitEvidence = {
+  items: Verdicts;
+  covered: { id: string }[];
+  bySurface: Record<string, { search: CommitSliceEvidence; holdout: CommitSliceEvidence | null; covered: { id: string }[] }>;
+};
+
+/** App items at the top level, every other surface's search and holdout items (each judged at its own surface's bar). */
+function commitScored(cal: Calibration): { verdicts: Map<string, string>; covered: string[] } {
+  const ev = cal.commit.evidence as CommitEvidence;
+  const surfaces = Object.values(ev.bySurface);
+  const items = [...ev.items, ...surfaces.flatMap((s) => [...s.search.items, ...(s.holdout?.items ?? [])])];
+  return { verdicts: new Map(items.map((i) => [i.id, i.verdict])), covered: [...ev.covered, ...surfaces.flatMap((s) => s.covered)].map((c) => c.id) };
+}
+
 test('the committed calibration record exists, no primitive failed and none has a confident-wrong item', () => {
   assert.ok(calibration, 'calibration/jev-1.13.0/q-v1.json missing');
   for (const p of ALL) {
     assert.notEqual(calibration[p].status, 'failed', p);
     assert.equal(calibration[p].evidence.confidentWrong, 0, p);
   }
-  // Commit was calibrated only on targets the deterministic risk policy lets through.
-  assert.deepEqual(calibration.commit.evidence.covered, []);
+  // A surface's commit gate is recorded only when neither its search nor its holdout items have a confident-wrong item.
+  const ev = calibration.commit.evidence as CommitEvidence;
+  for (const surface of Object.keys(calibration.commit.surfaceGates ?? {})) {
+    assert.equal(ev.bySurface[surface]?.search.confidentWrong, 0, surface);
+    assert.equal(ev.bySurface[surface]?.holdout?.confidentWrong, 0, surface);
+  }
+  // Commit was calibrated only on targets the deterministic risk policy lets through: every golden commit item is
+  // either scored or reported as covered, never both.
+  const { verdicts, covered } = commitScored(calibration);
+  assert.deepEqual([...verdicts.keys(), ...covered].sort(), golden.commit!.items.map((i) => i.id).sort());
 });
 
 test('runtime grounding (strict) reproduces every recorded golden verdict, Korean intents included', async () => {
@@ -82,13 +106,19 @@ test('runtime claim, which and commit reproduce every recorded golden verdict', 
     }
   }
   const commit = golden.commit!;
-  const commitWant = recorded(calibration!, 'commit');
+  const { verdicts: commitWant, covered } = commitScored(calibration!);
   if (commit.primitive === 'commit') {
     for (const item of commit.items) {
+      if (covered.includes(item.id)) continue; // the deterministic policy blocks it; never asked
       const m = screen(item.screen, item.patch);
-      const target = m.candidates.find((c) => typeof item.target === 'string' && normLabel(c.name) === normLabel(item.target));
+      const surface = m.snapshot.surface;
+      const target = m.candidates.filter((c) => typeof item.target === 'string' && normLabel(c.name) === normLabel(item.target))[(item.nth ?? 1) - 1];
       assert.ok(target, item.id);
-      const d = await judgeCommit(client, m.candidates, target, { texts: m.texts, calibration });
+      const d = await judgeCommit(client, m.candidates, target, { texts: m.texts, calibration, surface });
+      if (surface !== 'app' && !calibration!.commit.surfaceGates?.[surface]) {
+        assert.equal(d.verdict, 'error', `${item.id}: a surface without its own gate must stay uncalibrated`);
+        continue;
+      }
       assert.notEqual(d.verdict, 'error', `${item.id}: ${d.reason}`);
       assert.equal(d.verdict === 'pass' ? 'risky' : 'safe', commitWant.get(item.id), `${item.id}: ${d.reason}`);
     }

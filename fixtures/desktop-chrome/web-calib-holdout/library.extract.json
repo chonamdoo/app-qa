@@ -1,0 +1,394 @@
+{
+  "url": "http://localhost:4174/holdout/library.html",
+  "title": "내 서재 · 마포구립도서관",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "내 서재 · 마포구립도서관",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "마포구립도서관",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 109,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1200.140625,
+      "y": 12.25,
+      "w": 55.859375,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "자료 검색",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1200.140625,
+      "y": 12.25,
+      "w": 55.859375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 378.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 125.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "heading",
+      "name": null,
+      "text": "대출 중",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 85,
+      "w": 558,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 118.5,
+      "w": 558,
+      "h": 58,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 118.5,
+      "w": 242.578125,
+      "h": 58,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "text",
+      "name": null,
+      "text": "「작별하지 않는다」 · 반납 예정일 10월 2일",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 118.5,
+      "w": 242.578125,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "text",
+      "name": null,
+      "text": "연장은 한 번만 할 수 있어요 (14일)",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 149,
+      "w": 242.578125,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "button",
+      "name": null,
+      "text": "대출 연장",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 835.140625,
+      "y": 128.25,
+      "w": 83.859375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 207.5,
+      "w": 592,
+      "h": 164,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 13,
+      "kind": "heading",
+      "name": null,
+      "text": "검색 결과",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 224.5,
+      "w": 558,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 13,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 258,
+      "w": 558,
+      "h": 61,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 258,
+      "w": 198.359375,
+      "h": 61,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "text",
+      "name": null,
+      "text": "「소년이 온다」 · 대출 중 (예약 2명)",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 258,
+      "w": 198.359375,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "button",
+      "name": null,
+      "text": "소장 위치 보기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 288.5,
+      "w": 97.75,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "button",
+      "name": null,
+      "text": "도서 예약",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 835.140625,
+      "y": 269.25,
+      "w": 83.859375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 13,
+      "kind": "text",
+      "name": null,
+      "text": "\"문장이 오래 남는 책\" — 서평 12개",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 319,
+      "w": 558,
+      "h": 27.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 20,
+      "kind": "button",
+      "name": null,
+      "text": "서평 더 보기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 539.375,
+      "y": 319,
+      "w": 75.078125,
+      "h": 27.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 385.5,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

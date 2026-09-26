@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Why sourdough needs time · The Crumb Journal</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="newsletter.html">The Crumb Journal</a>
+    <nav><a href="newsletter.html#archive">Archive</a><a href="login.html">Sign in</a></nav>
+  </header>
+
+  <main class="narrow">
+    <article class="card">
+      <h1>Why sourdough needs time</h1>
+      <p class="muted">By Ana Ruiz · 6 min read</p>
+      <p>Long fermentation lets wild yeast and bacteria break down starches, which is where the tang and the open crumb come from.</p>
+      <button type="button" class="link" aria-expanded="false" aria-controls="notes">Show baker's notes</button>
+      <div id="notes" class="acc-body" hidden><p>Keep the dough at 24°C for the bulk rise.</p></div>
+    </article>
+    <form class="card" data-done="Thanks! Check your inbox to confirm.">
+      <h2>Get the weekly bake</h2>
+      <p>One recipe every Friday, straight to your inbox.</p>
+      <div class="row">
+        <label for="email" class="sr">Email</label>
+        <input id="email" type="email" value="jordan.lee@example.com" autocomplete="off" style="flex: 1">
+        <button type="submit">Subscribe</button>
+      </div>
+      <p class="muted"><a href="newsletter.html#rss">RSS feed</a></p>
+    </form>
+    <p role="status"></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

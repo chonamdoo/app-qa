@@ -71,6 +71,23 @@ test('usableGate refuses missing records, other models/versions and primitives t
   assert.deepEqual(usableGate(failed, 'jev-1.13.0', 'claim').gate, cal.claim.gate);
 });
 
+test('usableGate(commit) picks the gate of the target surface; a surface without its own gate stays uncalibrated', () => {
+  const cal = testCalibration();
+  const app = { risky: 0.47 };
+  const web = { risky: 0.2 };
+  const both = { ...cal, commit: { ...cal.commit, gate: app, surfaceGates: { web } } };
+  assert.deepEqual(usableGate(both, 'jev-1.13.0', 'commit', 'app').gate, app);
+  assert.deepEqual(usableGate(both, 'jev-1.13.0', 'commit', 'web').gate, web);
+  // Records without a web gate (older records, or a web holdout that missed the criteria) never fall back to the app one.
+  for (const commit of [{ ...cal.commit, gate: app }, { ...cal.commit, gate: app, surfaceGates: {} }]) {
+    const r = usableGate({ ...cal, commit }, 'jev-1.13.0', 'commit', 'web');
+    assert.deepEqual([r.gate, r.reason], [null, 'uncalibrated: 웹 화면 commit 보정 전']);
+  }
+  // A failed section (app criteria missed) blocks every surface, the web gate included.
+  const failed = { ...both, commit: { ...both.commit, status: 'failed' as const } };
+  assert.match(usableGate(failed, 'jev-1.13.0', 'commit', 'web').reason ?? '', /^uncalibrated: commit/);
+});
+
 const dir = mkdtempSync(join(tmpdir(), 'jev-cal-'));
 after(() => rmSync(dir, { recursive: true, force: true }));
 

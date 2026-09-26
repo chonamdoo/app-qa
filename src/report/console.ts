@@ -1,6 +1,7 @@
 // Terminal rendering of run events and results for the CLI (Korean, one line per step).
 import type { EventSink, QaEventBody } from '../core/events.ts';
 import type { Verdict } from '../core/types.ts';
+import { QA_STATUSES, type QaStatus } from './status.ts';
 
 const MARK: Record<Verdict, string> = { PASS: '✓', FAIL: '✗', INCONCLUSIVE: '?', ERROR: '!', SKIPPED: '-' };
 
@@ -39,6 +40,13 @@ export function formatCounts(counts: Record<Verdict, number>): string {
   return (Object.keys(MARK) as Verdict[])
     .filter((v) => counts[v] > 0)
     .map((v) => `${v} ${counts[v]}`)
+    .join(' · ');
+}
+
+/** web-qa status counts (`BLOCKED 2 · NOT_RUN 1`), display order, zeros omitted. */
+export function formatQaCounts(counts: Record<QaStatus, number>): string {
+  return QA_STATUSES.filter((s) => counts[s] > 0)
+    .map((s) => `${s} ${counts[s]}`)
     .join(' · ');
 }
 

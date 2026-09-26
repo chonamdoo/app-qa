@@ -1,0 +1,61 @@
+{
+  "key": "06608d03bef34cb79ff788dfb03b0ed56a74810a7076d68a2c27af0a4797f90b",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfda787eddb59e2a65f21c779c",
+  "latencyMs": 211,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 바로택시 | - | top",
+          "e2 | link | 이용 기록 | - | top",
+          "e3 | button | 출발지 수정 | - | top",
+          "e4 | text | 출발 · 합정역 7번 출구 | - | top",
+          "e5 | button | 경유지 추가 | - | top",
+          "e6 | text | 도착 · 서울역 서부 택시 승강장 | - | top",
+          "e7 | button | 예상 요금 자세히 | - | top",
+          "e8 | text | 일반 택시 · 예상 14,200원 · 5분 뒤 도착 | - | top",
+          "e9 | text | 호출하면 근처 기사님에게 요청이 가고, 배차 후 취소하면 취소 수수료 2,000원이 붙습니다. | - | top",
+          "e10 | button | 택시 호출 | - | middle"
+        ],
+        "texts": [
+          "바로택시",
+          "이용 기록",
+          "출발지 수정",
+          "출발 · 합정역 7번 출구",
+          "경유지 추가",
+          "도착 · 서울역 서부 택시 승강장",
+          "예상 요금 자세히",
+          "일반 택시 · 예상 14,200원 · 5분 뒤 도착",
+          "호출하면 근처 기사님에게 요청이 가고, 배차 후 취소하면 취소 수수료 2,000원이 붙습니다.",
+          "택시 호출"
+        ]
+      },
+      "target": "e7 | button | 예상 요금 자세히 | - | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.04
+      }
+    },
+    "usage": {
+      "input_tokens": 768,
+      "output_tokens": 21
+    }
+  }
+}

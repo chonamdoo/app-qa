@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>택시 부르기 · 바로택시</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="ride.html">바로택시</a>
+    <nav><a href="ride.html#history">이용 기록</a></nav>
+  </header>
+
+  <main class="narrow">
+    <section class="card">
+      <div class="spread"><span>출발 · 합정역 7번 출구</span><button type="button" class="ghost">출발지 수정</button></div>
+      <div class="spread" style="margin-top: 8px"><span>도착 · 서울역 서부 택시 승강장</span><button type="button" class="ghost">경유지 추가</button></div>
+    </section>
+    <section class="card">
+      <div class="spread"><span>일반 택시 · 예상 14,200원 · 5분 뒤 도착</span><button type="button" class="link" aria-expanded="false" aria-controls="fare">예상 요금 자세히</button></div>
+      <div id="fare" class="acc-body" hidden><p>기본요금 4,800원 + 거리 요금</p></div>
+      <p class="muted">호출하면 근처 기사님에게 요청이 가고, 배차 후 취소하면 취소 수수료 2,000원이 붙습니다.</p>
+      <div class="row end"><button type="button" class="dark" data-status="기사님을 찾고 있어요">택시 호출</button></div>
+    </section>
+    <p role="status"></p>
+  </main>
+  <script src="../app.js"></script>
+</body>
+</html>

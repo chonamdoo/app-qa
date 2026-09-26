@@ -1,5 +1,6 @@
 // Snapshot → ScreenModel: filtering, occlusion, roles, labels, dedupe, reading-order keys, texts, fingerprints.
 import { sha256 } from '../core/fsx.ts';
+import { PLATFORM_INFO } from '../core/platform.ts';
 import type { Candidate, NodeFlags, Platform, RawNode, Rect, Role, ScreenModel, Snapshot } from '../core/types.ts';
 import type { OcrLine } from '../ocr/ocr.ts';
 import type { AndroidExtras } from './android.ts';
@@ -7,6 +8,7 @@ import { iosKeyboardHosts, isIosBackdrop } from './ios.ts';
 import { containsPoint, intersect, iou, isScrollContainer, isTouchable, visibleRegion } from './occlusion.ts';
 import type { VisibleRegion } from './occlusion.ts';
 import { cleanText, normLabel } from './text.ts';
+import type { WebExtras, WebKind } from './web.ts';
 
 export interface ScreenModelOptions {
   /** App-profile volatile patterns (regex sources or RegExps), added to the built-in clock / status-bar patterns. */
@@ -20,6 +22,8 @@ export const MAX_CANDIDATES = 254;
 const SYNTH_MAX = 80;
 /** Unlabelled touchables covering at least this share of the screen are scrims/backdrops, never targets. */
 const SCRIM_SHARE = 0.5;
+/** A top-anchored browser-UI strip shorter than this share of the screen is the status-bar / safe-area backdrop. */
+const TOP_STRIP_SHARE = 0.15;
 const DEDUPE_IOU = 0.9;
 const LAYOUT_GRID = 8;
 
@@ -95,12 +99,42 @@ const NON_TARGET_TOUCHABLES: Record<string, true> = {
   Toolbar: true,
 };
 
-export function roleOf(n: RawNode, platform: Platform): Role {
+const WEB_ROLES: Record<WebKind, Role> = {
+  document: 'other',
+  button: 'button',
+  link: 'link',
+  input: 'input',
+  select: 'input',
+  password: 'secure-input',
+  checkbox: 'checkbox',
+  radio: 'checkbox',
+  switch: 'switch',
+  tab: 'tab',
+  heading: 'heading',
+  image: 'image',
+  listitem: 'list-item',
+  option: 'list-item',
+  scroll: 'scroll',
+  text: 'text',
+  dialog: 'other',
+  overlay: 'other',
+  generic: 'other',
+};
+/** Web kinds without an interactive role that become buttons when the page makes them clickable (onclick / pointer cursor). */
+const WEB_CLICK_PROMOTES: Partial<Record<WebKind, true>> = { generic: true, text: true, image: true };
+/** Screen roots (the app / the page itself): never candidates or text lines. */
+const ROOT_CLASSES: Record<string, true> = { Application: true, 'web:document': true };
+/** Element that hosts page content in the device browser; everything outside it is browser UI on a web surface. */
+const WEB_CONTENT_CLASS: Record<'android' | 'ios', string> = { android: 'android.webkit.WebView', ios: 'WebView' };
+
+function iosRole(n: RawNode): Role {
   const f = n.flags;
-  if (platform === 'ios') {
-    const role = IOS_ROLES[n.className] ?? (f.clickable && NON_TARGET_TOUCHABLES[n.className] !== true ? 'button' : 'other');
-    return f.heading && (role === 'text' || role === 'other') ? 'heading' : role;
-  }
+  const role = IOS_ROLES[n.className] ?? (f.clickable && NON_TARGET_TOUCHABLES[n.className] !== true ? 'button' : 'other');
+  return f.heading && (role === 'text' || role === 'other') ? 'heading' : role;
+}
+
+function androidRole(n: RawNode): Role {
+  const f = n.flags;
   const cls = n.className;
   if (f.password) return 'secure-input';
   if (f.editable) return 'input';
@@ -114,8 +148,31 @@ export function roleOf(n: RawNode, platform: Platform): Role {
   return 'other';
 }
 
+/** Desktop DOM nodes (`web:<kind>`, observe/web.ts). Occluders are covering layers, never buttons. */
+function webRole(n: RawNode): Role {
+  const kind = (n.className.startsWith('web:') ? n.className.slice(4) : '') as WebKind;
+  const role = WEB_ROLES[kind] ?? 'other';
+  const occluder = (n as RawNode & Partial<WebExtras>).occluder === true;
+  return n.flags.clickable && !occluder && WEB_CLICK_PROMOTES[kind] === true ? 'button' : role;
+}
+
+export function roleOf(n: RawNode, platform: Platform): Role {
+  switch (platform) {
+    case 'android':
+      return androidRole(n);
+    case 'ios':
+      return iosRole(n);
+    case 'desktop-chrome':
+    case 'desktop-safari':
+      return webRole(n);
+  }
+}
+
 export function isActionable(n: RawNode, role: Role): boolean {
   const f: NodeFlags = n.flags;
+  // Web `clickable` also marks covering layers (occluders) and dialogs; only the role vocabulary makes a web target.
+  // A plain <li> is structure, not a control: list items (and options) act only when the page makes them clickable.
+  if (n.className.startsWith('web:')) return (role === 'list-item' ? f.clickable : ACTIONABLE_ROLES[role]) || f.editable || f.checkable;
   return (
     ACTIONABLE_ROLES[role] ||
     f.longClickable ||
@@ -189,7 +246,7 @@ interface Draft {
 
 /**
  * Builds the normalized screen model (architecture §2). Requires `snapshot.nodes` in DFS pre-order by z (as produced
- * by parseAndroidSource / parseIosSource).
+ * by parseAndroidSource / parseIosSource / parseWebSource).
  */
 export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = {}): ScreenModel {
   const volatile = compileVolatile(opts.volatile);
@@ -216,6 +273,55 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
     if (p >= 0 && end[i]! > end[p]!) end[p] = end[i]!;
   }
 
+  // ── browser UI (web surface in a device browser): everything outside the page content host ──
+  // Android: Chrome's own views (`<browser>:id/*` and their descendants: address bar, toolbar, snackbars) that do not
+  // contain the page. iOS: every node outside a WebView subtree that does not contain one (Safari toolbar, address
+  // field), except alerts (JavaScript alert/confirm dialogs are drawn natively). Browser UI is never a candidate or a
+  // text line, but it still occludes the page.
+  const browserUi = new Uint8Array(count);
+  if (snapshot.surface === 'web' && (platform === 'android' || platform === 'ios')) {
+    const hostClass = WEB_CONTENT_CLASS[platform];
+    const chromeId = `${PLATFORM_INFO[platform].browser}:id/`;
+    const inWeb = new Uint8Array(count);
+    const hasWeb = new Uint8Array(count);
+    const inAlert = new Uint8Array(count);
+    for (let i = 0; i < count; i++) {
+      const p = parent[i]!;
+      inWeb[i] = nodes[i]!.className === hostClass || (p >= 0 && inWeb[p]) ? 1 : 0;
+      inAlert[i] = nodes[i]!.className === 'Alert' || (p >= 0 && inAlert[p]) ? 1 : 0;
+    }
+    for (let i = count - 1; i >= 0; i--) if ((inWeb[i] || hasWeb[i]) && parent[i]! >= 0) hasWeb[parent[i]!] = 1;
+    for (let i = 0; i < count; i++) {
+      if (inWeb[i] || hasWeb[i]) continue;
+      const p = parent[i]!;
+      const own = platform === 'ios' ? !inAlert[i] : nodes[i]!.resourceId?.startsWith(chromeId) === true;
+      browserUi[i] = own || (p >= 0 && browserUi[p]) ? 1 : 0;
+    }
+  }
+
+  // ── iOS Safari top safe area: page content scrolled under the status bar is visible but cannot be tapped ──
+  // With `viewport-fit=cover` the page scrolls under the status bar, and touches there go to the system (tap = scroll to
+  // top), never to the page. Edge: the StatusBar element when the tree has one, else the lowest top-anchored full-width
+  // browser-UI strip (Safari's status-bar backdrop), else the WebView's visible top. Only tap regions avoid the strip;
+  // text lines under it stay readable.
+  let tapStrip: Rect | null = null;
+  if (snapshot.surface === 'web' && platform === 'ios') {
+    let edge = screen.y;
+    const bar = nodes.find((n) => n.className === 'StatusBar');
+    if (bar) edge = bar.rect.y + bar.rect.height;
+    else {
+      for (let i = 0; i < count; i++) {
+        const r = nodes[i]!.rect;
+        if (browserUi[i] && r.y <= screen.y && r.width >= 0.9 * screen.width && r.height < TOP_STRIP_SHARE * screen.height) {
+          edge = Math.max(edge, r.y + r.height);
+        }
+      }
+      const host = nodes.find((n) => n.className === WEB_CONTENT_CLASS.ios);
+      if (edge === screen.y && host) edge = Math.max(edge, host.rect.y);
+    }
+    if (edge > screen.y) tapStrip = { x: screen.x, y: screen.y, width: screen.width, height: edge - screen.y };
+  }
+
   // ── clipping (screen + scroll viewports) and removal ──
   const keyboardHosts = new Set(platform === 'ios' ? iosKeyboardHosts(nodes, screen).map((h) => h.id) : []);
   const noArea: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -231,6 +337,7 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
     childClip[i] = isScrollContainer(n) ? (c ?? noArea) : base;
     const pkg = (n as RawNode & Partial<AndroidExtras>).package;
     const self =
+      browserUi[i] === 1 ||
       (platform === 'android' && typeof pkg === 'string' && SYSTEM_PACKAGE.test(pkg)) ||
       (platform === 'ios' && (n.className === 'Keyboard' || n.className === 'Key' || keyboardHosts.has(n.id))) ||
       SCROLL_BAR.test(n.desc ?? '');
@@ -241,11 +348,14 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
   const touch: number[] = [];
   for (let i = 0; i < count; i++) if (clip[i] && isTouchable(nodes[i]!)) touch.push(i);
   const visCache = new Map<number, VisibleRegion | null>();
-  const regionOf = (i: number): VisibleRegion | null => {
-    const cached = visCache.get(i);
-    if (cached !== undefined) return cached;
+  /** `tap`: the region a touch can reach (also avoids the top safe-area strip); otherwise what the user can see. */
+  const regionOf = (i: number, tap: boolean): VisibleRegion | null => {
     const r = clip[i]!;
-    const occluders: Rect[] = [];
+    const strip = tap && tapStrip && intersect(tapStrip, r) ? tapStrip : null;
+    const key = strip ? -1 - i : i;
+    const cached = visCache.get(key);
+    if (cached !== undefined) return cached;
+    const occluders: Rect[] = strip ? [strip] : [];
     const avoid: Rect[] = [];
     for (let k = lowerBound(touch, i + 1); k < touch.length; k++) {
       const t = touch[k]!;
@@ -258,7 +368,7 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
       }
     }
     const v = visibleRegion(r, occluders, avoid);
-    visCache.set(i, v);
+    visCache.set(key, v);
     return v;
   };
 
@@ -300,7 +410,7 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
         }
       }
     }
-  } else {
+  } else if (platform === 'android') {
     for (let i = 0; i < count; i++) {
       const p = parent[i]!;
       if (roles[i] === 'button' && p >= 0 && ANDROID_TAB_PARENT.test(nodes[p]!.className)) roles[i] = 'tab';
@@ -332,10 +442,10 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
   const drafts: Draft[] = [];
   const draftAt = new Map<number, Draft>();
   for (let i = 0; i < count; i++) {
-    if (roles[i] === undefined || scrim[i] || nodes[i]!.className === 'Application') continue;
+    if (roles[i] === undefined || scrim[i] || ROOT_CLASSES[nodes[i]!.className] === true) continue;
     const name = own[i] ?? null;
     if (!actionable[i] && (name === null || absorbedBy[i]! >= 0)) continue;
-    const region = regionOf(i);
+    const region = regionOf(i, true);
     if (!region) {
       occluded.add(i);
       continue;
@@ -377,10 +487,11 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
 
   // Bottom tab strip heuristic (RN/Compose tabs expose plain clickable views): 3–6 sibling buttons with short labels,
   // equal top/height/width, touching the bottom 15% of the screen and spanning ≥60% of its width. Three-item rows must
-  // all carry an icon so a dialog's text-only [취소][저장][삭제] button row is not mistaken for navigation.
+  // all carry an icon so a dialog's text-only [취소][저장][삭제] button row is not mistaken for navigation. Desktop DOM
+  // roles are explicit (role="tab"), so the heuristic does not apply there.
   const byParent = new Map<number, Draft[]>();
   for (const d of kept) {
-    if (d.role !== 'button') continue;
+    if (d.role !== 'button' || PLATFORM_INFO[platform].host === 'desktop') continue;
     const list = byParent.get(parent[d.i]!) ?? [];
     list.push(d);
     byParent.set(parent[d.i]!, list);
@@ -449,7 +560,7 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
   const lineAt = new Map<number, string>();
   const lines: { i: number; text: string }[] = [];
   for (let i = 0; i < count; i++) {
-    if (roles[i] === undefined || nodes[i]!.className === 'Application') continue;
+    if (roles[i] === undefined || ROOT_CLASSES[nodes[i]!.className] === true) continue;
     const n = nodes[i]!;
     const f = n.flags;
     const found: string[] = [];
@@ -460,7 +571,7 @@ export function buildScreenModel(snapshot: Snapshot, opts: ScreenModelOptions = 
     if (typeof error === 'string' && error.trim()) found.push(cleanText(error));
     const nodeLines = found.filter(Boolean);
     if (!nodeLines.length) continue;
-    if (!regionOf(i)) {
+    if (!regionOf(i, false)) {
       occluded.add(i);
       continue;
     }

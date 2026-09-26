@@ -7,10 +7,17 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { adb, adbShell, childEnv, run, shq, xcrun } from '../appium/exec.ts';
 import { adbPath } from '../core/config.ts';
 import { ensureDir } from '../core/fsx.ts';
+import { PLATFORM_INFO } from '../core/platform.ts';
 import type { Platform } from '../core/types.ts';
+
+/** Desktop browsers have no session-free screen: their pixels come only from a driver snapshot. `what` carries its particle. */
+function refuseDesktop(platform: Platform, what: string): void {
+  if (PLATFORM_INFO[platform].host === 'desktop') throw new Error(`${PLATFORM_INFO[platform].label}에서는 세션 없이 ${what} 지원하지 않습니다. 테스트 실행 중 스냅샷의 스크린샷을 사용하세요.`);
+}
 
 /** PNG of the current screen. Android: `adb exec-out screencap -p`; iOS: `simctl io screenshot` (pixels, @3x). */
 export async function grabScreen(platform: Platform, deviceId: string): Promise<Uint8Array> {
+  refuseDesktop(platform, '실시간 화면 캡처를');
   if (platform === 'android') {
     const png = (await run(adbPath(), ['-s', deviceId, 'exec-out', 'screencap', '-p'], { timeoutMs: 15_000 })).stdout;
     if (png.length < 8 || png.readUInt32BE(0) !== 0x89504e47) throw new Error(`screencap이 PNG를 반환하지 않았습니다 (${png.length} bytes)`);
@@ -52,6 +59,7 @@ async function firstLine(child: ChildProcess, exited: Promise<number | null>, ti
 
 /** Android: `adb shell screenrecord` (device limit 180 s per file); iOS: `simctl io recordVideo`. */
 export async function startRecording(platform: Platform, deviceId: string, file: string): Promise<void> {
+  refuseDesktop(platform, '화면 녹화를');
   const key = `${platform}:${deviceId}`;
   if (recordings.has(key)) throw new Error(`${deviceId}에서 이미 녹화 중입니다.`);
   ensureDir(dirname(file));

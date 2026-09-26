@@ -1,0 +1,331 @@
+{
+  "url": "http://localhost:4174/holdout/job.html",
+  "title": "지원하기 · 프론트엔드 개발자 · 잡브릿지",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "지원하기 · 프론트엔드 개발자 · 잡브릿지",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "잡브릿지",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 62.28125,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1170.25,
+      "y": 12.25,
+      "w": 85.75,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "공고 원문 보기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1170.25,
+      "y": 12.25,
+      "w": 85.75,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 441.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "heading",
+      "name": null,
+      "text": "(주)하루랩 · 프론트엔드 개발자 지원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 113,
+      "w": 592,
+      "h": 321.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 130,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "button",
+      "name": null,
+      "text": "이력서 불러오기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 130,
+      "w": 122.78125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "text",
+      "name": null,
+      "text": "최근 저장: 2026-09-12 이력서",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 493.78125,
+      "y": 139.5,
+      "w": 158.890625,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "text",
+      "name": null,
+      "text": "이름",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 176.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "input",
+      "name": "이름",
+      "text": null,
+      "id": "name",
+      "value": "김하늘",
+      "hint": null,
+      "x": 361,
+      "y": 200,
+      "w": 172,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "text",
+      "name": null,
+      "text": "지원 동기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 248.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "input",
+      "name": "지원 동기",
+      "text": null,
+      "id": "why",
+      "value": "디자인 시스템을 처음부터 만든 경험을 하루랩 서비스에 쓰고 싶습니다.",
+      "hint": null,
+      "x": 361,
+      "y": 272,
+      "w": 558,
+      "h": 72,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "text",
+      "name": null,
+      "text": "제출한 지원서는 수정하거나 취소할 수 없습니다.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 351.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 379,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "button",
+      "name": null,
+      "text": "지원서 제출",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 822.171875,
+      "y": 379,
+      "w": 96.828125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 448.5,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

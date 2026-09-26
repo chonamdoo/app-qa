@@ -10,6 +10,8 @@ import { writeJsonAtomic } from '../../core/fsx.ts';
 import type { DeviceInfo, Platform, Verdict } from '../../core/types.ts';
 import type { JobOutcome } from '../../server/jobs.ts';
 import { createServer, HttpError, type ServerHandlers } from '../../server/server.ts';
+import { loadAppProfile } from '../../spec/load.ts';
+import { profilePlatforms } from '../../spec/schema.ts';
 
 /** §10 RunResult fields the queue reports. */
 interface RunResultLike {
@@ -94,7 +96,7 @@ function realHandlers(): ServerHandlers {
     },
     async smoke(params, { events, signal }) {
       const { runSmoke } = await runner();
-      const platforms: Platform[] = params.platform === 'all' ? ['android', 'ios'] : [params.platform];
+      const platforms: Platform[] = params.platform === 'all' ? profilePlatforms(loadAppProfile(params.app)) : [params.platform];
       const results: RunResultLike[] = [];
       for (const platform of platforms) {
         signal.throwIfAborted();

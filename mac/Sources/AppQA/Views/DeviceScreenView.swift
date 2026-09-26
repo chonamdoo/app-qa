@@ -1,5 +1,6 @@
 // Center pane: live device screen (~2 fps while visible) with the current step's target/tap overlaid; while replaying a
-// past run, the focused step's evidence screenshot instead (live polling stops until replay ends).
+// past run, the focused step's evidence screenshot instead (live polling stops until replay ends). Desktop browsers have
+// no live screen: the pane shows the newest step screenshot of that platform from the run's events.
 import AppKit
 import SwiftUI
 
@@ -11,6 +12,8 @@ struct DeviceScreenView: View {
     @State private var paused = false
     /// Replay only: whether the shown evidence is the pre-action screenshot (marks are drawn only on that one).
     @State private var replayShowsBefore = false
+    /// Desktop platform whose step screenshot `frame` shows (kept while the next one loads; any other frame is cleared).
+    @State private var desktopFrameOf: String?
 
     struct Frame: Equatable {
         let image: NSImage
@@ -22,6 +25,10 @@ struct DeviceScreenView: View {
     private var deviceId: String? { workspace.selectedDevice[platform] }
     private var device: DeviceInfo? { workspace.devices.first { $0.platform == platform && $0.id == deviceId } }
     private var replayFocus: StepKey? { workspace.replay?.focus }
+    private var isDesktop: Bool { Palette.desktopPlatforms.contains(platform) }
+    /// Live desktop pane: the step screenshot standing in for the missing live screen.
+    private var desktopShot: Workspace.StepScreenshot? { workspace.replay == nil && isDesktop ? workspace.latestScreenshot(platform: platform) : nil }
+    private var viewportWidth: Int? { workspace.selectedProfile?.web?.viewport.width }
 
     private var marks: StepMarks? {
         let marks: StepMarks?
@@ -29,6 +36,8 @@ struct DeviceScreenView: View {
             guard let focus = replay.focus, replayShowsBefore else { return nil }
             marks = StepMarks(events: replay.items.lazy.compactMap(\.event).filter { $0.stepKey == focus })
         } else {
+            // Desktop: the current step's marks belong on its pre-action screenshot only.
+            if isDesktop && desktopShot?.isBefore != true { return nil }
             marks = workspace.marks[platform]
         }
         return marks?.isEmpty == false ? marks : nil
@@ -38,22 +47,25 @@ struct DeviceScreenView: View {
         @Bindable var workspace = workspace
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Label("디바이스", systemImage: "iphone").font(.headline)
+                Label("디바이스", systemImage: isDesktop ? "macwindow" : "iphone").font(.headline).fixedSize()
                 if workspace.replay != nil {
                     Tag(text: "재생", color: .accentColor)
-                } else if workspace.platform == .all {
+                } else if workspace.activePlatforms.count > 1 {
+                    // Several targets (둘 다 / 전체): a compact pull-down picks whose screen is shown.
                     Picker("표시할 플랫폼", selection: $workspace.devicePane) {
-                        Text("Android").tag("android")
-                        Text("iOS").tag("ios")
+                        ForEach(workspace.activePlatforms, id: \.self) { platform in
+                            Text(workspace.label(platform: platform)).tag(platform)
+                        }
                     }
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
                     .labelsHidden()
-                    .frame(width: 130)
+                    .controlSize(.small)
+                    .fixedSize()
                     .accessibilityIdentifier("device.platformPane")
                     .accessibilityLabel("표시할 디바이스 플랫폼")
                 }
                 Spacer()
-                if workspace.replay == nil {
+                if workspace.replay == nil && !isDesktop {
                     Toggle(isOn: $paused) { Image(systemName: paused ? "play.fill" : "pause.fill") }
                         .toggleStyle(.button)
                         .help(paused ? "화면 갱신 재개" : "화면 갱신 일시정지")
@@ -85,15 +97,17 @@ struct DeviceScreenView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(workspace.replay == nil ? Color.primary.opacity(0.15) : Color.accentColor, lineWidth: workspace.replay == nil ? 1 : 2))
                 .overlay {
-                    TapOverlay(marks: marks, platform: replayFocus?.platform ?? platform, pixelWidth: frame.pixelWidth, pixelHeight: frame.pixelHeight)
+                    TapOverlay(
+                        marks: marks, platform: replayFocus?.platform ?? platform, pixelWidth: frame.pixelWidth, pixelHeight: frame.pixelHeight,
+                        viewportWidth: viewportWidth)
                 }
                 .overlay(alignment: .topLeading) { badge }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(workspace.replay == nil ? "\(device?.name ?? "디바이스") 실시간 화면" : "재생: \(replayCaption)")
+                .accessibilityLabel(workspace.replay != nil ? "재생: \(replayCaption)" : isDesktop ? "\(workspace.label(platform: platform)) 최근 스텝 화면" : "\(device?.name ?? "디바이스") 실시간 화면")
                 .accessibilityIdentifier("device.screen")
         } else {
             ContentUnavailableView {
-                Label(workspace.replay != nil ? "증거 화면 없음" : deviceId == nil ? "디바이스 없음" : "화면 대기 중", systemImage: "iphone.slash")
+                Label(workspace.replay != nil ? "증거 화면 없음" : isDesktop ? "스텝 화면 없음" : deviceId == nil ? "디바이스 없음" : "화면 대기 중", systemImage: "iphone.slash")
             } description: {
                 Text(error ?? (workspace.replay != nil ? "스텝 카드를 눌러 증거 화면을 고르세요" : deviceId == nil ? "툴바에서 디바이스를 선택하세요" : "화면을 가져오는 중…"))
             }
@@ -130,7 +144,12 @@ struct DeviceScreenView: View {
         HStack(spacing: 8) {
             if let replay = workspace.replay {
                 Image(systemName: "clock.arrow.circlepath")
-                Text(replay.focus.map { "기록된 증거 · \(Palette.platformLabel[$0.platform] ?? $0.platform) · \($0.testId) · 스텝 \($0.index + 1)" } ?? "기록된 증거 화면 없음")
+                Text(replay.focus.map { "기록된 증거 · \(workspace.label(platform: $0.platform)) · \($0.testId) · 스텝 \($0.index + 1)" } ?? "기록된 증거 화면 없음")
+                    .lineLimit(1)
+            } else if isDesktop {
+                Circle().fill(error == nil && frame != nil ? Color.green : Color.orange).frame(width: 7, height: 7)
+                Text(desktopShot.map { "최근 스텝 화면 · \(workspace.label(platform: platform)) · \($0.key.testId) · 스텝 \($0.key.index + 1) · \($0.isBefore ? "행동 전" : "행동 후")" }
+                    ?? "\(workspace.label(platform: platform)) · 실시간 화면 없음")
                     .lineLimit(1)
             } else {
                 Circle().fill(error == nil && frame != nil ? Color.green : Color.orange).frame(width: 7, height: 7)
@@ -153,7 +172,7 @@ struct DeviceScreenView: View {
     }
 
     private var liveKey: String {
-        "\(workspace.replay == nil)|\(platform)|\(deviceId ?? "-")|\(paused)|\(scenePhase == .background)|\(workspace.api?.base.absoluteString ?? "-")"
+        "\(workspace.replay == nil)|\(platform)|\(deviceId ?? "-")|\(paused)|\(scenePhase == .background)|\(workspace.api?.base.absoluteString ?? "-")|\(desktopShot?.path ?? "-")"
     }
 
     private var replayKey: String {
@@ -163,8 +182,13 @@ struct DeviceScreenView: View {
 
     private func pollLive() async {
         guard workspace.replay == nil else { return }
+        if isDesktop {
+            await showDesktopShot()
+            return
+        }
         // Never keep showing another device's (or a replayed run's) image.
         frame = nil
+        desktopFrameOf = nil
         error = paused ? "화면 갱신이 일시정지되었습니다" : nil
         guard !paused, scenePhase != .background, let api = workspace.api, let deviceId else { return }
         let request = api.request("/api/devices/\(platform)/\(APIClient.segment(deviceId))/screen")
@@ -187,11 +211,36 @@ struct DeviceScreenView: View {
         }
     }
 
+    /// Loads the newest step screenshot of the desktop platform; the previous one of the same platform stays until it arrives.
+    private func showDesktopShot() async {
+        if desktopFrameOf != platform { frame = nil }
+        guard let api = workspace.api, let shot = desktopShot else {
+            frame = nil
+            error = "데스크톱 브라우저는 실시간 화면이 없습니다 — 웹 테스트가 실행되면 스텝 스크린샷이 여기에 표시됩니다"
+            return
+        }
+        do {
+            let data = try await api.data(for: api.runFileRequest(runId: shot.key.runId, runDir: workspace.runDir(for: shot.key.runId), path: shot.path))
+            guard let next = Self.decode(data) else {
+                error = "스텝 스크린샷을 해석하지 못했습니다"
+                return
+            }
+            frame = next
+            desktopFrameOf = platform
+            error = nil
+        } catch is CancellationError {
+            return
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     /// Pre-action screenshot (observe event, else `<evidenceDir>/before.png`) so target/tap marks line up with the screen
     /// they were resolved on; falls back to the post-action (settle) screenshot without marks.
     private func loadReplayFrame() async {
         guard let replay = workspace.replay else { return }
         frame = nil
+        desktopFrameOf = nil
         error = nil
         guard let focus = replay.focus, let api = workspace.api else {
             error = "이 실행에는 스크린샷이 있는 스텝이 없습니다"
@@ -234,10 +283,17 @@ struct TapOverlay: View {
     let platform: String
     let pixelWidth: Int
     let pixelHeight: Int
+    /// Desktop only: the profile's viewport width in CSS px (desktop tap units).
+    var viewportWidth: Int?
 
     /// Pixels per tap unit: Android taps are pixels; iOS taps are points (@3x iPhone, @2x iPad/SE), inferred from the
-    /// short side because the event contract carries no screen size.
+    /// short side because the event contract carries no screen size; desktop taps are viewport CSS px, and the screenshot
+    /// is that viewport at the display's pixel ratio (screenshot px ÷ viewport).
     private var scale: Double {
+        if Palette.desktopPlatforms.contains(platform) {
+            guard let viewportWidth, viewportWidth > 0 else { return 1 }
+            return Double(pixelWidth) / Double(viewportWidth)
+        }
         guard platform == "ios" else { return 1 }
         let short = Double(min(pixelWidth, pixelHeight))
         if (320...440).contains(short / 3) { return 3 }

@@ -1,0 +1,66 @@
+{
+  "key": "c45179ad99a799c6b6b41fb73c2ea9a729941951f53df9ae207976cb312509e6",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfdd5274ca86f823f7e25c57e1",
+  "latencyMs": 192,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | Slotwise | - | top",
+          "e2 | heading | 30-minute intro call with Dana Wu | - | top",
+          "e3 | button | Next week | - | top",
+          "e4 | button | Change time zone | - | top",
+          "e5 | text | Week of Oct 6 · Times in Korea Standard Time | - | top",
+          "e6 | other | Available times | - | top",
+          "e7 | button | Tue 9:00 AM | unchecked | top",
+          "e8 | button | Tue 10:30 AM | checked | top",
+          "e9 | button | Wed 4:00 PM | unchecked | top",
+          "e10 | text | Tue, Oct 7 · 10:30–11:00 AM · Video call | - | middle",
+          "e11 | text | Calendar invites go to [REDACTED] and Dana Wu. | - | middle",
+          "e12 | button | Add note | - | middle",
+          "e13 | button | Schedule meeting | - | middle"
+        ],
+        "texts": [
+          "Slotwise",
+          "30-minute intro call with Dana Wu",
+          "Next week",
+          "Change time zone",
+          "Week of Oct 6 · Times in Korea Standard Time",
+          "Tue 9:00 AM",
+          "Tue 10:30 AM",
+          "Wed 4:00 PM",
+          "Tue, Oct 7 · 10:30–11:00 AM · Video call",
+          "Calendar invites go to [REDACTED] and Dana Wu.",
+          "Add note",
+          "Schedule meeting"
+        ]
+      },
+      "target": "e3 | button | Next week | - | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.06
+      }
+    },
+    "usage": {
+      "input_tokens": 762,
+      "output_tokens": 21
+    }
+  }
+}

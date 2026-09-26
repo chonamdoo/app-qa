@@ -1,6 +1,6 @@
 // Jev-backed decisions for the runner and planner. Every function fails closed: no calibration, a failed call or an
 // invalid response yields verdict 'error' (with the receipt when Jev was reached) and never a guessed answer.
-import type { Candidate, ClaimDecision, GroundingDecision, JevReceipt, WhichDecision } from '../core/types.ts';
+import type { Candidate, ClaimDecision, GroundingDecision, JevReceipt, Surface, WhichDecision } from '../core/types.ts';
 import { candidateRow } from '../core/candidate-row.ts';
 import { JevCallError, type JevClient } from './client.ts';
 import { gateClaim, gateGrounding, gateWhich, usableGate, type Calibration } from './gates.ts';
@@ -147,10 +147,16 @@ export async function judgeWhich(client: JevClient, cands: readonly Candidate[],
 /**
  * Would activating `target` commit an irreversible/external change? verdict 'pass' = yes (treat as risky).
  * Refusal-add only: callers block on 'pass' and never unblock a deterministic risk on 'fail'. A commit section that
- * did not meet its criteria (or any failed call) is 'error', which callers must treat as the check being unavailable.
+ * did not meet its criteria, a `surface` without its own calibrated gate, or any failed call is 'error', which callers
+ * must treat as the check being unavailable.
  */
-export async function judgeCommit(client: JevClient, cands: readonly Candidate[], target: Candidate, opts: JudgeOptions): Promise<ClaimDecision> {
-  const usable = usableGate(opts.calibration, client.model, 'commit');
+export async function judgeCommit(
+  client: JevClient,
+  cands: readonly Candidate[],
+  target: Candidate,
+  opts: JudgeOptions & { surface: Surface },
+): Promise<ClaimDecision> {
+  const usable = usableGate(opts.calibration, client.model, 'commit', opts.surface);
   if (!usable.gate) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: null, reason: usable.reason };
   const call = await ask(client, commitRequest(cands, target, opts.texts, opts.redact ?? BUILTIN_REDACTOR), opts.signal);
   if (!call.ok) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: call.receipt, reason: call.reason };

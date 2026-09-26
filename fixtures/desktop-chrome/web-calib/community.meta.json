@@ -1,0 +1,17 @@
+{
+  "platform": "desktop-chrome",
+  "app": "web-calib",
+  "name": "community",
+  "surface": "web",
+  "pageUrl": "http://localhost:4174/community.html",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  },
+  "capturedAt": "2026-09-26T03:09:05+00:00",
+  "device": "macOS Chrome/153.0.8010.53 --headless=new, viewport 1280x800 @1x",
+  "source": "WEB_EXTRACT_SCRIPT via CDP Runtime.evaluate → webSourceFromExtract (canonical web XML)",
+  "notes": "게시글 상세: 작성자 팔로우, 신고, 댓글 정렬(등록순/최신순), 답글 쓰기, 댓글 더 보기, 댓글 입력됨 + 댓글 남기기. (examples/web-calib, 입력값은 HTML value로 채워 둠)"
+}

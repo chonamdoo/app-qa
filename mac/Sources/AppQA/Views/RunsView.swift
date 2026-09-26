@@ -55,6 +55,10 @@ struct RunsView: View {
         }
         .frame(minWidth: 760, minHeight: 460)
         .task { await workspace.loadRuns() }
+        // The detail never sits empty while runs exist: keep a valid selection, defaulting to the newest run.
+        .onChange(of: workspace.runs.map(\.id), initial: true) { _, ids in
+            if selection.map({ !ids.contains($0) }) ?? true { selection = ids.first }
+        }
     }
 
     static func date(_ iso: String) -> String {

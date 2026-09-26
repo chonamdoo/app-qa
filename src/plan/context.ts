@@ -1,14 +1,16 @@
 // App context for generation: the app profile, the real on-screen strings per screen, and declared `${VAR}` names.
 // Screens come from `.qa/inventory/<app>/**` (qa capture / qa smoke --crawl tabs); when that is empty, from the
 // fixtures `fixtures/<platform>/<app>/*.xml` through Observe's screen model (same candidates/texts the runner sees).
+// Only the profile's platforms count: a website's desktop/mobile browsers, an app's configured android/ios.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { PATHS } from '../core/config.ts';
+import { PLATFORMS } from '../core/platform.ts';
 import type { Platform, Snapshot } from '../core/types.ts';
-import { buildScreenModel, parseAndroidSource, parseIosSource } from '../observe/index.ts';
+import { buildScreenModel, SOURCE_PARSERS } from '../observe/index.ts';
 import { loadAppProfile } from '../spec/load.ts';
-import type { AppProfile } from '../spec/schema.ts';
+import { profilePlatforms, type AppProfile } from '../spec/schema.ts';
 
 export interface ScreenInfo {
   platform: Platform;
@@ -41,11 +43,9 @@ export const DEFAULT_CONTEXT_DIRS: ContextDirs = {
   envExample: join(PATHS.root, '.env.example'),
 };
 
-const PLATFORMS: Record<string, Platform> = { android: 'android', ios: 'ios' };
-
 /** Lenient reader for `app-qa/inventory/v1` files (extra keys ignored). */
 const InventoryFile = z.object({
-  platform: z.enum(['android', 'ios']).optional(),
+  platform: z.enum(PLATFORMS).optional(),
   name: z.string().optional(),
   texts: z.array(z.string()).default([]),
   candidates: z
@@ -55,14 +55,15 @@ const InventoryFile = z.object({
 
 export function loadAppContext(app: string, dirs: ContextDirs = DEFAULT_CONTEXT_DIRS): AppContext {
   const profile = loadAppProfile(app, dirs.apps);
+  const platforms = profilePlatforms(profile);
   const warnings: string[] = [];
-  let screens = readInventory(app, dirs.inventory, warnings);
-  if (!screens.length) screens = readFixtures(app, dirs.fixtures, profile, warnings);
-  screens.sort((a, b) => a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name));
+  let screens = readInventory(app, dirs.inventory, platforms, warnings);
+  if (!screens.length) screens = readFixtures(app, dirs.fixtures, profile, platforms, warnings);
+  screens.sort((a, b) => PLATFORMS.indexOf(a.platform) - PLATFORMS.indexOf(b.platform) || a.name.localeCompare(b.name));
   return { profile, screens, envNames: declaredEnvNames(dirs.envExample), warnings };
 }
 
-function readInventory(app: string, dir: string, warnings: string[]): ScreenInfo[] {
+function readInventory(app: string, dir: string, platforms: readonly Platform[], warnings: string[]): ScreenInfo[] {
   const root = join(dir, app);
   if (!existsSync(root)) return [];
   const screens: ScreenInfo[] = [];
@@ -71,8 +72,9 @@ function readInventory(app: string, dir: string, warnings: string[]): ScreenInfo
     const file = join(entry.parentPath, entry.name);
     try {
       const inv = InventoryFile.parse(JSON.parse(readFileSync(file, 'utf8')));
-      const platform = inv.platform ?? PLATFORMS[basename(entry.parentPath)];
+      const platform = inv.platform ?? PLATFORMS.find((p) => p === basename(entry.parentPath));
       if (!platform) throw new Error('platform 없음');
+      if (!platforms.includes(platform)) throw new Error(`앱 프로필의 플랫폼(${platforms.join(', ')})이 아님: ${platform}`);
       screens.push({ platform, name: inv.name ?? basename(entry.name, '.json'), source: 'inventory', candidates: inv.candidates, texts: inv.texts });
     } catch (err) {
       warnings.push(`인벤토리 파일을 건너뜀: ${file}: ${(err as Error).message.split('\n')[0]}`);
@@ -81,30 +83,28 @@ function readInventory(app: string, dir: string, warnings: string[]): ScreenInfo
   return screens;
 }
 
-const PARSERS: Record<Platform, (xml: string, screen: Snapshot['screen']) => Snapshot['nodes']> = {
-  android: parseAndroidSource,
-  ios: parseIosSource,
-};
-
-function readFixtures(app: string, dir: string, profile: AppProfile, warnings: string[]): ScreenInfo[] {
+function readFixtures(app: string, dir: string, profile: AppProfile, platforms: readonly Platform[], warnings: string[]): ScreenInfo[] {
   const screens: ScreenInfo[] = [];
-  for (const platform of ['android', 'ios'] as const) {
+  for (const platform of platforms) {
     const base = join(dir, platform, app);
     if (!existsSync(base)) continue;
     for (const name of readdirSync(base).filter((f) => f.endsWith('.xml')).sort()) {
       const stem = basename(name, '.xml');
       try {
         const xml = readFileSync(join(base, name), 'utf8');
-        const meta = JSON.parse(readFileSync(join(base, `${stem}.meta.json`), 'utf8')) as { windowRect: Snapshot['screen']; capturedAt?: string };
+        const meta = JSON.parse(readFileSync(join(base, `${stem}.meta.json`), 'utf8')) as { windowRect: Snapshot['screen']; capturedAt?: string; pageUrl?: string | null };
         const model = buildScreenModel(
           {
             platform,
+            // The profile decides the surface: on android/ios a website fixture is the browser app's tree.
+            surface: profile.web ? 'web' : 'app',
             takenAt: meta.capturedAt ?? '',
             screen: meta.windowRect,
-            nodes: PARSERS[platform](xml, meta.windowRect),
+            nodes: SOURCE_PARSERS[platform](xml, meta.windowRect),
             rawSource: xml,
             screenshotPng: null,
             foregroundApp: null,
+            pageUrl: meta.pageUrl ?? null,
             keyboardShown: false,
             maxDepth: null,
             depthCapped: false,

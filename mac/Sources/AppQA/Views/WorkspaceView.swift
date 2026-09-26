@@ -23,22 +23,24 @@ struct WorkspaceView: View {
                 .background(Color.orange.opacity(0.12))
                 .accessibilityIdentifier("banner")
             }
+            // Panes take all the height the composer leaves, even when their lists are empty.
             HSplitView {
                 ActivityView()
-                    .frame(minWidth: 380, idealWidth: 560, maxWidth: .infinity)
+                    .frame(minWidth: 380, idealWidth: 560, maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityIdentifier("pane.activity")
                 DeviceScreenView()
-                    .frame(minWidth: 260, idealWidth: 330, maxWidth: 520)
+                    .frame(minWidth: 260, idealWidth: 330, maxWidth: 520, maxHeight: .infinity)
                     .accessibilityIdentifier("pane.device")
                 SidePanelView()
-                    .frame(minWidth: 300, idealWidth: 380, maxWidth: 560)
+                    .frame(minWidth: 300, idealWidth: 380, maxWidth: 560, maxHeight: .infinity)
                     .accessibilityIdentifier("pane.side")
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             Divider()
             ComposerView()
         }
         .toolbar { toolbar }
-        .navigationTitle("App QA")
+        .navigationTitle(workspace.selectedProfile.map { "App QA · \($0.name)" } ?? "App QA")
         .sheet(item: $workspace.evidence) { request in
             EvidenceView(request: request)
                 .environment(workspace)
@@ -60,15 +62,29 @@ struct WorkspaceView: View {
             .accessibilityLabel("앱 프로필")
         }
         ToolbarItemGroup(placement: .principal) {
-            Picker("플랫폼", selection: $workspace.platform) {
-                ForEach(PlatformChoice.allCases) { choice in
-                    Text(choice.label).tag(choice)
+            if workspace.isWebApp {
+                // A website can run on up to four browsers: one compact pull-down instead of a wide segmented control.
+                Picker("플랫폼", selection: $workspace.platform) {
+                    ForEach(workspace.platformChoices) { choice in
+                        Text(choice.label(web: true)).tag(choice)
+                    }
                 }
+                .pickerStyle(.menu)
+                .frame(width: 170)
+                .help("실행할 브라우저")
+                .accessibilityIdentifier("toolbar.platform")
+                .accessibilityLabel("플랫폼")
+            } else {
+                Picker("플랫폼", selection: $workspace.platform) {
+                    ForEach(workspace.platformChoices) { choice in
+                        Text(choice.label(web: false)).tag(choice)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 210)
+                .accessibilityIdentifier("toolbar.platform")
+                .accessibilityLabel("플랫폼")
             }
-            .pickerStyle(.segmented)
-            .frame(width: 210)
-            .accessibilityIdentifier("toolbar.platform")
-            .accessibilityLabel("플랫폼")
             DeviceMenu()
             Picker("LLM", selection: $workspace.llm) {
                 ForEach(LLMChoice.allCases) { choice in
@@ -88,7 +104,7 @@ struct WorkspaceView: View {
                     .foregroundStyle(workspace.anyRecording ? .red : .primary)
             }
             .labelStyle(.titleAndIcon)
-            .disabled(workspace.api == nil || workspace.platform.platforms.allSatisfy { workspace.selectedDevice[$0] == nil })
+            .disabled(workspace.api == nil || workspace.recordablePlatforms.allSatisfy { workspace.selectedDevice[$0] == nil })
             .help(workspace.anyRecording ? "녹화 중지" : "선택한 디바이스 화면 녹화")
             .accessibilityIdentifier("toolbar.record")
             .accessibilityLabel(workspace.anyRecording ? "녹화 중지" : "녹화 시작")
@@ -119,17 +135,22 @@ private struct DeviceMenu: View {
     @Environment(Workspace.self) private var workspace
 
     private var title: String {
-        let names = workspace.platform.platforms.map { platform in
+        let names = workspace.activePlatforms.map { platform in
             workspace.devices.first { $0.platform == platform && $0.id == workspace.selectedDevice[platform] }?.name
-                ?? "\(Palette.platformLabel[platform] ?? platform) 없음"
+                ?? "\(workspace.label(platform: platform)) 없음"
         }
         return names.joined(separator: " · ")
     }
 
+    /// This Mac's browser window when every active target is a desktop browser, otherwise a phone.
+    private var icon: String {
+        workspace.activePlatforms.allSatisfy { Palette.desktopPlatforms.contains($0) } ? "macwindow" : "iphone.gen3"
+    }
+
     var body: some View {
         Menu {
-            ForEach(workspace.platform.platforms, id: \.self) { platform in
-                Section(Palette.platformLabel[platform] ?? platform) {
+            ForEach(workspace.activePlatforms, id: \.self) { platform in
+                Section(workspace.label(platform: platform)) {
                     let devices = workspace.devices(for: platform)
                     if devices.isEmpty { Text("디바이스 없음") }
                     ForEach(devices) { device in
@@ -151,11 +172,10 @@ private struct DeviceMenu: View {
                 .accessibilityIdentifier("toolbar.device.refresh")
             if let error = workspace.devicesError { Text(error) }
         } label: {
-            Label(title, systemImage: "iphone.gen3")
-                .labelStyle(.titleAndIcon)
+            Label(title, systemImage: icon)
+                .labelStyle(.iconOnly)
         }
-        .frame(maxWidth: 260)
-        .help("실행할 디바이스")
+        .help("실행할 디바이스: \(title)")
         .accessibilityIdentifier("toolbar.device")
         .accessibilityLabel("디바이스 선택")
     }

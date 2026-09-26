@@ -9,7 +9,10 @@ import { pipeline } from 'node:stream';
 import { PATHS } from '../core/config.ts';
 import { EventBus } from '../core/events.ts';
 import { writeSecure } from '../core/fsx.ts';
+import { PLATFORM_INFO, PLATFORMS } from '../core/platform.ts';
 import type { DeviceInfo, Platform } from '../core/types.ts';
+import { loadAppProfile } from '../spec/load.ts';
+import { profilePlatforms, type AppProfile } from '../spec/schema.ts';
 import { JobQueue, JobRequest, type JobHandlers } from './jobs.ts';
 import { SseHub } from './sse.ts';
 import { listAppProfiles, listPlans, listRuns, PathRejected, readPlanView, resolveInside, resolvePlanDocs, runDirFor } from './store.ts';
@@ -125,9 +128,12 @@ async function readJson(req: IncomingMessage): Promise<object> {
   return value;
 }
 
-function platformParam(value: string | undefined): Platform {
-  if (value === 'android' || value === 'ios') return value;
-  throw new HttpError(400, `알 수 없는 플랫폼: ${value}`);
+/** A platform path/query value; `desktopRefusal` = why a device-only route refuses desktop browsers (409). */
+function platformParam(value: string | undefined, desktopRefusal?: string): Platform {
+  const platform = PLATFORMS.find((p) => p === value);
+  if (!platform) throw new HttpError(400, `알 수 없는 플랫폼: ${value}`);
+  if (desktopRefusal && PLATFORM_INFO[platform].host === 'desktop') throw new HttpError(409, `${PLATFORM_INFO[platform].label}: ${desktopRefusal}`);
+  return platform;
 }
 
 /** Upload names keep letters (incl. Hangul), digits, `._ -`; everything else becomes `_`. */
@@ -162,7 +168,14 @@ export function createServer(opts: ServerOptions): QaServer {
   const expected = Buffer.from(`Bearer ${token}`);
   const bus = opts.bus ?? new EventBus();
   const handlers = opts.handlers;
-  const jobs = new JobQueue(handlers, bus);
+  const profileOf = (app: string): AppProfile | null => {
+    try {
+      return loadAppProfile(app, paths.apps);
+    } catch {
+      return null;
+    }
+  };
+  const jobs = new JobQueue(handlers, bus, profileOf);
   const hub = new SseHub(bus, { capacity: opts.ringSize ?? 5000, heartbeatMs: opts.heartbeatMs ?? 15_000 });
   const maxUpload = opts.maxUploadBytes ?? 50 * 1024 * 1024;
   const startedAt = new Date().toISOString();
@@ -211,7 +224,7 @@ export function createServer(opts: ServerOptions): QaServer {
       method: 'GET',
       pattern: /^\/api\/devices\/([^/]+)\/([^/]+)\/screen$/,
       handle: async (_req, res, [platform, id]) => {
-        const png = await handlers.screen(platformParam(platform), id!);
+        const png = await handlers.screen(platformParam(platform, '데스크톱 브라우저는 실시간 화면이 없습니다 — 실행 중에는 스텝 스크린샷을 보세요'), id!);
         res.writeHead(200, { 'content-type': 'image/png', 'content-length': png.byteLength, 'cache-control': 'no-store' });
         res.end(png);
       },
@@ -221,7 +234,7 @@ export function createServer(opts: ServerOptions): QaServer {
       method: 'POST',
       pattern: /^\/api\/devices\/([^/]+)\/([^/]+)\/recording$/,
       handle: async (req, res, [rawPlatform, deviceId]) => {
-        const platform = platformParam(rawPlatform);
+        const platform = platformParam(rawPlatform, '데스크톱 브라우저는 화면 녹화를 지원하지 않습니다');
         const body = await readJson(req);
         if (!('on' in body) || typeof body.on !== 'boolean') throw new HttpError(400, '{"on": true|false} 가 필요합니다');
         const key = `${platform}:${deviceId}`;
@@ -249,16 +262,24 @@ export function createServer(opts: ServerOptions): QaServer {
       handle: async (_req, res, _params, url) => {
         const deviceId = url.searchParams.get('device');
         if (!deviceId) throw new HttpError(400, 'device 쿼리가 필요합니다');
-        sendJson(res, 200, { apps: await handlers.apps(platformParam(url.searchParams.get('platform') ?? undefined), deviceId) });
+        sendJson(res, 200, { apps: await handlers.apps(platformParam(url.searchParams.get('platform') ?? undefined, '데스크톱 브라우저에는 설치 앱 목록이 없습니다'), deviceId) });
       },
     },
-    { method: 'GET', pattern: /^\/api\/app-profiles$/, handle: async (_req, res) => sendJson(res, 200, await listAppProfiles(paths.apps)) },
+    {
+      method: 'GET',
+      pattern: /^\/api\/app-profiles$/,
+      handle: async (_req, res) => {
+        const { profiles, errors } = await listAppProfiles(paths.apps);
+        // `platforms` = where the profile runs (app: configured android/ios; web: its browsers), so clients never re-derive it.
+        sendJson(res, 200, { profiles: profiles.map((p) => ({ ...p, platforms: profilePlatforms(p) })), errors });
+      },
+    },
     { method: 'GET', pattern: /^\/api\/plans$/, handle: async (_req, res) => sendJson(res, 200, { plans: await listPlans(paths.generated) }) },
     {
       method: 'GET',
       pattern: /^\/api\/plans\/([^/]+)$/,
       handle: async (_req, res, [app]) => {
-        const view = await readPlanView({ root: paths.root, generatedDir: paths.generated, runsDir: paths.runs, app: app! });
+        const view = await readPlanView({ root: paths.root, generatedDir: paths.generated, runsDir: paths.runs, appsDir: paths.apps, app: app! });
         if (view === null) throw new HttpError(404, `${app} 계획(plan.json)이 없습니다`);
         if ('error' in view) throw new HttpError(422, `plan.json 검증 실패: ${view.error}`);
         sendJson(res, 200, view);

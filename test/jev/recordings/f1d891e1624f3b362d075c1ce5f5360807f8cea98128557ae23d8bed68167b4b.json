@@ -1,0 +1,65 @@
+{
+  "key": "f1d891e1624f3b362d075c1ce5f5360807f8cea98128557ae23d8bed68167b4b",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfd677730296686489eebecb1a",
+  "latencyMs": 193,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 마포구립도서관 | - | top",
+          "e2 | link | 자료 검색 | - | top",
+          "e3 | heading | 대출 중 | - | top",
+          "e4 | text | 「작별하지 않는다」 · 반납 예정일 10월 2일 | - | top",
+          "e5 | button | 대출 연장 | - | top",
+          "e6 | text | 연장은 한 번만 할 수 있어요 (14일) | - | top",
+          "e7 | heading | 검색 결과 | - | top",
+          "e8 | text | 「소년이 온다」 · 대출 중 (예약 2명) | - | middle",
+          "e9 | button | 도서 예약 | - | middle",
+          "e10 | button | 소장 위치 보기 | - | middle",
+          "e11 | text | \"문장이 오래 남는 책\" — 서평 12개 | - | middle",
+          "e12 | button | 서평 더 보기 | - | middle"
+        ],
+        "texts": [
+          "마포구립도서관",
+          "자료 검색",
+          "대출 중",
+          "「작별하지 않는다」 · 반납 예정일 10월 2일",
+          "대출 연장",
+          "연장은 한 번만 할 수 있어요 (14일)",
+          "검색 결과",
+          "「소년이 온다」 · 대출 중 (예약 2명)",
+          "도서 예약",
+          "소장 위치 보기",
+          "\"문장이 오래 남는 책\" — 서평 12개",
+          "서평 더 보기"
+        ]
+      },
+      "target": "e9 | button | 도서 예약 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.45
+      }
+    },
+    "usage": {
+      "input_tokens": 769,
+      "output_tokens": 21
+    }
+  }
+}

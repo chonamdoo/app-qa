@@ -4,19 +4,23 @@ import { join, relative, sep } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { PATHS } from '../core/config.ts';
 import type { EventSink } from '../core/events.ts';
-import { newRunId, writeJson, writeSecure } from '../core/fsx.ts';
-import type { DeviceInfo, Driver, Platform, ScreenModel, Verdict } from '../core/types.ts';
+import { newRunId, sha256, writeJson, writeSecure } from '../core/fsx.ts';
+import { PLATFORMS } from '../core/platform.ts';
+import type { DeviceInfo, Driver, Platform, ScreenModel, Verdict, WebTarget } from '../core/types.ts';
 import { acquireDeviceLock, createDriver, pickDevice } from '../drivers/index.ts';
 import { JevClient } from '../jev/client.ts';
 import { loadJevConfig } from '../jev/config.ts';
 import { loadCalibration } from '../jev/gates.ts';
 import { buildScreenModel, candidateRow, normLabel, runOcr } from '../observe/index.ts';
 import { OCR_HELPER } from '../ocr/ocr.ts';
+import { exitCodeFor } from '../report/console.ts';
 import { writeReports } from '../report/index.ts';
+import { countQaStatuses, qaStatus, type QaStatus } from '../report/status.ts';
 import { SUMMARY_SCHEMA, type RunSummary, type TestResult } from '../report/types.ts';
+import { writeWebQa } from '../report/webqa.ts';
 import { loadAppProfile, loadTests, type LoadedTest } from '../spec/load.ts';
-import type { AppProfile } from '../spec/schema.ts';
-import { appTarget, TestSession, type Clock, type JevSetup, type OcrFn } from './engine.ts';
+import { profilePlatforms, type AppProfile } from '../spec/schema.ts';
+import { appTarget, DEFAULT_TIMEOUT_MS, TestSession, type Clock, type JevSetup, type OcrFn } from './engine.ts';
 import { writeInventory } from './inventory.ts';
 import { EvidenceSanitizer } from './sanitize.ts';
 import { assessRisk } from '../policy/risk.ts';
@@ -24,14 +28,18 @@ import { RunStore } from './store.ts';
 import { countVerdicts } from './verdict.ts';
 
 export type { DecisionSummary, StepResult, TestResult } from '../report/types.ts';
+export { appTarget } from './engine.ts';
 
 export interface RunResult {
   runId: string;
   runDir: string;
   counts: Record<Verdict, number>;
+  qaCounts: Record<QaStatus, number>;
   tests: TestResult[];
   reportPath: string;
   junitPath: string | null;
+  /** Run-relative `web-qa/plan.json` + `result.json` (check-run v1) when the run had website results, else empty. */
+  webQa: string[];
 }
 
 export interface RunOptions {
@@ -76,8 +84,6 @@ export interface RunnerDeps {
   inventoryDir: string;
   fixturesDir: string;
 }
-
-const PLATFORMS: readonly Platform[] = ['android', 'ios'];
 
 const realClock: Clock = { now: () => performance.now(), sleep: (ms) => delay(ms) };
 
@@ -139,10 +145,12 @@ function unrunResult(
     file: base.file,
     app: base.app,
     platform,
+    surface: base.test ? (base.test.profile.web ? 'web' : 'app') : null,
     deviceId: device?.id ?? null,
     deviceName: device?.name ?? null,
     verdict,
     code,
+    qaStatus: qaStatus({ verdict, code }),
     reason,
     durationMs: 0,
     covers: spec?.covers ?? [],
@@ -186,13 +194,29 @@ async function claimDevices(d: RunnerDeps, platforms: readonly Platform[], ids: 
   return slots;
 }
 
+/** Identifies the tested website configuration for the web-qa export: a digest of every web profile in the run. */
+function webBuildId(profiles: readonly AppProfile[]): string {
+  const web = new Map(profiles.flatMap((p) => (p.web ? [[p.id, p.web] as const] : [])));
+  const config = [...web].sort(([a], [b]) => a.localeCompare(b));
+  return `config-${sha256(JSON.stringify(config)).slice(0, 16)}`;
+}
+
 function finishRun(
   store: RunStore,
   d: RunnerDeps,
-  meta: { kind: RunSummary['kind']; startedAt: string; t0: number; platform: RunSummary['platform']; slots: Map<Platform, Slot>; junit: boolean },
+  meta: {
+    kind: RunSummary['kind'];
+    startedAt: string;
+    t0: number;
+    platform: RunSummary['platform'];
+    slots: Map<Platform, Slot>;
+    junit: boolean;
+    profiles: readonly AppProfile[];
+  },
   tests: TestResult[],
 ): RunResult {
   const counts = countVerdicts(tests.map((t) => t.verdict));
+  const qaCounts = countQaStatuses(tests.map((t) => t.qaStatus));
   const summary: RunSummary = {
     $schema: SUMMARY_SCHEMA,
     kind: meta.kind,
@@ -203,24 +227,27 @@ function finishRun(
     platform: meta.platform,
     devices: [...meta.slots.values()].flatMap((s) => (s.device ? [{ platform: s.platform, id: s.device.id, name: s.device.name }] : [])),
     counts,
+    qaCounts,
     tests,
     reportPath: 'report.html',
     junitPath: meta.junit ? 'junit.xml' : null,
   };
   store.writeRecord('summary.json', summary, 'report');
   const { reportPath, junitPath } = writeReports(store.runDir, summary, { junit: meta.junit, root: d.root });
+  const webQa = writeWebQa(store.runDir, summary, { buildId: webBuildId(meta.profiles), runnerExitCode: exitCodeFor(counts) });
   store.emit({ type: 'run.finished', runId: store.runId, counts, reportPath, junitPath });
   store.writeManifest();
-  return { runId: store.runId, runDir: store.runDir, counts, tests, reportPath, junitPath };
+  return { runId: store.runId, runDir: store.runDir, counts, qaCounts, tests, reportPath, junitPath, webQa };
 }
 
 /**
- * Runs tests (`*.e2e.yaml` files/dirs; default `tests/`) on the requested platforms. One device per platform, locked for
- * the run; platforms run concurrently, tests sequentially. Never throws for test failures — only for bad input paths.
+ * Runs tests (`*.e2e.yaml` files/dirs; default `tests/`) on the requested platforms (`all`: every platform each test's
+ * profile runs on). One device (or desktop browser) per platform, locked for the run; platforms run concurrently, tests
+ * sequentially. Never throws for test failures — only for bad input paths.
  */
 export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Promise<RunResult> {
   const d = resolveDeps(deps);
-  const requested = opts.platform === 'all' ? PLATFORMS : [opts.platform];
+  const requested: readonly Platform[] = opts.platform === 'all' ? PLATFORMS : [opts.platform];
   const loaded = loadTests(opts.paths, { root: d.root, appsDir: d.appsDir, tags: opts.tags });
   const runId = newRunId();
   const store = new RunStore(join(d.runsDir, runId), runId, opts.events);
@@ -230,9 +257,11 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
   // test × platform plan
   const planned: { test: LoadedTest; platform: Platform }[] = [];
   const early: TestResult[] = [];
+  const covered = new Set<Platform>();
   for (const test of loaded.tests) {
     const declared = test.spec.platforms;
-    const available = PLATFORMS.filter((p) => appTarget(test.profile, p) !== null);
+    const available = profilePlatforms(test.profile);
+    for (const p of available) covered.add(p);
     for (const platform of requested) {
       const base = { id: test.id, name: test.spec.name, file: posixRel(d.root, test.file), app: test.spec.app, test };
       if (declared && !declared.includes(platform)) continue;
@@ -243,8 +272,10 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
       planned.push({ test, platform });
     }
   }
+  // A file that failed to load has no known profile: under `all` it is reported on the platforms the run covers.
+  const errorPlatforms = opts.platform === 'all' && covered.size > 0 ? PLATFORMS.filter((p) => covered.has(p)) : requested;
   for (const e of loaded.errors) {
-    for (const platform of requested) {
+    for (const platform of errorPlatforms) {
       early.push(unrunResult({ id: e.id, name: e.id, file: posixRel(d.root, e.file), app: '', test: null }, platform, 'ERROR', 'spec_invalid', e.error.message, null));
     }
   }
@@ -326,7 +357,8 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
     if (r) ordered.push(r);
   }
   ordered.push(...early);
-  return finishRun(store, d, { kind: 'run', startedAt, t0, platform: opts.platform, slots, junit: opts.junit ?? false }, ordered);
+  const profiles = loaded.tests.map((t) => t.profile);
+  return finishRun(store, d, { kind: 'run', startedAt, t0, platform: opts.platform, slots, junit: opts.junit ?? false, profiles }, ordered);
 }
 
 /** Smoke-test pseudo spec: relaunch, no DSL steps (the session drives smoke itself). */
@@ -389,10 +421,29 @@ export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): 
     }
   }
   if (result.steps.length === 0) store.emit({ type: 'test.finished', runId, testId: result.id, platform: result.platform, verdict: result.verdict, reason: result.reason, durationMs: 0 });
-  return finishRun(store, d, { kind: 'smoke', startedAt, t0, platform: opts.platform, slots, junit: false }, [result]);
+  return finishRun(store, d, { kind: 'smoke', startedAt, t0, platform: opts.platform, slots, junit: false, profiles: [profile] }, [result]);
 }
 
-/** Opens a session on the platform's device (locked) without launching anything, runs `use`, then cleans up. */
+/**
+ * A fresh browser session shows a blank tab: opens the start URL and waits (≤ the default step timeout) until the page
+ * shows content, so inspect/capture observe the site rather than about:blank.
+ */
+async function openStartPage(driver: Driver, target: WebTarget, d: RunnerDeps, profile: AppProfile): Promise<void> {
+  const opened = await driver.openUrl(target, target.url);
+  if (opened.status !== 'completed') throw new Error(`시작 페이지를 열 수 없음(${opened.status}): ${opened.error ?? target.url}`);
+  const deadline = d.clock.now() + DEFAULT_TIMEOUT_MS;
+  for (;;) {
+    const model = buildScreenModel(await driver.snapshot({ screenshot: false }), { volatile: profile.volatile });
+    if (model.candidates.length > 0 || model.texts.length > 0) return;
+    if (d.clock.now() >= deadline) throw new Error(`시작 페이지가 ${DEFAULT_TIMEOUT_MS}ms 안에 내용을 표시하지 않음: ${target.url}`);
+    await d.clock.sleep(250);
+  }
+}
+
+/**
+ * Opens a session on the platform's device (locked) without launching an app — a website is opened at its start URL —
+ * runs `use`, then cleans up.
+ */
 async function withScreen<T>(opts: ScreenOptions, d: RunnerDeps, use: (driver: Driver, device: DeviceInfo, profile: AppProfile) => Promise<T>): Promise<T> {
   const profile = loadAppProfile(opts.app, d.appsDir);
   const target = appTarget(profile, opts.platform);
@@ -403,6 +454,7 @@ async function withScreen<T>(opts: ScreenOptions, d: RunnerDeps, use: (driver: D
     const driver = d.createDriver(opts.platform, device.id);
     await driver.open(target);
     try {
+      if (target.kind === 'web') await openStartPage(driver, target, d, profile);
       opts.signal?.throwIfAborted();
       return await use(driver, device, profile);
     } finally {
@@ -432,7 +484,7 @@ export function renderInspectTable(model: ScreenModel, profile: AppProfile | nul
   return [
     '키 | 역할 | 이름 | 상태 | 영역 | 위험 | fast path | 탭 지점',
     ...rows,
-    `후보 ${model.candidates.length}개 · 가려진 노드 ${model.occludedNodeIds.length}개 · 텍스트 ${model.texts.length}줄${model.sparse ? ' · 희소(OCR 대상)' : ''}${model.overflow ? ' · 254개 초과' : ''}${s.depthCapped ? ' · 트리 깊이 상한 도달' : ''} · 포그라운드 ${s.foregroundApp ?? '알 수 없음'}`,
+    `후보 ${model.candidates.length}개 · 가려진 노드 ${model.occludedNodeIds.length}개 · 텍스트 ${model.texts.length}줄${model.sparse ? ' · 희소(OCR 대상)' : ''}${model.overflow ? ' · 254개 초과' : ''}${s.depthCapped ? ' · 트리 깊이 상한 도달' : ''} · 포그라운드 ${s.foregroundApp ?? '알 수 없음'}${s.pageUrl ? ` · 페이지 ${s.pageUrl}` : ''}`,
   ].join('\n');
 }
 
@@ -476,6 +528,8 @@ export async function captureScreen(opts: ScreenOptions & { name: string }, deps
       device: `${device.id} (${device.name}, ${device.osVersion})`,
       source: 'app-qa capture (Appium /source)',
       foregroundApp: snap.foregroundApp,
+      surface: snap.surface,
+      pageUrl: snap.pageUrl === null ? null : clean.text(snap.pageUrl),
       keyboardShown: snap.keyboardShown,
       maxDepth: snap.maxDepth,
       depthCapped: snap.depthCapped,

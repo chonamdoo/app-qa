@@ -15,7 +15,7 @@ import { IosDriver } from '../../src/drivers/ios.ts';
 import { startRecording, stopRecording } from '../../src/drivers/screen.ts';
 import { installFakeAdb, type FakeAdb } from './stubs.ts';
 
-const APP = { platform: 'android' as const, appId: 'kr.tteonam.app' };
+const APP = { kind: 'app' as const, platform: 'android' as const, appId: 'kr.tteonam.app' };
 const HOSTILE_IDS = ['kr.tteonam.app; reboot', '../../etc', 'kr.tteonam/../../x', "kr.tteonam.app' '", '$(id)'];
 
 describe('device shell safety', () => {
@@ -35,8 +35,8 @@ describe('device shell safety', () => {
     const android = new AndroidDriver('emulator-5554');
     const ios = new IosDriver('SIM-UDID');
     for (const appId of HOSTILE_IDS) {
-      const a = { platform: 'android' as const, appId };
-      const i = { platform: 'ios' as const, appId };
+      const a = { kind: 'app' as const, platform: 'android' as const, appId };
+      const i = { kind: 'app' as const, platform: 'ios' as const, appId };
       for (const o of [
         await android.launch(a),
         await android.terminate(a),

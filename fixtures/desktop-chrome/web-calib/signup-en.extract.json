@@ -1,0 +1,371 @@
+{
+  "url": "http://localhost:4174/signup-en.html",
+  "title": "Create your account · Tasklane",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "Create your account · Tasklane",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "Tasklane",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 69.09375,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 465,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "heading",
+      "name": null,
+      "text": "Create your Tasklane account",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 113,
+      "w": 592,
+      "h": 317.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "text",
+      "name": null,
+      "text": "Full name",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 138,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "input",
+      "name": "Full name",
+      "text": null,
+      "id": "name",
+      "value": "Sam Kim",
+      "hint": null,
+      "x": 361,
+      "y": 161.5,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "text",
+      "name": null,
+      "text": "Work email",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 210,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "input",
+      "name": "Work email",
+      "text": null,
+      "id": "email",
+      "value": "sam.kim@acme.io",
+      "hint": null,
+      "x": 361,
+      "y": 233.5,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "text",
+      "name": null,
+      "text": "Password",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 282,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 305.5,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "password",
+      "name": "Password",
+      "text": null,
+      "id": "pw",
+      "value": "••••••••••••",
+      "hint": null,
+      "x": 361,
+      "y": 305.5,
+      "w": 421.515625,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable",
+        "password"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "button",
+      "name": null,
+      "text": "Show password",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 792.515625,
+      "y": 306.5,
+      "w": 126.484375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "text",
+      "name": null,
+      "text": "I agree to the Terms of Service",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 350,
+      "w": 206.890625,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "checkbox",
+      "name": "I agree to the Terms of Service",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 365,
+      "y": 354,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 375,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "button",
+      "name": null,
+      "text": "Create account",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 796.140625,
+      "y": 375,
+      "w": 122.859375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "text",
+      "name": null,
+      "text": "Already have an account?",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 444.5,
+      "w": 592,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 18,
+      "kind": "link",
+      "name": null,
+      "text": "Sign in",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 487.078125,
+      "y": 445.5,
+      "w": 36.390625,
+      "h": 16,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 472,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "platform": "desktop-chrome",
+  "app": "web-demo",
+  "name": "index",
+  "surface": "web",
+  "pageUrl": "http://localhost:4173/",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  },
+  "capturedAt": "2026-09-26T02:46:12+00:00",
+  "device": "macOS Chrome 153.0.8010.53 --headless=new, viewport 1280x800 @1x",
+  "source": "WEB_EXTRACT_SCRIPT via CDP Runtime.evaluate → webSourceFromExtract (canonical web XML)",
+  "notes": "QA 데모 상점 첫 화면 (http://localhost:4173/, examples/web-demo). 도움말 모달 닫힘."
+}

@@ -1,0 +1,64 @@
+{
+  "key": "f0921db62196a200e1dd632d3e7612a0403b9154bf84ce96b38839d13b2a9eb5",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfd5b07b4683bfc316f413f629",
+  "latencyMs": 194,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 푸른숲 재단 | - | top",
+          "e2 | link | 재단 소개 | - | top",
+          "e3 | heading | 매달 나무 한 그루를 심어요 | - | top",
+          "e4 | text | 후원 금액 | - | top",
+          "e5 | other | 후원 금액 | - | top",
+          "e6 | button | 1만원 | unchecked | top",
+          "e7 | button | 2만원 | checked | top",
+          "e8 | button | 3만원 | unchecked | top",
+          "e9 | button | 금액 직접 입력 | - | top",
+          "e10 | text | 국민은행 계좌에서 매달 25일 20,000원이 자동 출금됩니다. | - | top",
+          "e11 | link | 후원금 사용처 보기 | - | top",
+          "e12 | button | 정기 후원 시작 | - | middle"
+        ],
+        "texts": [
+          "푸른숲 재단",
+          "재단 소개",
+          "매달 나무 한 그루를 심어요",
+          "후원 금액",
+          "1만원",
+          "2만원",
+          "3만원",
+          "금액 직접 입력",
+          "국민은행 계좌에서 매달 25일 20,000원이 자동 출금됩니다.",
+          "후원금 사용처 보기",
+          "정기 후원 시작"
+        ]
+      },
+      "target": "e12 | button | 정기 후원 시작 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.94
+      }
+    },
+    "usage": {
+      "input_tokens": 728,
+      "output_tokens": 21
+    }
+  }
+}

@@ -1,0 +1,19 @@
+id: web-demo-login
+name: 이메일과 비밀번호로 로그인하면 환영 문구가 보인다
+app: web-demo
+steps:
+  - tap: 로그인
+    expect:
+      text: 로그인하지 않음
+  - type: qa@example.com
+    into: 이메일
+  - type: demo-pass-1234
+    into: 비밀번호
+    secure: true
+  - hideKeyboard: true
+  - tap:
+      text: 로그인
+      state:
+        enabled: true
+    expect:
+      text: 환영합니다, qa@example.com

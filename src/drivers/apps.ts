@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { adb, adbShell, run, xcrun } from '../appium/exec.ts';
 import { androidHome, PATHS } from '../core/config.ts';
 import { ensureDir, writeJsonAtomic } from '../core/fsx.ts';
+import { PLATFORM_INFO } from '../core/platform.ts';
 import type { Platform } from '../core/types.ts';
 
 export interface AppInfo {
@@ -99,24 +100,32 @@ async function androidLabels(deviceId: string, pkgs: AndroidPackageLine[]): Prom
   return cache;
 }
 
-/** User-installed apps (Appium/WDA helpers excluded), sorted by appId. */
+/** User-installed apps (Appium/WDA helpers excluded), sorted by appId. Desktop browsers have no installed apps: refused. */
 export async function listApps(platform: Platform, deviceId: string): Promise<AppInfo[]> {
   let apps: AppInfo[];
-  if (platform === 'android') {
-    const pkgs = parsePmPackages(await adbShell(deviceId, ['pm', 'list', 'packages', '-3', '-f', '--show-versioncode'])).filter(
-      (p) => !INFRA_PREFIXES.some((x) => p.appId.startsWith(x)),
-    );
-    const labels = await androidLabels(deviceId, pkgs);
-    apps = pkgs.map((p) => ({
-      platform,
-      appId: p.appId,
-      label: labels[p.apkPath]?.label ?? null,
-      version: labels[p.apkPath]?.versionName ?? p.versionCode,
-    }));
-  } else {
-    const plist = await run('xcrun', ['simctl', 'listapps', deviceId], { timeoutMs: 30_000 });
-    const json = (await run('plutil', ['-convert', 'json', '-o', '-', '-'], { input: plist.stdout, timeoutMs: 10_000 })).stdout.toString('utf8');
-    apps = parseSimctlApps(json).filter((a) => !INFRA_PREFIXES.some((x) => a.appId.startsWith(x)));
+  switch (platform) {
+    case 'android': {
+      const pkgs = parsePmPackages(await adbShell(deviceId, ['pm', 'list', 'packages', '-3', '-f', '--show-versioncode'])).filter(
+        (p) => !INFRA_PREFIXES.some((x) => p.appId.startsWith(x)),
+      );
+      const labels = await androidLabels(deviceId, pkgs);
+      apps = pkgs.map((p) => ({
+        platform,
+        appId: p.appId,
+        label: labels[p.apkPath]?.label ?? null,
+        version: labels[p.apkPath]?.versionName ?? p.versionCode,
+      }));
+      break;
+    }
+    case 'ios': {
+      const plist = await run('xcrun', ['simctl', 'listapps', deviceId], { timeoutMs: 30_000 });
+      const json = (await run('plutil', ['-convert', 'json', '-o', '-', '-'], { input: plist.stdout, timeoutMs: 10_000 })).stdout.toString('utf8');
+      apps = parseSimctlApps(json).filter((a) => !INFRA_PREFIXES.some((x) => a.appId.startsWith(x)));
+      break;
+    }
+    case 'desktop-chrome':
+    case 'desktop-safari':
+      throw new Error(`${PLATFORM_INFO[platform].label}에는 설치 앱 목록이 없습니다 (웹 대상만 실행).`);
   }
   return apps.sort((a, b) => a.appId.localeCompare(b.appId));
 }

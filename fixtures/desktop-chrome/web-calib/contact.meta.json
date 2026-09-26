@@ -1,0 +1,17 @@
+{
+  "platform": "desktop-chrome",
+  "app": "web-calib",
+  "name": "contact",
+  "surface": "web",
+  "pageUrl": "http://localhost:4174/contact.html",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  },
+  "capturedAt": "2026-09-26T03:09:06+00:00",
+  "device": "macOS Chrome/153.0.8010.53 --headless=new, viewport 1280x800 @1x",
+  "source": "WEB_EXTRACT_SCRIPT via CDP Runtime.evaluate → webSourceFromExtract (canonical web XML)",
+  "notes": "1:1 문의: 유형·주문 번호·내용 입력됨, 파일 첨부 / 문의 접수, 헤더의 자주 묻는 질문 링크. (examples/web-calib, 입력값은 HTML value로 채워 둠)"
+}

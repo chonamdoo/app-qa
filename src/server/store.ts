@@ -6,8 +6,10 @@ import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 import { expandHome } from '../core/config.ts';
 import { sha256 } from '../core/fsx.ts';
+import { PLATFORMS } from '../core/platform.ts';
 import type { Platform, Verdict } from '../core/types.ts';
-import { AppProfile, findStepKind, PlanFile, STEP_KIND_LABEL, TestSpec, type StepSpec } from '../spec/schema.ts';
+import { loadAppProfile } from '../spec/load.ts';
+import { AppProfile, findStepKind, PlanFile, profilePlatforms, STEP_KIND_LABEL, TestSpec, type StepSpec } from '../spec/schema.ts';
 
 export class PathRejected extends Error {}
 
@@ -84,7 +86,7 @@ export function resolvePlanDocs(docs: readonly string[], opts: { root: string; r
 }
 
 const EventBase = { seq: z.number().int(), ts: z.string() };
-const PlatformValue = z.enum(['android', 'ios']);
+const PlatformValue = z.enum(PLATFORMS);
 const VerdictValue = z.enum(['PASS', 'FAIL', 'INCONCLUSIVE', 'ERROR', 'SKIPPED']);
 
 /** The events.jsonl lines these views read, validated field by field (only the fields they read). */
@@ -295,7 +297,7 @@ async function latestResults(runsDir: string, runLimit: number): Promise<{ lates
   return { latest, invalid };
 }
 
-export async function readPlanView(opts: { root: string; generatedDir: string; runsDir: string; app: string }): Promise<PlanView | { error: string } | null> {
+export async function readPlanView(opts: { root: string; generatedDir: string; runsDir: string; appsDir: string; app: string }): Promise<PlanView | { error: string } | null> {
   if (!RUN_ID.test(opts.app)) return null;
   const planPath = join(opts.generatedDir, opts.app, 'plan.json');
   if (!existsSync(planPath)) return null;
@@ -308,6 +310,13 @@ export async function readPlanView(opts: { root: string; generatedDir: string; r
     return { path: doc.path, kind: doc.kind, state: sha256(readFileSync(file)) === doc.sha256 ? 'same' : 'changed' };
   });
   const { latest: results, invalid: invalidEventLines } = await latestResults(opts.runsDir, 30);
+  // A test without `platforms` runs on every platform of the plan's app profile; if the profile does not load, every platform.
+  let appPlatforms: Platform[];
+  try {
+    appPlatforms = profilePlatforms(loadAppProfile(opts.app, opts.appsDir));
+  } catch {
+    appPlatforms = [...PLATFORMS];
+  }
   const tests = await Promise.all(
     plan.tests.map(async (entry): Promise<PlanTestView> => {
       const path = resolve(opts.root, entry.file);
@@ -322,7 +331,7 @@ export async function readPlanView(opts: { root: string; generatedDir: string; r
         return { ...base, error: err instanceof Error ? err.message : String(err) };
       }
       const id = spec.id ?? fallbackId;
-      const platforms: Platform[] = spec.platforms ?? ['android', 'ios'];
+      const platforms: Platform[] = spec.platforms ?? appPlatforms;
       return {
         ...base,
         id,

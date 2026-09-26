@@ -1,0 +1,67 @@
+{
+  "key": "cce96fd4420d168504aa64a5b7022091f4d41dc7388b3385809672936d8b0d8a",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfdd0775d197f605f355f874b3",
+  "latencyMs": 198,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | Notebook Cloud | - | top",
+          "e2 | text | [REDACTED] | - | top",
+          "e3 | heading | Email address | - | top",
+          "e4 | heading | Where you're signed in | - | top",
+          "e5 | input | Email address | value=\"[REDACTED]\" | top",
+          "e6 | text | MacBook Air · Chrome · Seoul (this device) | - | top",
+          "e7 | button | Revoke | - | top",
+          "e8 | text | Pixel 8 · Android app · Busan · 3 days ago | - | top",
+          "e9 | button | Update email | - | top",
+          "e10 | button | Show all sessions | - | top",
+          "e11 | heading | Alerts | - | middle",
+          "e12 | switch | Login alerts | checked | middle",
+          "e13 | link | Learn more about passkeys | - | middle"
+        ],
+        "texts": [
+          "Notebook Cloud",
+          "[REDACTED]",
+          "Email address",
+          "Where you're signed in",
+          "[REDACTED]",
+          "MacBook Air · Chrome · Seoul (this device)",
+          "Revoke",
+          "Pixel 8 · Android app · Busan · 3 days ago",
+          "Update email",
+          "Show all sessions",
+          "Alerts",
+          "Login alerts",
+          "Learn more about passkeys"
+        ]
+      },
+      "target": "e13 | link | Learn more about passkeys | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.05
+      }
+    },
+    "usage": {
+      "input_tokens": 717,
+      "output_tokens": 21
+    }
+  }
+}

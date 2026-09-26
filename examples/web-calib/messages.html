@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>쪽지 · 산들 커뮤니티</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="community.html">산들 커뮤니티</a>
+    <nav><a href="community.html">게시판</a><a href="messages.html">쪽지</a></nav>
+  </header>
+
+  <main class="narrow">
+    <div class="spread">
+      <h1>박서준 님과의 대화</h1>
+      <button type="button" class="ghost">대화 검색</button>
+    </div>
+    <section class="card chat" aria-label="대화 내용">
+      <p class="bubble">혹시 다음 주 토요일 캠핑 같이 가실래요?</p>
+      <p class="bubble me">좋아요! 몇 시에 출발해요?</p>
+      <p class="bubble">오전 9시에 합정역에서 만나요.</p>
+    </section>
+    <form class="card" data-done="쪽지를 보냈습니다">
+      <label for="msg">쪽지 쓰기</label>
+      <textarea id="msg">네, 내일 3시에 장비 목록 정리해서 보내 드릴게요.</textarea>
+      <div class="spread">
+        <div class="row">
+          <button type="button" class="ghost">이모티콘</button>
+          <button type="button" class="ghost">사진 첨부</button>
+        </div>
+        <button type="submit">보내기</button>
+      </div>
+    </form>
+    <p role="status"></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

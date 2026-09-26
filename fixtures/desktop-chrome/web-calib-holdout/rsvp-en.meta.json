@@ -1,0 +1,17 @@
+{
+  "platform": "desktop-chrome",
+  "app": "web-calib-holdout",
+  "name": "rsvp-en",
+  "surface": "web",
+  "pageUrl": "http://localhost:4174/holdout/rsvp-en.html",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  },
+  "capturedAt": "2026-09-26T03:20:55+00:00",
+  "device": "macOS Chrome/153.0.8010.53 --headless=new, viewport 1280x800 @1x",
+  "source": "WEB_EXTRACT_SCRIPT via CDP Runtime.evaluate → webSourceFromExtract (canonical web XML)",
+  "notes": "Event page: See who's going, Get directions, Ask the host, RSVP (host notified), Log in link. (examples/web-calib/holdout — v4 확인용 홀드아웃, 입력값은 HTML value로 채워 둠)"
+}

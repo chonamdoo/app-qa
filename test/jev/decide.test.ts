@@ -38,7 +38,7 @@ test('without a calibration record every primitive errors as uncalibrated and ne
   assert.deepEqual([g.verdict, g.reason, g.candidate, g.receipt], ['error', 'uncalibrated', null, null]);
   assert.equal((await judgeClaim(client, cands, '시트가 열려 있다', opts)).verdict, 'error');
   assert.equal((await judgeWhich(client, cands, ['홈', '시트'], opts)).verdict, 'error');
-  assert.equal((await judgeCommit(client, cands, cands[2]!, opts)).verdict, 'error');
+  assert.equal((await judgeCommit(client, cands, cands[2]!, { ...opts, surface: 'app' })).verdict, 'error');
   const r = await reviewGenerated(client, { requirement: { id: 'r1', text: '항공편을 지울 수 있다' }, test: {} }, { calibration: null });
   assert.deepEqual([r.verdict, r.review.issues], ['error', ['uncalibrated']]);
   assert.equal(calls.length, 0);
@@ -149,17 +149,35 @@ test('which maps the winning s-key back to the option text; none means loading /
 test('commit: at or above the calibrated bar is risky (pass), below is not', async () => {
   const cal = testCalibration();
   cal.commit.gate = { risky: 0.47 };
-  const at = await judgeCommit(clientFor({ commits: { type: 'noul', noul: 0.47 } }).client, cands, cands[2]!, { texts, calibration: cal });
+  const at = await judgeCommit(clientFor({ commits: { type: 'noul', noul: 0.47 } }).client, cands, cands[2]!, { texts, calibration: cal, surface: 'app' });
   assert.deepEqual([at.verdict, at.pYes], ['pass', 0.47]);
-  const below = await judgeCommit(clientFor({ commits: { type: 'noul', noul: 0.46 } }).client, cands, cands[0]!, { texts, calibration: cal });
+  const below = await judgeCommit(clientFor({ commits: { type: 'noul', noul: 0.46 } }).client, cands, cands[0]!, { texts, calibration: cal, surface: 'app' });
   assert.equal(below.verdict, 'fail');
+});
+
+test('commit: a web target is judged against the web gate, never the app one; no web gate means no call', async () => {
+  const cal = testCalibration();
+  cal.commit.gate = { risky: 0.47 };
+  cal.commit.surfaceGates = { web: { risky: 0.2 } };
+  const p = { commits: { type: 'noul', noul: 0.3 } };
+  const web = await judgeCommit(clientFor(p).client, cands, cands[2]!, { texts, calibration: cal, surface: 'web' });
+  assert.deepEqual([web.verdict, web.pYes], ['pass', 0.3]);
+  const app = await judgeCommit(clientFor(p).client, cands, cands[2]!, { texts, calibration: cal, surface: 'app' });
+  assert.equal(app.verdict, 'fail');
+
+  delete cal.commit.surfaceGates;
+  const { client, calls } = clientFor(p);
+  const none = await judgeCommit(client, cands, cands[2]!, { texts, calibration: cal, surface: 'web' });
+  assert.deepEqual([none.verdict, none.pYes], ['error', null]);
+  assert.match(none.reason, /웹 화면 commit 보정 전/);
+  assert.equal(calls.length, 0);
 });
 
 test('commit: a section that missed its criteria is an error without calling Jev (the check is unavailable)', async () => {
   const cal = testCalibration();
   cal.commit.status = 'failed';
   const { client, calls } = clientFor({ commits: { type: 'noul', noul: 0.9 } });
-  const d = await judgeCommit(client, cands, cands[2]!, { texts, calibration: cal });
+  const d = await judgeCommit(client, cands, cands[2]!, { texts, calibration: cal, surface: 'app' });
   assert.deepEqual([d.verdict, d.pYes, d.receipt], ['error', null, null]);
   assert.match(d.reason, /uncalibrated: commit/);
   assert.equal(calls.length, 0);

@@ -1,0 +1,354 @@
+{
+  "url": "http://localhost:4174/signup.html",
+  "title": "회원가입 · 모아마켓",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "회원가입 · 모아마켓",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "모아마켓",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 62.28125,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 396.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "heading",
+      "name": null,
+      "text": "회원가입",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 113,
+      "w": 592,
+      "h": 249,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "text",
+      "name": null,
+      "text": "이메일",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 138,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "input",
+      "name": "이메일",
+      "text": null,
+      "id": "email",
+      "value": "haneul@example.com",
+      "hint": null,
+      "x": 361,
+      "y": 161.5,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "text",
+      "name": null,
+      "text": "비밀번호",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 210,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 233.5,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "password",
+      "name": "비밀번호",
+      "text": null,
+      "id": "pw",
+      "value": "•••••••••••",
+      "hint": null,
+      "x": 361,
+      "y": 233.5,
+      "w": 438.203125,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable",
+        "password"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "button",
+      "name": null,
+      "text": "비밀번호 표시",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 809.203125,
+      "y": 234.5,
+      "w": 109.796875,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "text",
+      "name": null,
+      "text": "[필수] 이용약관과 개인정보 처리방침에 동의합니다",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 278,
+      "w": 304.59375,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "checkbox",
+      "name": "[필수] 이용약관과 개인정보 처리방침에 동의합니다",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 365,
+      "y": 282,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "button",
+      "name": null,
+      "text": "약관 보기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 681.546875,
+      "y": 276,
+      "w": 67.859375,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 306.5,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "button",
+      "name": null,
+      "text": "가입하기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 839.09375,
+      "y": 306.5,
+      "w": 79.90625,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "text",
+      "name": null,
+      "text": "이미 계정이 있나요?",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 376,
+      "w": 592,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "link",
+      "name": null,
+      "text": "로그인",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 450.09375,
+      "y": 377,
+      "w": 33.75,
+      "h": 16,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 403.5,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

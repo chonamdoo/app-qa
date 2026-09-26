@@ -1,0 +1,63 @@
+{
+  "key": "c6087242dc51835c1dbc084d4bb37a8e0a14769b45d9356b59b4f9ba959198cf",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfded97c13959f462269913de0",
+  "latencyMs": 182,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 잡브릿지 | - | top",
+          "e2 | link | 공고 원문 보기 | - | top",
+          "e3 | heading | (주)하루랩 · 프론트엔드 개발자 지원 | - | top",
+          "e4 | button | 이력서 불러오기 | - | top",
+          "e5 | text | 최근 저장: 2026-09-12 이력서 | - | top",
+          "e6 | text | 이름 | - | top",
+          "e7 | input | 이름 | value=\"김하늘\" | top",
+          "e8 | text | 지원 동기 | - | top",
+          "e9 | input | 지원 동기 | value=\"디자인 시스템을 처음부터 만든 경험을 하루랩 서비스에 쓰고 싶습니다.\" | middle",
+          "e10 | text | 제출한 지원서는 수정하거나 취소할 수 없습니다. | - | middle",
+          "e11 | button | 지원서 제출 | - | middle"
+        ],
+        "texts": [
+          "잡브릿지",
+          "공고 원문 보기",
+          "(주)하루랩 · 프론트엔드 개발자 지원",
+          "이력서 불러오기",
+          "최근 저장: 2026-09-12 이력서",
+          "이름",
+          "김하늘",
+          "지원 동기",
+          "디자인 시스템을 처음부터 만든 경험을 하루랩 서비스에 쓰고 싶습니다.",
+          "제출한 지원서는 수정하거나 취소할 수 없습니다.",
+          "지원서 제출"
+        ]
+      },
+      "target": "e4 | button | 이력서 불러오기 | - | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.07
+      }
+    },
+    "usage": {
+      "input_tokens": 781,
+      "output_tokens": 21
+    }
+  }
+}

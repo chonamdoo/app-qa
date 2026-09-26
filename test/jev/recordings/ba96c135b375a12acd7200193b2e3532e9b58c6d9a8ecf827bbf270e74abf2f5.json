@@ -1,0 +1,71 @@
+{
+  "key": "ba96c135b375a12acd7200193b2e3532e9b58c6d9a8ecf827bbf270e74abf2f5",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb530cf7285828e95f615ada63b",
+  "latencyMs": 196,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | Fieldnotes Forum | - | top",
+          "e2 | link | Discussions | - | top",
+          "e3 | link | Settings | - | top",
+          "e4 | heading | Start a new discussion | - | top",
+          "e5 | text | Title | - | top",
+          "e6 | input | Title | value=\"Best budget tripod for night sky shots?\" | top",
+          "e7 | text | Message | - | top",
+          "e8 | input | Message | value=\"I'm shooting the Milky Way next month with a 14mm lens. Anything under $120 that won't wobble in wind?\" | middle",
+          "e9 | text | Category | - | middle",
+          "e10 | input | Category | value=\"Gear\" | middle",
+          "e11 | text | Everyone in the forum can see and reply to this post. | - | middle",
+          "e12 | link | Formatting help | - | middle",
+          "e13 | button | Cancel | - | middle",
+          "e14 | button | Preview | - | middle",
+          "e15 | button | Post | - | middle"
+        ],
+        "texts": [
+          "Fieldnotes Forum",
+          "Discussions",
+          "Settings",
+          "Start a new discussion",
+          "Title",
+          "Best budget tripod for night sky shots?",
+          "Message",
+          "I'm shooting the Milky Way next month with a 14mm lens. Anything under $120 that won't wobble in wind?",
+          "Category",
+          "Category",
+          "Everyone in the forum can see and reply to this post.",
+          "Formatting help",
+          "Cancel",
+          "Preview",
+          "Post"
+        ]
+      },
+      "target": "e13 | button | Cancel | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.06
+      }
+    },
+    "usage": {
+      "input_tokens": 765,
+      "output_tokens": 21
+    }
+  }
+}

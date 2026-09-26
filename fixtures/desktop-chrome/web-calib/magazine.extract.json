@@ -1,0 +1,366 @@
+{
+  "url": "http://localhost:4174/magazine.html",
+  "title": "도시 텃밭 가꾸기 · 하루기록 매거진",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "도시 텃밭 가꾸기 · 하루기록 매거진",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "하루기록 매거진",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 113.734375,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1217.0625,
+      "y": 12.25,
+      "w": 38.9375,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "글쓰기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1217.0625,
+      "y": 12.25,
+      "w": 38.9375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 387,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 190,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "heading",
+      "name": null,
+      "text": "베란다에서 시작하는 도시 텃밭",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 85,
+      "w": 558,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "text",
+      "name": null,
+      "text": "에디터 정유진 · 5분 분량",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 130,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "button",
+      "name": null,
+      "text": "목차 펼치기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 157.5,
+      "w": 80.828125,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "text",
+      "name": null,
+      "text": "상추와 바질은 햇빛이 네 시간만 들어도 잘 자랍니다. 배수 구멍이 있는 화분을 고르세요.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 188,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 218.5,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "link",
+      "name": null,
+      "text": "이전 글",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 218.5,
+      "w": 42.875,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "link",
+      "name": null,
+      "text": "다음 글",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 876.125,
+      "y": 218.5,
+      "w": 42.875,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 272,
+      "w": 592,
+      "h": 108,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "heading",
+      "name": null,
+      "text": "매주 월요일, 새 글을 메일로",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 289,
+      "w": 558,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 322.5,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "text",
+      "name": null,
+      "text": "이메일",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 344.25,
+      "w": 1,
+      "h": 1,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "input",
+      "name": "이메일",
+      "text": null,
+      "id": "email",
+      "value": "haneul@example.com",
+      "hint": null,
+      "x": 361,
+      "y": 322.5,
+      "w": 438.203125,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable",
+        "occluder"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "button",
+      "name": null,
+      "text": "뉴스레터 받기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 809.203125,
+      "y": 323.5,
+      "w": 109.796875,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 394,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

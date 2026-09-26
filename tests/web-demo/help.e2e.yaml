@@ -1,0 +1,15 @@
+id: web-demo-help
+name: 도움말을 열고 닫을 수 있다
+app: web-demo
+steps:
+  - tap: 도움말
+    expect:
+      text: 검색창에 상품 이름을 입력하고
+  - tap: 닫기
+    expect:
+      noText: 검색창에 상품 이름을 입력하고
+  - scroll:
+      direction: down
+      until:
+        text: 여기까지 스크롤하면 안내 끝입니다.
+      max: 10

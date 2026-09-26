@@ -1,0 +1,434 @@
+{
+  "url": "http://localhost:4174/holdout/poll-en.html",
+  "title": "Poll: next club read · Paperback Club",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "Poll: next club read · Paperback Club",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "Paperback Club",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 124.046875,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1205.625,
+      "y": 12.25,
+      "w": 50.375,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "Threads",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1205.625,
+      "y": 12.25,
+      "w": 50.375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 374,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 187,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "heading",
+      "name": null,
+      "text": "What should we read in November?",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 85,
+      "w": 558,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "text",
+      "name": null,
+      "text": "Poll by Mateo · 58 votes · closes Sunday · votes are final and shown by name",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 130,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 157.5,
+      "w": 558,
+      "h": 30,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "text",
+      "name": null,
+      "text": "Piranesi",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 161.5,
+      "w": 72.71875,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 10,
+      "kind": "radio",
+      "name": "Piranesi",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 366,
+      "y": 167,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "text",
+      "name": null,
+      "text": "The Remains of the Day",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 449.671875,
+      "y": 161.5,
+      "w": 167.140625,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "radio",
+      "name": "The Remains of the Day",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 454.671875,
+      "y": 167,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "text",
+      "name": null,
+      "text": "Klara and the Sun",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 632.765625,
+      "y": 161.5,
+      "w": 130.4375,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "radio",
+      "name": "Klara and the Sun",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 637.765625,
+      "y": 167,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 199.5,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "button",
+      "name": null,
+      "text": "See results",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 203.5,
+      "w": 80.25,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "button",
+      "name": null,
+      "text": "Vote",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 861.234375,
+      "y": 199.5,
+      "w": 57.765625,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 269,
+      "w": 592,
+      "h": 98,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 286,
+      "w": 558,
+      "h": 33.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 20,
+      "kind": "heading",
+      "name": null,
+      "text": "Comments (14)",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 286,
+      "w": 113.15625,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 20,
+      "kind": "button",
+      "name": null,
+      "text": "Sort by top",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 836.125,
+      "y": 287.5,
+      "w": 82.875,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "text",
+      "name": null,
+      "text": "I'd love something short after last month's brick.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 319.5,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 381,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

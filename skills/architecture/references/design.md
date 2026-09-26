@@ -60,6 +60,7 @@ CLI 명령 모듈은 `src/cli/commands/<name>.ts`에서 `export async function c
   - commit(거부 추가 전용): Noul "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?"
   - generated review(plan): Noul 3개 — addresses_requirement, unrelated_steps, needs_clarification.
 - 게이트: `calibration/<model>/<questionVersion>.json`의 임계값만 사용. **레코드 없으면 Jev 결정 = error(`uncalibrated`)**. `qa calibrate`가 `calibration/golden/*.yaml`(fixture 기반 정답: grounding 정답/none/중복/가림, claim 참/거짓/부재)을 돌려 사전등록 기준(확신 오답 0, 수용률 ≥ 80%)으로 primitive별 임계값을 산출·기록. Noul과 Choice 임계값 공유 금지.
+- commit 임계값은 표면별: 앱 = `commit.gate`(섹션 status), 웹 = `commit.surfaceGates.web` — 웹 골든 탐색 항목에서 찾은 임계값이 새 페이지·새 라벨의 홀드아웃(`holdout: true`)에서도 재조정 없이 기준(확신 오답 0, 오경보 ≤ 10%)을 만족할 때만 기록. 표면에 맞는 게이트가 없으면 그 표면의 commit 판정은 `uncalibrated`(러너는 `commit_check_unavailable`); 앱 게이트로 대신하지 않는다.
 - 모드: `live` | `record`(응답 저장) | `replay`(요청 digest → 저장 응답; 없으면 error). 단위 테스트는 replay.
 
 ## 4. 드라이버 (src/appium, src/drivers)

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>도시 텃밭 가꾸기 · 하루기록 매거진</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="magazine.html">하루기록 매거진</a>
+    <nav><a href="editor.html">글쓰기</a></nav>
+  </header>
+
+  <main class="narrow">
+    <article class="card">
+      <h1>베란다에서 시작하는 도시 텃밭</h1>
+      <p class="muted">에디터 정유진 · 5분 분량</p>
+      <button type="button" class="link" aria-expanded="false" aria-controls="toc">목차 펼치기</button>
+      <ol id="toc" class="acc-body" hidden><li>화분 고르기</li><li>흙과 거름</li><li>물 주기</li></ol>
+      <p>상추와 바질은 햇빛이 네 시간만 들어도 잘 자랍니다. 배수 구멍이 있는 화분을 고르세요.</p>
+      <div class="spread">
+        <a href="magazine.html?prev">이전 글</a>
+        <a href="magazine.html?next">다음 글</a>
+      </div>
+    </article>
+    <form class="card" data-done="뉴스레터 신청 완료. 매주 월요일에 보내 드려요.">
+      <h2>매주 월요일, 새 글을 메일로</h2>
+      <div class="row">
+        <label for="email" class="sr">이메일</label>
+        <input id="email" type="email" value="haneul@example.com" autocomplete="off" style="flex: 1">
+        <button type="submit">뉴스레터 받기</button>
+      </div>
+    </form>
+    <p role="status"></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

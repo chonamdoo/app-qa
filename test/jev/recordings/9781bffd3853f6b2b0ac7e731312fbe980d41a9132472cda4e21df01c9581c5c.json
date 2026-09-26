@@ -1,0 +1,63 @@
+{
+  "key": "9781bffd3853f6b2b0ac7e731312fbe980d41a9132472cda4e21df01c9581c5c",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb5287a7dd0ab801af290a57a4f",
+  "latencyMs": 193,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 하루기록 블로그 | - | top",
+          "e2 | link | 내 블로그 | - | top",
+          "e3 | text | 제목 | - | top",
+          "e4 | input | 제목 | value=\"3월의 제주, 비 오는 날 가볼 만한 곳\" | top",
+          "e5 | text | 본문 | - | top",
+          "e6 | input | 본문 | value=\"비가 오면 오름 대신 실내 전시와 카페 투어가 좋아요. 동선을 정리해 봤습니다.\" | middle",
+          "e7 | text | 공개 범위 | - | middle",
+          "e8 | input | 공개 범위 | value=\"전체 공개\" | middle",
+          "e9 | button | 맞춤법 검사 | - | middle",
+          "e10 | button | 미리 보기 | - | middle",
+          "e11 | button | 발행 | - | middle"
+        ],
+        "texts": [
+          "하루기록 블로그",
+          "내 블로그",
+          "제목",
+          "3월의 제주, 비 오는 날 가볼 만한 곳",
+          "본문",
+          "비가 오면 오름 대신 실내 전시와 카페 투어가 좋아요. 동선을 정리해 봤습니다.",
+          "공개 범위",
+          "공개 범위",
+          "맞춤법 검사",
+          "미리 보기",
+          "발행"
+        ]
+      },
+      "target": "e11 | button | 발행 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.81
+      }
+    },
+    "usage": {
+      "input_tokens": 719,
+      "output_tokens": 21
+    }
+  }
+}

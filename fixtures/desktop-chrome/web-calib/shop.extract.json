@@ -1,0 +1,1118 @@
+{
+  "url": "http://localhost:4174/shop.html",
+  "title": "이어폰 · 모아마켓",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "이어폰 · 모아마켓",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 61.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "모아마켓",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 16.75,
+      "w": 62.28125,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 110.28125,
+      "y": 10,
+      "w": 420,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "text",
+      "name": null,
+      "text": "상품 검색",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 110.28125,
+      "y": 18,
+      "w": 1,
+      "h": 1,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "input",
+      "name": "상품 검색",
+      "text": null,
+      "id": "q",
+      "value": "이어폰",
+      "hint": "무엇을 찾으세요?",
+      "x": 110.28125,
+      "y": 10,
+      "w": 172,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable",
+        "occluder"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "button",
+      "name": null,
+      "text": "검색",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 288.28125,
+      "y": 10,
+      "w": 53.953125,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1073.3125,
+      "y": 19,
+      "w": 182.6875,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "link",
+      "name": null,
+      "text": "회원가입",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1073.3125,
+      "y": 19,
+      "w": 51.90625,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "link",
+      "name": null,
+      "text": "로그인",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1139.21875,
+      "y": 19,
+      "w": 38.9375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "link",
+      "name": null,
+      "text": "장바구니 2",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1192.15625,
+      "y": 19,
+      "w": 63.84375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 100,
+      "y": 61.5,
+      "w": 1080,
+      "h": 447,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "generic",
+      "name": "필터",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 81.5,
+      "w": 220,
+      "h": 407,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "heading",
+      "name": null,
+      "text": "필터",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 81.5,
+      "w": 220,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 115,
+      "w": 220,
+      "h": 84.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "text",
+      "name": null,
+      "text": "가격",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 115,
+      "w": 29.953125,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "text",
+      "name": null,
+      "text": "1만원 이하",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 145.5,
+      "w": 83.125,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "checkbox",
+      "name": "1만원 이하",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 128,
+      "y": 149.5,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "text",
+      "name": null,
+      "text": "1만~5만원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 223.078125,
+      "y": 145.5,
+      "w": 81.78125,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 18,
+      "kind": "checkbox",
+      "name": "1만~5만원",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 227.078125,
+      "y": 149.5,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "text",
+      "name": null,
+      "text": "5만원 이상",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 174.5,
+      "w": 85.109375,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 20,
+      "kind": "checkbox",
+      "name": "5만원 이상",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 128,
+      "y": 178.5,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 211.5,
+      "w": 220,
+      "h": 55.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 22,
+      "kind": "text",
+      "name": null,
+      "text": "배송",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 211.5,
+      "w": 29.953125,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 22,
+      "kind": "text",
+      "name": null,
+      "text": "무료배송",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 242,
+      "w": 74.453125,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 24,
+      "kind": "checkbox",
+      "name": "무료배송",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 128,
+      "y": 246,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 22,
+      "kind": "text",
+      "name": null,
+      "text": "오늘 출발",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 214.40625,
+      "y": 242,
+      "w": 78.125,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 26,
+      "kind": "checkbox",
+      "name": "오늘 출발",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 218.40625,
+      "y": 246,
+      "w": 13,
+      "h": 13,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "button",
+      "name": null,
+      "text": "필터 적용",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 279,
+      "w": 83.859375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 81.5,
+      "w": 788,
+      "h": 407,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 29,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 81.5,
+      "w": 788,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 30,
+      "kind": "text",
+      "name": null,
+      "text": "검색 결과 128개",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 87,
+      "w": 82.109375,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 30,
+      "kind": "generic",
+      "name": "정렬",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 875.40625,
+      "y": 81.5,
+      "w": 280.59375,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 32,
+      "kind": "button",
+      "name": null,
+      "text": "추천순",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 875.40625,
+      "y": 81.5,
+      "w": 66.9375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 32,
+      "kind": "button",
+      "name": null,
+      "text": "낮은 가격순",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 952.34375,
+      "y": 81.5,
+      "w": 96.828125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 32,
+      "kind": "button",
+      "name": null,
+      "text": "리뷰 많은순",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1059.171875,
+      "y": 81.5,
+      "w": 96.828125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 29,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 132,
+      "w": 788,
+      "h": 306,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 36,
+      "kind": "listitem",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 132,
+      "w": 388,
+      "h": 147,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 37,
+      "kind": "link",
+      "name": null,
+      "text": "무선 이어폰 프로",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 381,
+      "y": 145,
+      "w": 362,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 37,
+      "kind": "text",
+      "name": null,
+      "text": "39,000원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 381,
+      "y": 173.5,
+      "w": 362,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 37,
+      "kind": "text",
+      "name": null,
+      "text": "★ 4.6 · 리뷰 1,204",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 381,
+      "y": 202,
+      "w": 362,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 37,
+      "kind": "button",
+      "name": null,
+      "text": "찜하기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 381,
+      "y": 227.5,
+      "w": 362,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 36,
+      "kind": "listitem",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 768,
+      "y": 132,
+      "w": 388,
+      "h": 147,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 42,
+      "kind": "link",
+      "name": null,
+      "text": "노이즈캔슬링 이어폰 S",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 781,
+      "y": 145,
+      "w": 362,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 42,
+      "kind": "text",
+      "name": null,
+      "text": "48,500원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 781,
+      "y": 173.5,
+      "w": 362,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 42,
+      "kind": "text",
+      "name": null,
+      "text": "★ 4.4 · 리뷰 389",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 781,
+      "y": 202,
+      "w": 362,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 42,
+      "kind": "button",
+      "name": null,
+      "text": "찜하기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 781,
+      "y": 227.5,
+      "w": 362,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 36,
+      "kind": "listitem",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 291,
+      "w": 388,
+      "h": 147,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 47,
+      "kind": "link",
+      "name": null,
+      "text": "스포츠 넥밴드 이어폰",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 381,
+      "y": 304,
+      "w": 362,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 47,
+      "kind": "text",
+      "name": null,
+      "text": "21,900원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 381,
+      "y": 332.5,
+      "w": 362,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 47,
+      "kind": "text",
+      "name": null,
+      "text": "★ 4.1 · 리뷰 77",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 381,
+      "y": 361,
+      "w": 362,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 47,
+      "kind": "button",
+      "name": null,
+      "text": "찜하기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 381,
+      "y": 386.5,
+      "w": 362,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 36,
+      "kind": "listitem",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 768,
+      "y": 291,
+      "w": 388,
+      "h": 147,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 52,
+      "kind": "link",
+      "name": null,
+      "text": "오픈형 이어폰 에어",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 781,
+      "y": 304,
+      "w": 362,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 52,
+      "kind": "text",
+      "name": null,
+      "text": "32,000원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 781,
+      "y": 332.5,
+      "w": 362,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 52,
+      "kind": "text",
+      "name": null,
+      "text": "품절 — 입고되면 이메일로 알려 드려요",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 781,
+      "y": 361,
+      "w": 362,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 52,
+      "kind": "button",
+      "name": null,
+      "text": "재입고 알림 신청",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 781,
+      "y": 386.5,
+      "w": 362,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 29,
+      "kind": "generic",
+      "name": "페이지",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 450,
+      "w": 788,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 57,
+      "kind": "button",
+      "name": null,
+      "text": "이전 페이지",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 450,
+      "w": 96.828125,
+      "h": 38.5,
+      "flags": [
+        "clickable"
+      ]
+    },
+    {
+      "parent": 57,
+      "kind": "text",
+      "name": null,
+      "text": "1 / 11",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 474.828125,
+      "y": 459.5,
+      "w": 25.15625,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 57,
+      "kind": "link",
+      "name": null,
+      "text": "다음 페이지",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 509.984375,
+      "y": 458,
+      "w": 68.828125,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": "쿠키 안내",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 736.5,
+      "w": 1280,
+      "h": 63.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 61,
+      "kind": "text",
+      "name": null,
+      "text": "더 나은 쇼핑 경험을 위해 쿠키를 사용합니다. 쿠키 설정은 언제든 바꿀 수 있어요.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 288.046875,
+      "y": 757.5,
+      "w": 469.328125,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 61,
+      "kind": "button",
+      "name": null,
+      "text": "필수 쿠키만 허용",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 769.375,
+      "y": 749.5,
+      "w": 126.71875,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 61,
+      "kind": "button",
+      "name": null,
+      "text": "모두 허용",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 908.09375,
+      "y": 749.5,
+      "w": 83.859375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    }
+  ]
+}

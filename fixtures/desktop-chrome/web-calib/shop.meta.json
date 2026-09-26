@@ -1,0 +1,17 @@
+{
+  "platform": "desktop-chrome",
+  "app": "web-calib",
+  "name": "shop",
+  "surface": "web",
+  "pageUrl": "http://localhost:4174/shop.html",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  },
+  "capturedAt": "2026-09-26T03:09:03+00:00",
+  "device": "macOS Chrome/153.0.8010.53 --headless=new, viewport 1280x800 @1x",
+  "source": "WEB_EXTRACT_SCRIPT via CDP Runtime.evaluate → webSourceFromExtract (canonical web XML)",
+  "notes": "상품 목록: 검색어 \"이어폰\", 필터·정렬·페이지 이동, 품절 상품의 재입고 알림 신청, 하단 쿠키 안내 배너. (examples/web-calib, 입력값은 HTML value로 채워 둠)"
+}

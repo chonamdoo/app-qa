@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>빈티지 필름 카메라 · 두근옥션</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="auction.html">두근옥션</a>
+    <nav><a href="auction.html#my">내 경매</a></nav>
+  </header>
+
+  <main class="narrow">
+    <section class="card">
+      <h1>빈티지 필름 카메라 (1978년식)</h1>
+      <p>현재가 <span class="price">51,000원</span> · 입찰 14회 · 남은 시간 2시간 13분</p>
+      <button type="button" class="link">입찰 기록 보기</button>
+    </section>
+    <form class="card" data-done="52,000원에 입찰했습니다">
+      <label for="bid">입찰 금액</label>
+      <div class="row">
+        <input id="bid" value="52,000" inputmode="numeric">
+        <span class="muted">원 (최소 51,500원)</span>
+      </div>
+      <p class="muted">낙찰되면 입찰 금액으로 구매가 확정되며 입찰은 철회할 수 없습니다.</p>
+      <div class="row end"><button type="submit">입찰하기</button></div>
+    </form>
+    <p role="status"></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checkout — Shipping · Northwind Goods</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="checkout-en.html">Northwind Goods</a>
+    <nav><a href="cart.html">Cart (3)</a></nav>
+  </header>
+
+  <main class="narrow">
+    <ol class="steps">
+      <li>Cart</li>
+      <li aria-current="step">Shipping</li>
+      <li>Payment</li>
+      <li>Review</li>
+    </ol>
+    <form class="card" action="review-en.html">
+      <h2>Shipping address</h2>
+      <label for="name">Full name</label>
+      <input id="name" value="Jordan Lee" autocomplete="off">
+      <label for="addr">Address</label>
+      <input id="addr" value="221 Market St, Apt 4" autocomplete="off">
+      <label for="city">City</label>
+      <input id="city" value="San Francisco" autocomplete="off">
+      <label class="inline"><input type="radio" name="ship" checked> Standard (3–5 days) — free</label>
+      <label class="inline"><input type="radio" name="ship"> Express (1–2 days) — $9.00</label>
+      <div class="row" style="margin-top: 12px">
+        <label for="promo" class="sr">Promo code</label>
+        <input id="promo" value="SPRING15" placeholder="Promo code">
+        <button type="button" class="ghost" data-status="Promo SPRING15 applied: −$6.30">Apply</button>
+      </div>
+      <p role="status"></p>
+      <div class="spread" style="margin-top: 12px">
+        <a href="cart.html">Back to cart</a>
+        <button type="submit">Continue to payment</button>
+      </div>
+    </form>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

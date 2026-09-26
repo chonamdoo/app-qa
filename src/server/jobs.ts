@@ -3,10 +3,15 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { EventSink, JobKind } from '../core/events.ts';
+import { PLATFORM_INFO, PLATFORMS } from '../core/platform.ts';
 import type { Platform } from '../core/types.ts';
+import { profilePlatforms, type AppProfile } from '../spec/schema.ts';
 
-const PlatformChoice = z.enum(['android', 'ios', 'all']);
-const DeviceIds = z.strictObject({ android: z.string().min(1).optional(), ios: z.string().min(1).optional() });
+/** A platform, or `all` = every platform of the app profile. */
+const PlatformChoice = z.enum([...PLATFORMS, 'all']);
+type PlatformChoice = z.infer<typeof PlatformChoice>;
+/** Device id per platform (desktop: the platform id); unknown platform keys are rejected. */
+const DeviceIds = z.partialRecord(z.enum(PLATFORMS), z.string().min(1));
 
 export const RunParams = z.strictObject({
   /** Test files/dirs; empty = runner default. */
@@ -48,7 +53,7 @@ export type CalibrateParams = z.infer<typeof CalibrateParams>;
 
 export const CaptureParams = z.strictObject({
   app: z.string().min(1),
-  platform: z.enum(['android', 'ios']),
+  platform: z.enum(PLATFORMS),
   deviceId: z.string().min(1).optional(),
   name: z.string().regex(/^[\w.-]+$/),
 });
@@ -98,7 +103,7 @@ export interface JobView {
   title: string;
   state: JobState;
   params: JobRequest['params'];
-  /** Device claims `<platform>:<deviceId|*>`; `*` = any device of that platform. */
+  /** Device claims `<platform>:<deviceId|*>`; `*` = any device of that platform (desktop platforms claim their one browser). */
   devices: string[];
   parentId: string | null;
   cancelRequested: boolean;
@@ -116,43 +121,61 @@ interface Job extends JobView {
   controller: AbortController | null;
 }
 
-const PLATFORM_LABEL: Record<'android' | 'ios' | 'all', string> = { android: 'Android', ios: 'iOS', all: 'Android + iOS' };
 const FINISHED_JOBS_KEPT = 500;
 
-export function deviceClaims(req: JobRequest): string[] {
+/** Claim for one platform: the given device, else the platform's only browser (desktop, id = platform) or any device. */
+function claimFor(platform: Platform, deviceId: string | undefined): string {
+  return `${platform}:${deviceId ?? (PLATFORM_INFO[platform].host === 'desktop' ? platform : '*')}`;
+}
+
+/**
+ * Device claims of a request. `all` = the app profile's platforms; without a profile (runs span apps unknown here, or the
+ * profile does not load) it claims every platform, so a job never runs beside another on a device it may use.
+ */
+export function deviceClaims(req: JobRequest, profile: AppProfile | null = null): string[] {
   switch (req.kind) {
     case 'run':
     case 'smoke': {
       const { platform, deviceIds } = req.params;
-      const platforms: Platform[] = platform === 'all' ? ['android', 'ios'] : [platform];
-      return platforms.map((p) => `${p}:${deviceIds[p] ?? '*'}`);
+      const platforms: readonly Platform[] = platform !== 'all' ? [platform] : profile ? profilePlatforms(profile) : PLATFORMS;
+      return platforms.map((p) => claimFor(p, deviceIds[p]));
     }
     case 'capture':
-      return [`${req.params.platform}:${req.params.deviceId ?? '*'}`];
+      return [claimFor(req.params.platform, req.params.deviceId)];
     case 'plan':
     case 'calibrate':
       return [];
   }
 }
 
+/** `<resource>:<id>` claims conflict on the same resource with the same id or a `*`; ids may contain `:` (adb over Wi-Fi). */
 function claimsConflict(a: string, b: string): boolean {
-  const [pa, ia] = a.split(':', 2);
-  const [pb, ib] = b.split(':', 2);
-  return pa === pb && (ia === ib || ia === '*' || ib === '*');
+  const ca = a.indexOf(':');
+  const cb = b.indexOf(':');
+  const ia = a.slice(ca + 1);
+  const ib = b.slice(cb + 1);
+  return a.slice(0, ca) === b.slice(0, cb) && (ia === ib || ia === '*' || ib === '*');
 }
 
-function defaultTitle(req: JobRequest): string {
+/** Title label of a platform choice; with the profile, `all` names its platforms and web profiles name the browser. */
+function choiceLabel(choice: PlatformChoice, profile: AppProfile | null): string {
+  const platforms = choice !== 'all' ? [choice] : profile ? profilePlatforms(profile) : null;
+  if (!platforms) return '모든 플랫폼';
+  return platforms.map((p) => (profile?.web ? PLATFORM_INFO[p].webLabel : PLATFORM_INFO[p].label)).join(' + ');
+}
+
+function defaultTitle(req: JobRequest, profile: AppProfile | null): string {
   switch (req.kind) {
     case 'run':
-      return `테스트 실행 · ${PLATFORM_LABEL[req.params.platform]}${req.params.paths.length ? ` · ${req.params.paths.length}개 경로` : ''}`;
+      return `테스트 실행 · ${choiceLabel(req.params.platform, null)}${req.params.paths.length ? ` · ${req.params.paths.length}개 경로` : ''}`;
     case 'smoke':
-      return `스모크 · ${req.params.app} · ${PLATFORM_LABEL[req.params.platform]}${req.params.crawl ? ' · 탭 순회' : ''}`;
+      return `스모크 · ${req.params.app} · ${choiceLabel(req.params.platform, profile)}${req.params.crawl ? ' · 탭 순회' : ''}`;
     case 'plan':
       return `계획 생성${req.params.run ? ' + 실행' : ''} · ${req.params.app}`;
     case 'calibrate':
       return `Jev 보정${req.params.mode ? ` · ${req.params.mode}` : ''}`;
     case 'capture':
-      return `화면 캡처 · ${req.params.app} · ${req.params.name}`;
+      return `화면 캡처 · ${req.params.app} · ${choiceLabel(req.params.platform, profile)} · ${req.params.name}`;
   }
 }
 
@@ -177,21 +200,26 @@ export class JobQueue {
 
   private readonly handlers: JobHandlers;
   private readonly events: EventSink;
+  private readonly profileOf: (app: string) => AppProfile | null;
 
-  constructor(handlers: JobHandlers, events: EventSink) {
+  /** `profileOf` resolves an app profile (null when missing/invalid) for `all` expansion and web-aware titles. */
+  constructor(handlers: JobHandlers, events: EventSink, profileOf: (app: string) => AppProfile | null = () => null) {
     this.handlers = handlers;
     this.events = events;
+    this.profileOf = profileOf;
   }
 
   enqueue(request: JobRequest, parentId: string | null = null): JobView {
+    const profile = request.kind === 'smoke' || request.kind === 'capture' ? this.profileOf(request.params.app) : null;
+    const devices = deviceClaims(request, profile);
     const job: Job = {
       id: randomUUID(),
       kind: request.kind,
-      title: request.title ?? defaultTitle(request),
+      title: request.title ?? defaultTitle(request, profile),
       state: 'queued',
       params: request.params,
-      devices: deviceClaims(request),
-      claims: [...deviceClaims(request), ...(request.kind === 'plan' ? [`plan:${request.params.app}`] : [])],
+      devices,
+      claims: [...devices, ...(request.kind === 'plan' ? [`plan:${request.params.app}`] : [])],
       parentId,
       cancelRequested: false,
       createdAt: new Date().toISOString(),

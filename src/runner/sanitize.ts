@@ -1,6 +1,7 @@
 // Evidence sanitizer (architecture §5 증거 정제, invariant 7): the one boundary every journal/event/SSE/source/elements/
 // log/inventory write of a test session passes. Masks observed secure-input values (whatever the DSL `secure` flag says),
-// every value that came from `${ENV}` expansion, and app-profile `redact` matches (plus the built-in PII patterns).
+// every value that came from `${ENV}` expansion, and app-profile `redact` matches (plus the built-in PII patterns and
+// sensitive URL query values such as `?token=…`).
 import type { QaEventBody } from '../core/events.ts';
 import type { ScreenModel, Snapshot } from '../core/types.ts';
 import { createRedactor, type Redactor } from '../jev/redact.ts';
@@ -31,9 +32,11 @@ const VERBATIM_KEYS: Record<string, true> = {
   type: true,
   kind: true,
   verdict: true,
+  qaStatus: true,
   status: true,
   code: true,
   platform: true,
+  surface: true,
   platforms: true,
   source: true,
   role: true,
@@ -197,6 +200,8 @@ export class SanitizedStore {
         takenAt: s.takenAt,
         screen: s.screen,
         foregroundApp: s.foregroundApp,
+        surface: s.surface,
+        pageUrl: s.pageUrl,
         keyboardShown: s.keyboardShown,
         depthCapped: s.depthCapped,
         sparse: model.sparse,

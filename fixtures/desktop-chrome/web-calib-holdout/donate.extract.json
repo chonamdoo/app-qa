@@ -1,0 +1,337 @@
+{
+  "url": "http://localhost:4174/holdout/donate.html",
+  "title": "정기 후원 · 푸른숲 재단",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "정기 후원 · 푸른숲 재단",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "푸른숲 재단",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 82.59375,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1200.140625,
+      "y": 12.25,
+      "w": 55.859375,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "재단 소개",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1200.140625,
+      "y": 12.25,
+      "w": 55.859375,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 319.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "heading",
+      "name": null,
+      "text": "매달 나무 한 그루를 심어요",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 113,
+      "w": 592,
+      "h": 199.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "text",
+      "name": null,
+      "text": "후원 금액",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 130,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": "후원 금액",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 160.5,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "button",
+      "name": null,
+      "text": "1만원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 160.5,
+      "w": 59.3125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "button",
+      "name": null,
+      "text": "2만원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 430.3125,
+      "y": 160.5,
+      "w": 61.953125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "button",
+      "name": null,
+      "text": "3만원",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 502.265625,
+      "y": 160.5,
+      "w": 62,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "button",
+      "name": null,
+      "text": "금액 직접 입력",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 199,
+      "w": 97.75,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "text",
+      "name": null,
+      "text": "국민은행 계좌에서 매달 25일 20,000원이 자동 출금됩니다.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 229.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "link",
+      "name": null,
+      "text": "후원금 사용처 보기",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 667.6875,
+      "y": 230.5,
+      "w": 96.8125,
+      "h": 16,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 257,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "button",
+      "name": null,
+      "text": "정기 후원 시작",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 805.25,
+      "y": 257,
+      "w": 113.75,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 326.5,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

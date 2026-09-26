@@ -1,0 +1,448 @@
+{
+  "url": "http://localhost:4174/holdout/security-en.html",
+  "title": "Security · Notebook Cloud",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "Security · Notebook Cloud",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "Notebook Cloud",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 129.75,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1156.21875,
+      "y": 13.75,
+      "w": 99.78125,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "text",
+      "name": null,
+      "text": "alex@example.org",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1156.21875,
+      "y": 13.75,
+      "w": 99.78125,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 100,
+      "y": 48,
+      "w": 1080,
+      "h": 403,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 68,
+      "w": 220,
+      "h": 318,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 68,
+      "w": 220,
+      "h": 156.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "heading",
+      "name": null,
+      "text": "Email address",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 85,
+      "w": 186,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "input",
+      "name": "Email address",
+      "text": null,
+      "id": null,
+      "value": "alex.new@example.org",
+      "hint": null,
+      "x": 141,
+      "y": 118.5,
+      "w": 186,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 169,
+      "w": 186,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 10,
+      "kind": "button",
+      "name": null,
+      "text": "Update email",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 215.640625,
+      "y": 169,
+      "w": 111.359375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 238.5,
+      "w": 220,
+      "h": 133.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "heading",
+      "name": null,
+      "text": "Alerts",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 255.5,
+      "w": 186,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "switch",
+      "name": null,
+      "text": "Login alerts",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 289,
+      "w": 101.359375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 12,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 327.5,
+      "w": 186,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "link",
+      "name": null,
+      "text": "Learn more about passkeys",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 141,
+      "y": 328.5,
+      "w": 149.296875,
+      "h": 16,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 368,
+      "y": 68,
+      "w": 788,
+      "h": 304,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "heading",
+      "name": null,
+      "text": "Where you're signed in",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 85,
+      "w": 754,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 118.5,
+      "w": 754,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "text",
+      "name": null,
+      "text": "MacBook Air · Chrome · Seoul (this device)",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 118.5,
+      "w": 268.953125,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 149,
+      "w": 754,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 21,
+      "kind": "text",
+      "name": null,
+      "text": "Pixel 8 · Android app · Busan · 3 days ago",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 157,
+      "w": 262.421875,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 21,
+      "kind": "button",
+      "name": null,
+      "text": "Revoke",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1064.84375,
+      "y": 149,
+      "w": 74.15625,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "button",
+      "name": null,
+      "text": "Show all sessions",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 385,
+      "y": 195.5,
+      "w": 120.171875,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 124,
+      "y": 410,
+      "w": 220,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

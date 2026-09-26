@@ -3,6 +3,7 @@
 // subflows and fail-closed verdicts for every step. Every write goes through the session's evidence sanitizer.
 import { dirname, resolve as resolvePath } from 'node:path';
 import type { ActionKind, QaEventBody } from '../core/events.ts';
+import { PLATFORM_INFO } from '../core/platform.ts';
 import type {
   ActionOutcome,
   AppTarget,
@@ -16,6 +17,7 @@ import type {
   Point,
   Rect,
   ScreenModel,
+  Surface,
   Verdict,
 } from '../core/types.ts';
 import type { JevClient } from '../jev/client.ts';
@@ -27,6 +29,7 @@ import { cleanText } from '../observe/text.ts';
 import type { DecisionSummary, StepResult, TestResult } from '../report/types.ts';
 import type { LoadedTest } from '../spec/load.ts';
 import {
+  profilePlatforms,
   stepKind,
   type Condition as ConditionSchema,
   type Expectation as ExpectationSchema,
@@ -40,7 +43,9 @@ import type { z } from 'zod';
 import { checkHealth } from './health.ts';
 import { dHash, decodePng, hammingHex, type Raster } from './image.ts';
 import { findTabs, screenSlug, writeInventory } from './inventory.ts';
+import { navigationProblem } from '../policy/navigation.ts';
 import { assessRisk, labelRisk, type RiskAssessment } from '../policy/risk.ts';
+import { qaStatus } from '../report/status.ts';
 import { ActionPreparer, type Approval, type Mutation, type Obs } from './prepare.ts';
 import { asSelector, notFoundDiagnostics, resolveDeterministic, stateMatches, targetText, type TargetQuery, type TargetSpec } from './resolve.ts';
 import { groupData, judgeLines, ruleProblem, type LineMatch } from './rule.ts';
@@ -103,6 +108,8 @@ const HEALTH_LABEL: Record<HealthFinding['kind'], string> = {
   rn_logbox_warning: 'React Native LogBox 경고',
   flutter_error: 'Flutter 오류',
   blank_screen: '빈 화면',
+  origin_mismatch: '허용 origin 밖 페이지',
+  page_load_error: '페이지 로드 오류',
 };
 
 interface Outcome {
@@ -235,14 +242,16 @@ export class TestSession {
     this.app = app;
     this.out = new SanitizedStore(store, new EvidenceSanitizer(test.profile.redact));
     this.preparer = new ActionPreparer<StepCtx>({
-      platform,
       profile: test.profile,
       clock: env.clock,
       observe: (ocr) => this.observe({ ocr }),
       recentScroll: () => this.recentScroll,
-      isHittable: async (p) => env.driver.isHittable?.(p),
-      commitProblem: () => this.jevProblem('commit'),
-      judgeCommit: (ctx, model, target) => this.jevCall(ctx, () => judgeCommit(this.env.jev.client!, model.candidates, target, this.judgeOpts(model))),
+      isHittable: async (p, target) => env.driver.isHittable?.(p, target),
+      // The target decides the surface (gate availability and the threshold used): a web target stays web even if a
+      // driver mislabels a snapshot (fail-closed).
+      commitProblem: () => this.jevProblem('commit', app.kind),
+      judgeCommit: (ctx, model, target) =>
+        this.jevCall(ctx, () => judgeCommit(this.env.jev.client!, model.candidates, target, { ...this.judgeOpts(model), surface: app.kind })),
       decide: (ctx, d) => this.decide(ctx, d),
       policy: (ctx, risky, blocked, reasons) => this.emitRef(ctx, { type: 'policy', risky, blocked, reasons }),
     });
@@ -403,10 +412,12 @@ export class TestSession {
       file: this.env.relFile,
       app: spec.app,
       platform: this.platform,
+      surface: this.app.kind,
       deviceId: this.env.device.id,
       deviceName: this.env.device.name,
       verdict,
       code: decisive?.code ?? null,
+      qaStatus: qaStatus({ verdict, code: decisive?.code ?? null }),
       reason,
       durationMs,
       covers: spec.covers ?? [],
@@ -578,10 +589,14 @@ export class TestSession {
     const q = (target: TargetSpec): TargetQuery => ({ target, within: step.within, nth: step.nth, near: step.near });
     if ('launch' in step) return this.doLaunch(ctx, step.launch === true ? {} : step.launch, timeout);
     if ('open' in step) {
+      const app = this.app;
+      // A website opens only inside its origins; a `/path` goes to the first origin.
+      if (app.kind === 'web') approved(this.preparer.navigation(ctx, navigationProblem(step.open, app.origins)));
+      const url = app.kind === 'web' ? new URL(step.open, app.origins[0]).href : step.open;
       approved(this.preparer.label(ctx, labelRisk(step.open, this.test.profile.risk), step.allowRisky ?? false));
-      await this.act(ctx, 'open', { text: step.open }, () => this.env.driver.openUrl(this.app, step.open));
-      await this.settle(ctx, obs, !step.expectNoChange, timeout);
-      return PASS(`링크 열림: ${step.open}`);
+      await this.act(ctx, 'open', { text: url }, () => this.env.driver.openUrl(app, url));
+      await this.settle(ctx, obs, !step.expectNoChange, timeout, app.kind === 'web');
+      return PASS(`링크 열림: ${url}`);
     }
     if ('tap' in step || 'longPress' in step) {
       const target = 'tap' in step ? step.tap : step.longPress;
@@ -761,11 +776,14 @@ export class TestSession {
 
   // ───────────────────────── Jev plumbing ─────────────────────────
 
-  /** Null when Jev may decide `primitive`; otherwise why not (reasons for missing calibration start with `uncalibrated`). */
-  private jevProblem(primitive: CalibratedPrimitive): string | null {
+  /**
+   * Null when Jev may decide `primitive` (the commit gate: on screens of `surface`); otherwise why not (reasons for
+   * missing calibration start with `uncalibrated`).
+   */
+  private jevProblem(primitive: CalibratedPrimitive, surface?: Surface): string | null {
     const { client, calibration, problem } = this.env.jev;
     if (!calibration) return problem ? `uncalibrated: ${problem}` : 'uncalibrated';
-    const usable = usableGate(calibration, client?.model ?? JEV_MODEL, primitive);
+    const usable = usableGate(calibration, client?.model ?? JEV_MODEL, primitive, surface);
     if (usable.reason) return usable.reason;
     return client ? null : (problem ?? 'Jev 클라이언트를 만들 수 없습니다');
   }
@@ -944,9 +962,11 @@ export class TestSession {
 
   /**
    * Waits for change (identity/layout fingerprint, dHash fallback) then stability (2 equal observations ≥250 ms apart),
-   * saves after.png, runs health. No change when one was required → INCONCLUSIVE no_effect.
+   * saves after.png, runs health. No change when one was required → INCONCLUSIVE no_effect. `page` (website launch/open):
+   * a browser shows an empty tree for its first dumps, so an empty screen never counts as settled, and a page still
+   * empty at the deadline is ERROR page_not_ready (an environment/readiness problem, checked before health).
    */
-  private async settle(ctx: StepCtx, before: Obs, requireChange: boolean, timeout: number): Promise<Obs> {
+  private async settle(ctx: StepCtx, before: Obs, requireChange: boolean, timeout: number, page = false): Promise<Obs> {
     const { clock, driver } = this.env;
     const t0 = clock.now();
     const beforeFp = fingerprint(before.model);
@@ -983,7 +1003,7 @@ export class TestSession {
       for (;;) {
         await clock.sleep(STABLE_GAP_MS);
         const next = await this.observe({ ocr: 'never' });
-        let same = fingerprint(next.model) === fingerprint(prev.model);
+        let same = fingerprint(next.model) === fingerprint(prev.model) && (!page || next.model.candidates.length > 0 || next.model.texts.length > 0);
         let nextHash: string | null = null;
         if (same && viaPixels) {
           nextHash = pngHash(await driver.screenshot());
@@ -1003,6 +1023,9 @@ export class TestSession {
     ctx.settle = { changed, settled, ms };
     if (final.png) ctx.after = this.out.png(`${ctx.dir}/after.png`, final.png);
     this.emitRef(ctx, { type: 'settle', changed, settled, ms, screenshot: ctx.after });
+    if (page && final.model.candidates.length === 0 && final.model.texts.length === 0) {
+      throw new StepAbort('ERROR', 'page_not_ready', `페이지가 ${timeout}ms 안에 내용을 표시하지 않음 (요소·텍스트 없음)`);
+    }
     await this.health(ctx, final);
     if (requireChange && !changed) throw new StepAbort('INCONCLUSIVE', 'no_effect', `행동 후 ${timeout}ms 동안 화면 변화 없음 (expectNoChange가 아니면 효과 없음)`);
     return final;
@@ -1010,7 +1033,7 @@ export class TestSession {
 
   private async health(ctx: StepCtx, obs: Obs): Promise<void> {
     const raster: Raster | null = obs.png ? decodePng(obs.png) : null;
-    const findings = checkHealth(obs.model, raster, this.app.appId);
+    const findings = checkHealth(obs.model, raster, this.app);
     ctx.health.push(...findings);
     this.findings.push(...findings);
     this.emitRef(ctx, { type: 'health', findings });
@@ -1073,7 +1096,7 @@ export class TestSession {
       this.warnOnce('startLogs', `기기 로그 수집 시작 실패: ${err instanceof Error ? err.message : String(err)}`);
     }
     const before = await this.observe({ ocr: 'never' });
-    await this.settle(ctx, before, false, timeout);
+    await this.settle(ctx, before, false, timeout, this.app.kind === 'web');
     return PASS(`앱 실행 (${reset})`);
   }
 
@@ -1434,11 +1457,26 @@ function startLabel(test: LoadedTest): string {
   return test.spec.start === 'attach' ? '앱 시작: 실행 중인 앱에 연결' : `앱 시작: ${test.spec.reset}`;
 }
 
+/**
+ * What `profile` runs as on `platform`, or null when it does not run there (`profilePlatforms`): the website in the
+ * platform's browser, or the native app on a device.
+ */
 export function appTarget(profile: LoadedTest['profile'], platform: Platform): AppTarget | null {
-  if (platform === 'android') {
-    const a = profile.android;
-    return a ? { platform, appId: a.package, ...(a.activity ? { activity: a.activity } : {}), ...(a.apk ? { binaryPath: a.apk } : {}) } : null;
+  if (!profilePlatforms(profile).includes(platform)) return null;
+  const web = profile.web;
+  if (web) {
+    return { kind: 'web', platform, appId: PLATFORM_INFO[platform].browser, url: web.url, origins: web.origins ?? [new URL(web.url).origin], viewport: web.viewport };
   }
-  const i = profile.ios;
-  return i ? { platform, appId: i.bundleId, ...(i.app ? { binaryPath: i.app } : {}) } : null;
+  switch (PLATFORM_INFO[platform].host) {
+    case 'android': {
+      const a = profile.android;
+      return a ? { kind: 'app', platform, appId: a.package, ...(a.activity ? { activity: a.activity } : {}), ...(a.apk ? { binaryPath: a.apk } : {}) } : null;
+    }
+    case 'ios': {
+      const i = profile.ios;
+      return i ? { kind: 'app', platform, appId: i.bundleId, ...(i.app ? { binaryPath: i.app } : {}) } : null;
+    }
+    case 'desktop':
+      return null;
+  }
 }

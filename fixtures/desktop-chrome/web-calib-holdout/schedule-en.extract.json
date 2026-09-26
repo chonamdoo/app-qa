@@ -1,0 +1,385 @@
+{
+  "url": "http://localhost:4174/holdout/schedule-en.html",
+  "title": "Pick a time with Dana · Slotwise",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "Pick a time with Dana · Slotwise",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "Slotwise",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 67.21875,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 414,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "heading",
+      "name": null,
+      "text": "30-minute intro call with Dana Wu",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 113,
+      "w": 592,
+      "h": 119,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 130,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "text",
+      "name": null,
+      "text": "Week of Oct 6 · Times in Korea Standard Time",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 138,
+      "w": 291.5625,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 689,
+      "y": 130,
+      "w": 230,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "button",
+      "name": null,
+      "text": "Change time zone",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 689,
+      "y": 134,
+      "w": 125.21875,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "button",
+      "name": null,
+      "text": "Next week",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 824.21875,
+      "y": 130,
+      "w": 94.78125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": "Available times",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 176.5,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "button",
+      "name": null,
+      "text": "Tue 9:00 AM",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 176.5,
+      "w": 110.96875,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "button",
+      "name": null,
+      "text": "Tue 10:30 AM",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 481.96875,
+      "y": 176.5,
+      "w": 116.0625,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable",
+        "checked"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "button",
+      "name": null,
+      "text": "Wed 4:00 PM",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 608.03125,
+      "y": 176.5,
+      "w": 116.09375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "checkable"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 246,
+      "w": 592,
+      "h": 161,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "text",
+      "name": null,
+      "text": "Tue, Oct 7 · 10:30–11:00 AM · Video call",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 263,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "text",
+      "name": null,
+      "text": "Calendar invites go to jordan.lee@example.com and Dana Wu.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 293.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "button",
+      "name": null,
+      "text": "Add note",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 321,
+      "w": 70.171875,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 351.5,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "button",
+      "name": null,
+      "text": "Schedule meeting",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 778.765625,
+      "y": 351.5,
+      "w": 140.234375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 421,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

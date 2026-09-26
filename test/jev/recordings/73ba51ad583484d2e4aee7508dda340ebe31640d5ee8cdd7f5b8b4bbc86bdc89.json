@@ -1,0 +1,64 @@
+{
+  "key": "73ba51ad583484d2e4aee7508dda340ebe31640d5ee8cdd7f5b8b4bbc86bdc89",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbbfd7757888aa1dd4d187755025",
+  "latencyMs": 211,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 한끼배달 | - | top",
+          "e2 | link | 가게 정보 | - | top",
+          "e3 | heading | 성수동 국수집 | - | top",
+          "e4 | text | 비빔국수 × 1 — 8,500원 | - | top",
+          "e5 | text | 만두 반 접시 × 1 — 5,000원 | - | top",
+          "e6 | text | 배달팁 3,000원 · 예상 도착 35~45분 | - | top",
+          "e7 | text | 일회용 수저 안 받기 | - | top",
+          "e8 | checkbox | 일회용 수저 안 받기 | checked | top",
+          "e9 | button | 요청사항 입력 | - | top",
+          "e10 | text | 현대카드 (5521)로 청구 | - | middle",
+          "e11 | text | 총 16,500원 | - | middle",
+          "e12 | button | 배달 요청하기 | - | middle"
+        ],
+        "texts": [
+          "한끼배달",
+          "가게 정보",
+          "성수동 국수집",
+          "비빔국수 × 1 — 8,500원",
+          "만두 반 접시 × 1 — 5,000원",
+          "배달팁 3,000원 · 예상 도착 35~45분",
+          "일회용 수저 안 받기",
+          "요청사항 입력",
+          "현대카드 (5521)로 청구",
+          "총 16,500원",
+          "배달 요청하기"
+        ]
+      },
+      "target": "e8 | checkbox | 일회용 수저 안 받기 | checked | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.05
+      }
+    },
+    "usage": {
+      "input_tokens": 795,
+      "output_tokens": 21
+    }
+  }
+}

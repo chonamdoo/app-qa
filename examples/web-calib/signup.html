@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>회원가입 · 모아마켓</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="shop.html">모아마켓</a>
+  </header>
+
+  <main class="narrow">
+    <h1>회원가입</h1>
+    <form class="card" data-done="가입을 환영합니다! 인증 메일을 보냈어요.">
+      <label for="email">이메일</label>
+      <input id="email" type="email" value="haneul@example.com" autocomplete="off" style="width: 100%">
+      <label for="pw">비밀번호</label>
+      <div class="row">
+        <input id="pw" type="password" value="Sandul!2026" autocomplete="off" style="flex: 1">
+        <button type="button" class="ghost">비밀번호 표시</button>
+      </div>
+      <label class="inline"><input type="checkbox" checked> [필수] 이용약관과 개인정보 처리방침에 동의합니다</label>
+      <button type="button" class="link">약관 보기</button>
+      <div class="row end"><button type="submit">가입하기</button></div>
+    </form>
+    <p class="muted">이미 계정이 있나요? <a href="login.html">로그인</a></p>
+    <p role="status"></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

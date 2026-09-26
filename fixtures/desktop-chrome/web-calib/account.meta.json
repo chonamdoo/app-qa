@@ -1,0 +1,17 @@
+{
+  "platform": "desktop-chrome",
+  "app": "web-calib",
+  "name": "account",
+  "surface": "web",
+  "pageUrl": "http://localhost:4174/account.html",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  },
+  "capturedAt": "2026-09-26T03:09:08+00:00",
+  "device": "macOS Chrome/153.0.8010.53 --headless=new, viewport 1280x800 @1x",
+  "source": "WEB_EXTRACT_SCRIPT via CDP Runtime.evaluate → webSourceFromExtract (canonical web XML)",
+  "notes": "계정 설정: 프로필 변경사항 저장, 다크 모드 스위치(꺼짐), 비밀번호 변경(현재/새 비밀번호 입력됨), 알림 끄기, 계정 비활성화·탈퇴하기, 로그아웃. (examples/web-calib, 입력값은 HTML value로 채워 둠)"
+}

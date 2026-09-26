@@ -1,0 +1,442 @@
+{
+  "url": "http://localhost:4174/booking.html",
+  "title": "Your stay — final step · Harbor Inn",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "Your stay — final step · Harbor Inn",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "Harbor Inn",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 86.234375,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1213.03125,
+      "y": 12.25,
+      "w": 42.96875,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "Rooms",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1213.03125,
+      "y": 12.25,
+      "w": 42.96875,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 421.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "Dates",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 33.421875,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "Room",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 393.421875,
+      "y": 68,
+      "w": 34.296875,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "Guest details",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 443.71875,
+      "y": 68,
+      "w": 81.078125,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 103,
+      "w": 592,
+      "h": 130.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 10,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 120,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "heading",
+      "name": null,
+      "text": "Oct 17 – Oct 19 · 2 nights",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 122.5,
+      "w": 183.546875,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "button",
+      "name": null,
+      "text": "Change dates",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 806.015625,
+      "y": 120,
+      "w": 112.984375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 10,
+      "kind": "text",
+      "name": null,
+      "text": "Queen room with harbor view · 2 guests",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 158.5,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 10,
+      "kind": "text",
+      "name": null,
+      "text": "Free cancellation until Oct 15.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 189,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "link",
+      "name": null,
+      "text": "Cancellation policy",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 524.84375,
+      "y": 190,
+      "w": 101.78125,
+      "h": 16,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 247.5,
+      "w": 592,
+      "h": 167,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 264.5,
+      "w": 558,
+      "h": 33.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 18,
+      "kind": "heading",
+      "name": null,
+      "text": "Guest",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 264.5,
+      "w": 43.75,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 18,
+      "kind": "button",
+      "name": null,
+      "text": "Edit guest details",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 798.703125,
+      "y": 266,
+      "w": 120.296875,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "text",
+      "name": null,
+      "text": "Jordan Lee · jordan.lee@example.com · +1 415 555 0142",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 298,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "text",
+      "name": null,
+      "text": "Card on file: Visa ending 4242 — $412.80 charged at check-in",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 328.5,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 359,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 23,
+      "kind": "button",
+      "name": null,
+      "text": "Complete booking",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 776.140625,
+      "y": 359,
+      "w": 142.859375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 428.5,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

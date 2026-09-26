@@ -183,6 +183,9 @@ const PNG_MAGIC = 0x89504e47;
  *   `clear` (`lib/commands/element.ts:234,287,298`); a native element click is proxied to WDA 16.12.10, whose
  *   `handleClick` answers `FBResponseWithOK()` (`WebDriverAgentLib/Commands/FBElementCommands.m:251`) = `value: NSNull`
  *   (`WebDriverAgentLib/Routing/FBResponsePayload.m:96`).
+ * - Desktop browsers: WebDriver Navigate To / Back / Perform Actions "return success with data null" (W3C WebDriver
+ *   §10.1, §10.3, §15.7); appium-chromium-driver 3.1.1 and appium-safari-driver 5.0.10 proxy chromedriver/safaridriver
+ *   bodies unchanged.
  */
 const Done = z.null();
 
@@ -216,22 +219,66 @@ export type QueryScript = 'mobile: getCurrentPackage' | 'mobile: isKeyboardShown
 export interface W3CPointerAction {
   type: 'pointer';
   id: string;
-  parameters: { pointerType: 'touch' };
+  parameters: { pointerType: 'touch' | 'mouse' };
   actions: Record<string, unknown>[];
 }
 
+export interface W3CKeyAction {
+  type: 'key';
+  id: string;
+  actions: Record<string, unknown>[];
+}
+
+export interface W3CWheelAction {
+  type: 'wheel';
+  id: string;
+  actions: Record<string, unknown>[];
+}
+
+export type W3CInputSource = W3CPointerAction | W3CKeyAction | W3CWheelAction;
+
+/** WebDriver special keys (W3C WebDriver §17.4.2 "Keyboard actions"). */
+export const W3C_KEYS = {
+  backspace: '\uE003',
+  tab: '\uE004',
+  enter: '\uE007',
+  escape: '\uE00C',
+  arrowDown: '\uE015',
+  meta: '\uE03D',
+} as const;
+
 const move = (p: Point, duration: number) => ({ type: 'pointerMove', duration, x: Math.round(p.x), y: Math.round(p.y), origin: 'viewport' });
 
-/** move → down → pause → up. */
-export function tapGesture(p: Point, pressMs = 60): W3CPointerAction[] {
+/** move → down → pause → up; `mouse` = left-button click at viewport CSS px (desktop browsers). */
+export function tapGesture(p: Point, pressMs = 60, pointerType: 'touch' | 'mouse' = 'touch'): W3CPointerAction[] {
   return [
     {
       type: 'pointer',
-      id: 'finger1',
-      parameters: { pointerType: 'touch' },
+      id: pointerType === 'mouse' ? 'mouse' : 'finger1',
+      parameters: { pointerType },
       actions: [move(p, 0), { type: 'pointerDown', button: 0 }, { type: 'pause', duration: pressMs }, { type: 'pointerUp', button: 0 }],
     },
   ];
+}
+
+/** Mouse wheel at `at` scrolling by `delta` CSS px (positive y = content moves up, like a swipe from bottom to top). */
+export function wheelScroll(at: Point, delta: Point, durationMs: number): W3CWheelAction[] {
+  return [
+    {
+      type: 'wheel',
+      id: 'wheel',
+      actions: [{ type: 'scroll', origin: 'viewport', x: Math.round(at.x), y: Math.round(at.y), deltaX: Math.round(delta.x), deltaY: Math.round(delta.y), duration: Math.max(0, Math.round(durationMs)) }],
+    },
+  ];
+}
+
+/**
+ * Keyboard strokes: each stroke presses its keys in order and releases them in reverse (e.g. `[W3C_KEYS.meta, 'a']` =
+ * ⌘A). A key is one code point: a character to type or a `W3C_KEYS` value.
+ */
+export function keyStrokes(strokes: readonly (readonly string[])[]): W3CKeyAction[] {
+  const actions = strokes.flatMap((keys) => [...keys.map((value) => ({ type: 'keyDown', value })), ...keys.toReversed().map((value) => ({ type: 'keyUp', value }))]);
+  return [{ type: 'key', id: 'keyboard', actions }];
 }
 
 /** Drag with a hold before lift so lists do not fling (inertia). */
@@ -350,8 +397,38 @@ export class AppiumClient {
     return { x, y, width, height };
   }
 
-  async performActions(actions: W3CPointerAction[], timeoutMs?: number): Promise<void> {
+  /** Resizes/moves the browser window; W3C answers the resulting window rect. */
+  async setWindowRect(rect: Partial<Rect>): Promise<Rect> {
+    const { x, y, width, height } = decode(RectValue, await this.cmd('POST', '/window/rect', rect), 'POST /window/rect');
+    return { x, y, width, height };
+  }
+
+  async performActions(actions: W3CInputSource[], timeoutMs?: number): Promise<void> {
     decode(Done, await this.cmd('POST', '/actions', { actions }, timeoutMs), 'POST /actions');
+  }
+
+  /** Browser navigation; the driver answers once the page load strategy is satisfied. */
+  async navigate(url: string, timeoutMs?: number): Promise<void> {
+    decode(Done, await this.cmd('POST', '/url', { url }, timeoutMs), 'POST /url');
+  }
+
+  async currentUrl(): Promise<string> {
+    return decode(z.string(), await this.cmd('GET', '/url'), 'GET /url');
+  }
+
+  /** Browser history back. */
+  async back(timeoutMs?: number): Promise<void> {
+    decode(Done, await this.cmd('POST', '/back', {}, timeoutMs), 'POST /back');
+  }
+
+  /** Page script (`/execute/sync`), undecoded: callers zod-validate the shape they use. */
+  executeScript(script: string, args: unknown[] = [], timeoutMs?: number): Promise<unknown> {
+    return this.cmd('POST', '/execute/sync', { script, args }, timeoutMs);
+  }
+
+  /** Entries of a legacy log buffer (`/se/log`, chromedriver: `browser` = console); reading drains the buffer. */
+  async logEntries(type: string): Promise<{ timestamp: number; level: string; message: string }[]> {
+    return decode(z.array(z.looseObject({ timestamp: z.number(), level: z.string(), message: z.string() })), await this.cmd('POST', '/se/log', { type }), 'POST /se/log');
   }
 
   /** Mutating `mobile:` script; completes only with that script's documented answer (`MOBILE_RESULTS`), else `malformed`. */

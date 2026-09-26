@@ -14,6 +14,7 @@ import { UNCALIBRATED } from './jev-stub.ts';
 export const PROFILES: Record<string, string> = {
   tteonam: readFileSync(new URL('../../apps/tteonam.yaml', import.meta.url), 'utf8'),
   example: 'id: example\nname: Example Tickets\nandroid:\n  package: example.tickets\n',
+  'web-demo': readFileSync(new URL('../../apps/web-demo.yaml', import.meta.url), 'utf8'),
 };
 
 const roots: string[] = [];
@@ -52,16 +53,16 @@ export interface FakeRun {
   events: QaEventBody[];
 }
 
-/** Writes `tests` (relative path → YAML) under a temp root and runs them on Android with the fake driver. */
+/** Writes `tests` (relative path → YAML) under a temp root and runs them (default on Android) with the fake driver. */
 export async function runYaml(
   tests: Record<string, string>,
   driver: FakeDriver,
-  opts: { jev?: JevSetup; files?: Record<string, string>; junit?: boolean; ocr?: OcrFn } = {},
+  opts: { jev?: JevSetup; files?: Record<string, string>; junit?: boolean; ocr?: OcrFn; platform?: Platform } = {},
 ): Promise<FakeRun> {
   const root = tempRoot({ ...opts.files, ...tests });
   const events: QaEventBody[] = [];
   const result = await runTests(
-    { paths: Object.keys(tests).map((t) => join(root, t)), platform: 'android', junit: opts.junit, events: { emit: (e) => events.push(e) } },
+    { paths: Object.keys(tests).map((t) => join(root, t)), platform: opts.platform ?? 'android', junit: opts.junit, events: { emit: (e) => events.push(e) } },
     { ...fakeDeps(root, driver, opts.jev), ...(opts.ocr ? { ocr: opts.ocr } : {}) },
   );
   return { result, root, events };

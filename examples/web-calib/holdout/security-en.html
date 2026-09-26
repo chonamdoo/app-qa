@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security · Notebook Cloud</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="security-en.html">Notebook Cloud</a>
+    <nav><span class="muted">alex@example.org</span></nav>
+  </header>
+
+  <main class="with-side">
+    <div>
+      <form class="card" data-done="We sent a confirmation link to the new address">
+        <h2>Email address</h2>
+        <input aria-label="Email address" type="email" value="alex.new@example.org" style="width: 100%">
+        <div class="row end" style="margin-top: 10px"><button type="submit">Update email</button></div>
+      </form>
+      <section class="card">
+        <h2>Alerts</h2>
+        <button type="button" role="switch" class="switch" aria-checked="true">Login alerts</button>
+        <p class="muted"><a href="security-en.html#passkeys">Learn more about passkeys</a></p>
+      </section>
+    </div>
+    <section class="card">
+      <h2>Where you're signed in</h2>
+      <div class="spread"><span>MacBook Air · Chrome · Seoul (this device)</span></div>
+      <div class="spread" style="margin-top: 8px">
+        <span>Pixel 8 · Android app · Busan · 3 days ago</span>
+        <button type="button" class="ghost" data-status="Pixel 8 has been signed out">Revoke</button>
+      </div>
+      <button type="button" class="link" style="margin-top: 8px">Show all sessions</button>
+    </section>
+    <p role="status"></p>
+  </main>
+  <script src="../app.js"></script>
+</body>
+</html>

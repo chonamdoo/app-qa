@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create your account · Tasklane</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="account-en.html">Tasklane</a>
+  </header>
+
+  <main class="narrow">
+    <h1>Create your Tasklane account</h1>
+    <form class="card" data-done="Welcome! We sent a verification email.">
+      <label for="name">Full name</label>
+      <input id="name" value="Sam Kim" autocomplete="off" style="width: 100%">
+      <label for="email">Work email</label>
+      <input id="email" type="email" value="sam.kim@acme.io" autocomplete="off" style="width: 100%">
+      <label for="pw">Password</label>
+      <div class="row">
+        <input id="pw" type="password" value="lane-Tide-42" autocomplete="off" style="flex: 1">
+        <button type="button" class="ghost">Show password</button>
+      </div>
+      <label class="inline"><input type="checkbox" checked> I agree to the Terms of Service</label>
+      <div class="row end"><button type="submit">Create account</button></div>
+    </form>
+    <p class="muted">Already have an account? <a href="login.html">Sign in</a></p>
+    <p role="status"></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

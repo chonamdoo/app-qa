@@ -1,0 +1,509 @@
+{
+  "url": "http://localhost:4174/review-en.html",
+  "title": "Checkout — Review · Northwind Goods",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "Checkout — Review · Northwind Goods",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "Northwind Goods",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 141.078125,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1208.296875,
+      "y": 12.25,
+      "w": 47.703125,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "Cart (3)",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1208.296875,
+      "y": 12.25,
+      "w": 47.703125,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 306,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "Cart",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 24.46875,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "Shipping",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 384.46875,
+      "y": 68,
+      "w": 50.765625,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "Payment",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 451.234375,
+      "y": 68,
+      "w": 51.59375,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "listitem",
+      "name": null,
+      "text": "Review",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 518.828125,
+      "y": 68,
+      "w": 45.15625,
+      "h": 21,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 103,
+      "w": 592,
+      "h": 178.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "heading",
+      "name": null,
+      "text": "Items",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 120,
+      "w": 558,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "text",
+      "name": null,
+      "text": "Ceramic pour-over set × 1 — $38.00",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 153.5,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "text",
+      "name": null,
+      "text": "Stoneware mug, sand × 2 — $24.00",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 184,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "text",
+      "name": null,
+      "text": "Ships to Jordan Lee, 221 Market St, Apt 4, San Francisco · Visa ending 4242",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 214.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 242,
+      "w": 558,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "text",
+      "name": null,
+      "text": "Total",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 242,
+      "w": 31.90625,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "text",
+      "name": null,
+      "text": "$55.70",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 874.75,
+      "y": 242,
+      "w": 44.25,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 5,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 295.5,
+      "w": 592,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "link",
+      "name": null,
+      "text": "Edit shipping",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 745.1875,
+      "y": 303.5,
+      "w": 81.765625,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "button",
+      "name": null,
+      "text": "Place order",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 836.953125,
+      "y": 295.5,
+      "w": 99.046875,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "focused"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "dialog",
+      "name": "Ready to buy?",
+      "text": null,
+      "id": "confirm",
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled",
+        "clickable",
+        "occluder"
+      ]
+    },
+    {
+      "parent": 22,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 22,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 430,
+      "y": 224,
+      "w": 420,
+      "h": 169,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 24,
+      "kind": "heading",
+      "name": null,
+      "text": "Ready to buy?",
+      "id": "confirm-title",
+      "value": null,
+      "hint": null,
+      "x": 452,
+      "y": 246,
+      "w": 376,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 24,
+      "kind": "text",
+      "name": null,
+      "text": "Your Visa ending 4242 will be charged $55.70 and the seller will start packing right away.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 452,
+      "y": 279.5,
+      "w": 376,
+      "h": 45,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 24,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 452,
+      "y": 332.5,
+      "w": 376,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 27,
+      "kind": "button",
+      "name": null,
+      "text": "Go back",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 661.28125,
+      "y": 332.5,
+      "w": 78.625,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 27,
+      "kind": "button",
+      "name": null,
+      "text": "Confirm",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 749.90625,
+      "y": 332.5,
+      "w": 78.09375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    }
+  ]
+}

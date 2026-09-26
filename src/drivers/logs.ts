@@ -12,20 +12,28 @@ import { adbPath, PATHS } from '../core/config.ts';
 import { ensureDir } from '../core/fsx.ts';
 import type { Platform } from '../core/types.ts';
 
-/** `logcat -v threadtime -v UTC -v year` → "2026-09-25 23:45:43.620 +0000  518  518 I tag: msg". */
-const ANDROID_TS = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) \+0000\b/;
-/** `log stream --style compact` → "2026-09-26 08:45:43.620 E  app[123:456] msg" (host local time). */
-const IOS_TS = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})\b/;
+/** Platforms whose device logs are captured to a file (desktop browsers report console logs through their driver). */
+export type DeviceLogPlatform = Extract<Platform, 'android' | 'ios'>;
+
+/**
+ * Timestamp of a log line per platform. Android `logcat -v threadtime -v UTC -v year` →
+ * "2026-09-25 23:45:43.620 +0000  518  518 I tag: msg" (UTC). iOS `log stream --style compact` →
+ * "2026-09-26 08:45:43.620 E  app[123:456] msg" (host local time).
+ */
+const LOG_TIME: Record<DeviceLogPlatform, { pattern: RegExp; zone: 'Z' | '' }> = {
+  android: { pattern: /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) \+0000\b/, zone: 'Z' },
+  ios: { pattern: /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})\b/, zone: '' },
+};
 
 /** Epoch ms of a log line's timestamp, or null for continuation/header lines. */
-export function logLineTime(platform: Platform, line: string): number | null {
-  const m = (platform === 'android' ? ANDROID_TS : IOS_TS).exec(line);
-  if (!m) return null;
-  return Date.parse(platform === 'android' ? `${m[1]}T${m[2]}Z` : `${m[1]}T${m[2]}`);
+export function logLineTime(platform: DeviceLogPlatform, line: string): number | null {
+  const { pattern, zone } = LOG_TIME[platform];
+  const m = pattern.exec(line);
+  return m ? Date.parse(`${m[1]}T${m[2]}${zone}`) : null;
 }
 
 /** Lines stamped within [from, to]; untimestamped lines follow the line before them. */
-export function sliceLog(platform: Platform, text: string, fromMs: number, toMs: number): string {
+export function sliceLog(platform: DeviceLogPlatform, text: string, fromMs: number, toMs: number): string {
   const out: string[] = [];
   let inRange = false;
   for (const line of text.split('\n')) {
@@ -109,13 +117,15 @@ const DRAIN_MS = 2000;
  * to every later line of the file: an app may still log an earlier test's secret after the next test re-armed it.
  */
 export class LogCapture {
-  readonly platform: Platform;
+  readonly platform: DeviceLogPlatform;
   readonly file: string;
+  /** Device clock minus host clock (ms). Lines carry device timestamps; `slice` shifts its host-time window by this. */
+  clockOffsetMs = 0;
   #capture: Capture | null = null;
   readonly #sanitizers = new Set<(line: string) => string>();
   #onExit = () => void this.stop();
 
-  constructor(platform: Platform, deviceId: string) {
+  constructor(platform: DeviceLogPlatform, deviceId: string) {
     this.platform = platform;
     this.file = join(ensureDir(PATHS.logs), `${platform}-${deviceId.replace(/[^A-Za-z0-9._-]/g, '_')}-${Date.now()}.log`);
   }
@@ -142,6 +152,7 @@ export class LogCapture {
     process.once('exit', this.#onExit);
   }
 
+  /** Lines logged between two host-time ISO instants (the window is shifted into device time by `clockOffsetMs`). */
   slice(fromIso: string, toIso: string): string {
     let text: string;
     try {
@@ -149,7 +160,7 @@ export class LogCapture {
     } catch {
       return '';
     }
-    return sliceLog(this.platform, text, Date.parse(fromIso), Date.parse(toIso));
+    return sliceLog(this.platform, text, Date.parse(fromIso) + this.clockOffsetMs, Date.parse(toIso) + this.clockOffsetMs);
   }
 
   /** Signals the log process; resolves once its remaining output is sanitized and written (unread output is dropped after `DRAIN_MS`). */

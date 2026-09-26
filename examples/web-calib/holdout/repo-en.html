@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings · acme/billing-service · Forgehub</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="repo-en.html">Forgehub</a>
+    <nav><a href="repo-en.html#code">Code</a><a href="repo-en.html#branches">Branches</a><a href="repo-en.html#settings">Settings</a></nav>
+  </header>
+
+  <main class="narrow">
+    <h1>acme/billing-service</h1>
+    <section class="card">
+      <h2>Clone</h2>
+      <div class="row">
+        <input aria-label="Clone URL" value="git@forgehub.dev:acme/billing-service.git" readonly style="flex: 1">
+        <button type="button" class="ghost" data-status="Copied">Copy clone URL</button>
+      </div>
+    </section>
+    <form class="card" data-done="Repository renamed; old links now redirect">
+      <h2>Repository name</h2>
+      <div class="row">
+        <input aria-label="Repository name" value="payments-service" style="flex: 1">
+        <button type="submit">Rename</button>
+      </div>
+    </form>
+    <section class="card">
+      <h2>Visibility</h2>
+      <p class="muted">This repository is private. Anyone on the internet will be able to see and clone it once public.</p>
+      <div class="row">
+        <button type="button" class="danger">Make public</button>
+        <button type="button" class="link" aria-expanded="false" aria-controls="more">Show more</button>
+      </div>
+      <div id="more" class="acc-body" hidden><p>Forks stay private.</p></div>
+    </section>
+    <p role="status"></p>
+  </main>
+  <script src="../app.js"></script>
+</body>
+</html>

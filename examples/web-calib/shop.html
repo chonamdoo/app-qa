@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>이어폰 · 모아마켓</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="shop.html">모아마켓</a>
+    <form role="search" data-done="검색했습니다">
+      <label for="q" class="sr">상품 검색</label>
+      <input id="q" type="search" value="이어폰" placeholder="무엇을 찾으세요?">
+      <button type="submit">검색</button>
+    </form>
+    <nav>
+      <a href="signup.html">회원가입</a>
+      <a href="login.html">로그인</a>
+      <a href="cart.html">장바구니 2</a>
+    </nav>
+  </header>
+
+  <main class="with-side">
+    <aside aria-label="필터">
+      <h2>필터</h2>
+      <fieldset>
+        <legend>가격</legend>
+        <label class="inline"><input type="checkbox"> 1만원 이하</label>
+        <label class="inline"><input type="checkbox" checked> 1만~5만원</label>
+        <label class="inline"><input type="checkbox"> 5만원 이상</label>
+      </fieldset>
+      <fieldset>
+        <legend>배송</legend>
+        <label class="inline"><input type="checkbox" checked> 무료배송</label>
+        <label class="inline"><input type="checkbox"> 오늘 출발</label>
+      </fieldset>
+      <button type="button" class="ghost" data-status="필터를 적용했습니다">필터 적용</button>
+    </aside>
+
+    <section>
+      <div class="spread">
+        <p role="status">검색 결과 128개</p>
+        <div class="row" role="group" aria-label="정렬" data-pressed-group>
+          <button type="button" class="ghost" aria-pressed="true">추천순</button>
+          <button type="button" class="ghost" aria-pressed="false">낮은 가격순</button>
+          <button type="button" class="ghost" aria-pressed="false">리뷰 많은순</button>
+        </div>
+      </div>
+      <ul class="grid">
+        <li><a href="product.html">무선 이어폰 프로</a><span class="price">39,000원</span><span class="muted">★ 4.6 · 리뷰 1,204</span><button type="button" class="ghost" data-status="찜 목록에 넣었습니다">찜하기</button></li>
+        <li><a href="product.html">노이즈캔슬링 이어폰 S</a><span class="price">48,500원</span><span class="muted">★ 4.4 · 리뷰 389</span><button type="button" class="ghost" data-status="찜 목록에 넣었습니다">찜하기</button></li>
+        <li><a href="product.html">스포츠 넥밴드 이어폰</a><span class="price">21,900원</span><span class="muted">★ 4.1 · 리뷰 77</span><button type="button" class="ghost" data-status="찜 목록에 넣었습니다">찜하기</button></li>
+        <li><a href="product.html">오픈형 이어폰 에어</a><span class="price">32,000원</span><span class="soldout">품절 — 입고되면 이메일로 알려 드려요</span><button type="button" data-status="재입고 알림을 신청했습니다">재입고 알림 신청</button></li>
+      </ul>
+      <nav aria-label="페이지" class="row">
+        <button type="button" class="ghost" disabled>이전 페이지</button>
+        <span class="muted">1 / 11</span>
+        <a href="shop.html?page=2">다음 페이지</a>
+      </nav>
+    </section>
+  </main>
+
+  <div class="cookie" role="region" aria-label="쿠키 안내">
+    <p>더 나은 쇼핑 경험을 위해 쿠키를 사용합니다. 쿠키 설정은 언제든 바꿀 수 있어요.</p>
+    <button type="button" class="ghost" data-consent="essential">필수 쿠키만 허용</button>
+    <button type="button" data-consent="all">모두 허용</button>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

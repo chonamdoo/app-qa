@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New claim · Brightside Insurance</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="claim-en.html">Brightside Insurance</a>
+    <nav><a href="claim-en.html#policies">My policies</a></nav>
+  </header>
+
+  <main class="narrow">
+    <h1>Report damaged items — Renters policy RN-40219</h1>
+    <form class="card" data-done="Claim CL-88213 submitted to an adjuster">
+      <label for="what">What happened?</label>
+      <textarea id="what">A pipe burst in the upstairs unit on Sept 20 and water came through the ceiling.</textarea>
+      <label for="item">Damaged item</label>
+      <div class="row">
+        <input id="item" value="Laptop, 2023 model" style="flex: 1">
+        <input aria-label="Estimated value" value="$1,450">
+      </div>
+      <div class="row" style="margin-top: 8px">
+        <button type="button" class="ghost">Add another item</button>
+        <button type="button" class="ghost">Upload photos</button>
+      </div>
+      <p class="muted">Deductible $250. <a href="claim-en.html#coverage">View coverage details</a></p>
+      <div class="row end"><button type="submit">File claim</button></div>
+    </form>
+    <p role="status"></p>
+  </main>
+  <script src="../app.js"></script>
+</body>
+</html>

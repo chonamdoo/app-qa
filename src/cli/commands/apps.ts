@@ -2,14 +2,17 @@
 import { relative } from 'node:path';
 import { parseArgs } from 'node:util';
 import { PATHS } from '../../core/config.ts';
+import { PLATFORM_INFO, platformsFor } from '../../core/platform.ts';
 import type { Platform } from '../../core/types.ts';
-import { listApps } from '../../drivers/apps.ts';
-import { backupApp } from '../../drivers/backup.ts';
-import { pickDevice } from '../../drivers/devices.ts';
+import { backupApp, listApps, pickDevice } from '../../drivers/index.ts';
+import { parsePlatform } from '../platforms.ts';
 
-const USAGE = `사용법: qa apps [--platform android|ios] [--device <id>] [--json] [--backup <appId>]
+const APP_PLATFORMS = platformsFor('app');
+
+const USAGE = `사용법: qa apps [--platform ${APP_PLATFORMS.join('|')}] [--device <id>] [--json] [--backup <appId>]
   --backup <appId>   설치된 앱 바이너리를 .qa/apps/<appId>/<sha256>.{apk|apks|app}로 복사 (앱은 건드리지 않음).
                      iOS clear 초기화와 reinstall 초기화에 필요합니다.
+  데스크톱 브라우저에는 설치 앱이 없어 지원하지 않습니다.
 종료 코드: 0 = 성공, 1 = 실패, 2 = 사용법 오류`;
 
 export async function cmdApps(argv: string[]): Promise<number> {
@@ -34,16 +37,21 @@ export async function cmdApps(argv: string[]): Promise<number> {
     console.log(USAGE);
     return 0;
   }
-  if (values.platform !== undefined && values.platform !== 'android' && values.platform !== 'ios') {
-    console.error(`--platform은 android 또는 ios여야 합니다.\n${USAGE}`);
+  const chosen = values.platform === undefined ? undefined : parsePlatform(values.platform, false);
+  if (typeof chosen === 'object') {
+    console.error(`${chosen.error}\n${USAGE}`);
     return 2;
   }
-  if (values.device && !values.platform) {
+  if (chosen !== undefined && !APP_PLATFORMS.includes(chosen)) {
+    console.error(`qa apps는 ${APP_PLATFORMS.join(', ')}만 지원합니다: ${PLATFORM_INFO[chosen].label}에는 설치 앱 목록이 없습니다.\n${USAGE}`);
+    return 2;
+  }
+  if (values.device && !chosen) {
     console.error(`--device에는 --platform이 필요합니다.\n${USAGE}`);
     return 2;
   }
-  const platforms: Platform[] = values.platform ? [values.platform as Platform] : ['android', 'ios'];
-  const explicit = values.platform !== undefined;
+  const platforms: Platform[] = chosen ? [chosen] : APP_PLATFORMS;
+  const explicit = chosen !== undefined;
   let failed = false;
   const results: { platform: Platform; deviceId: string; apps: unknown }[] = [];
   for (const platform of platforms) {

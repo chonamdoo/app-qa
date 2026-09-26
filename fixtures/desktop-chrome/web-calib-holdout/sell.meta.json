@@ -1,0 +1,17 @@
+{
+  "platform": "desktop-chrome",
+  "app": "web-calib-holdout",
+  "name": "sell",
+  "surface": "web",
+  "pageUrl": "http://localhost:4174/holdout/sell.html",
+  "windowRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 800
+  },
+  "capturedAt": "2026-09-26T03:20:57+00:00",
+  "device": "macOS Chrome/153.0.8010.53 --headless=new, viewport 1280x800 @1x",
+  "source": "WEB_EXTRACT_SCRIPT via CDP Runtime.evaluate → webSourceFromExtract (canonical web XML)",
+  "notes": "중고 판매글 작성: 사진 추가, 카테고리 선택, 가격 제안 받기 스위치(꺼짐), 판매글 올리기. (examples/web-calib/holdout — v4 확인용 홀드아웃, 입력값은 HTML value로 채워 둠)"
+}

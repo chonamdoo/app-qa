@@ -1,0 +1,81 @@
+{
+  "key": "19bfbbb7dff886901cebca4f1d16e8b7e2ff1cb87e14763b0f9fa1ab41f1da30",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0dbb52e8d79cf8fdc2d9d3cc02864",
+  "latencyMs": 194,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | link | 모아마켓 | - | top",
+          "e2 | link | 장바구니 2 | - | top",
+          "e3 | list-item | 장바구니 | - | top",
+          "e4 | list-item | 주문서 작성 | - | top",
+          "e5 | list-item | 완료 | - | top",
+          "e6 | button | 배송지 변경 | - | top",
+          "e7 | heading | 배송지 | - | top",
+          "e8 | text | 김하늘 · 010-****-5678 | - | top",
+          "e9 | text | 서울시 마포구 월드컵북로 12, 3층 | - | top",
+          "e10 | heading | 쿠폰 | - | middle",
+          "e11 | input | 쿠폰 코드 | value=\"WELCOME10\" | middle",
+          "e12 | button | 쿠폰 적용 | - | middle",
+          "e13 | heading | 결제 수단 | - | middle",
+          "e14 | text | 신한카드 (1234) | - | middle",
+          "e15 | text | 무통장 입금 | - | middle",
+          "e16 | checkbox | 신한카드 (1234) | checked | middle",
+          "e17 | checkbox | 무통장 입금 | unchecked | middle",
+          "e18 | text | 상품 2개 · 배송비 무료 | - | middle",
+          "e19 | text | 총 12,300원 | - | middle",
+          "e20 | button | 결제하기 | - | bottom",
+          "e21 | link | 이전 단계 | - | bottom"
+        ],
+        "texts": [
+          "모아마켓",
+          "장바구니 2",
+          "장바구니",
+          "주문서 작성",
+          "완료",
+          "배송지 변경",
+          "배송지",
+          "김하늘 · 010-****-5678",
+          "서울시 마포구 월드컵북로 12, 3층",
+          "쿠폰",
+          "WELCOME10",
+          "쿠폰 적용",
+          "결제 수단",
+          "신한카드 (1234)",
+          "무통장 입금",
+          "상품 2개 · 배송비 무료",
+          "총 12,300원",
+          "결제하기",
+          "이전 단계"
+        ]
+      },
+      "target": "e12 | button | 쿠폰 적용 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.16
+      }
+    },
+    "usage": {
+      "input_tokens": 957,
+      "output_tokens": 21
+    }
+  }
+}

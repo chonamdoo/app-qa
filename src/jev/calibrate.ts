@@ -8,8 +8,9 @@ import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 import { PATHS } from '../core/config.ts';
 import { sha256, writeJsonAtomic } from '../core/fsx.ts';
-import type { Candidate, Platform, ScreenModel, Snapshot } from '../core/types.ts';
-import { buildScreenModel, normLabel, parseAndroidSource, parseIosSource } from '../observe/index.ts';
+import { PLATFORMS } from '../core/platform.ts';
+import type { Candidate, Platform, ScreenModel, Snapshot, Surface } from '../core/types.ts';
+import { buildScreenModel, normLabel, SOURCE_PARSERS } from '../observe/index.ts';
 import { labelRisk } from '../policy/risk.ts';
 import { TestSpec } from '../spec/schema.ts';
 import { JevCallError, type JevClient } from './client.ts';
@@ -36,7 +37,7 @@ const Rate = z.number().min(0).max(1);
 const Criteria = z.strictObject({ maxConfidentWrong: Count, minAcceptance: Rate });
 const CommitCriteria = z.strictObject({ maxConfidentWrong: Count, maxFalseAlarmRate: Rate });
 const ReviewCriteria = z.strictObject({ maxConfidentWrong: Count, minGoodApproval: Rate });
-const Screen = z.string().regex(/^(android|ios)\/[\w.-]+\/[\w.-]+$/, 'screen = <platform>/<app>/<fixture name>');
+const Screen = z.string().regex(new RegExp(`^(${PLATFORMS.join('|')})/[\\w.-]+/[\\w.-]+$`), 'screen = <platform>/<app>/<fixture name>');
 /** Literal label substitution on the fixture source, for label variants of a real screen (flagged `synthetic`). */
 const Patch = z.array(z.strictObject({ from: z.string().min(1), to: z.string().min(1) })).optional();
 const Tags = z.array(z.string()).default([]);
@@ -64,7 +65,17 @@ const WhichItem = z.strictObject({
   expect: z.union([z.number().int().min(0), z.literal('none')]),
   tags: Tags,
 });
-const CommitItem = z.strictObject({ id: z.string().min(1), screen: Screen, patch: Patch, target: NameRef, expect: z.boolean(), tags: Tags });
+const CommitItem = z.strictObject({
+  id: z.string().min(1),
+  screen: Screen,
+  patch: Patch,
+  target: NameRef,
+  nth: z.number().int().min(1).optional(),
+  /** Confirmation item: judged at its surface's threshold, never used to search it. */
+  holdout: z.boolean().default(false),
+  expect: z.boolean(),
+  tags: Tags,
+});
 
 const REVIEW_KINDS = ['good', 'missing_assertion', 'unrelated_steps', 'wrong_requirement', 'vague_requirement'] as const;
 export type ReviewKind = (typeof REVIEW_KINDS)[number];
@@ -126,15 +137,40 @@ export interface PrimitiveReport extends ItemStats {
   acceptance: number;
 }
 
-/** commit on the residual set: misses are confident-wrong, false alarms are `rejected`. */
-export interface CommitReport extends ItemStats {
-  status: 'calibrated' | 'failed';
+/** A golden commit item the deterministic risk policy already blocks (excluded from the threshold). */
+export interface CoveredItem {
+  id: string;
+  surface: Surface;
+  reasons: string[];
+}
+
+/** Residual items of one surface judged at one threshold: a missed commit is confident-wrong, a false alarm `rejected`. */
+export interface CommitSlice extends ItemStats {
   risky: number;
   safe: number;
   falseAlarms: number;
   falseAlarmRate: number;
-  /** Golden items the deterministic risk policy already blocks (excluded from the threshold). */
-  covered: { id: string; reasons: string[] }[];
+}
+
+/** Surfaces with their own commit threshold besides the app one (`commit.gate`). */
+export type ExtraSurface = Exclude<Surface, 'app'>;
+const EXTRA_SURFACES: readonly ExtraSurface[] = ['web'];
+
+/** One surface's threshold: searched on its non-holdout items, then confirmed on its holdout without re-tuning. */
+export interface CommitSurfaceReport {
+  status: 'calibrated' | 'failed';
+  gate: CommitGate;
+  search: CommitSlice;
+  holdout: CommitSlice | null;
+  covered: CoveredItem[];
+}
+
+/** commit on the residual set: the app surface (the section's `gate` and `status`) at the top level, others in `bySurface`. */
+export interface CommitReport extends CommitSlice {
+  status: 'calibrated' | 'failed';
+  holdout: CommitSlice | null;
+  covered: CoveredItem[];
+  bySurface: Partial<Record<ExtraSurface, CommitSurfaceReport>>;
 }
 
 export interface ReviewReport extends ItemStats {
@@ -259,22 +295,30 @@ export async function runCalibration(opts: CalibrationOptions): Promise<Calibrat
     }
   }
   // Commit only adds refusals on top of the deterministic policy: items that policy already blocks set no threshold.
-  const covered: { id: string; reasons: string[] }[] = [];
+  const covered: CoveredItem[] = [];
   const k = byPrimitive.commit!;
   if (k.primitive === 'commit') {
     for (const item of k.items) {
       const model = screenOf(item.screen, item.patch);
-      const target = resolveOne(model.candidates, item.target, undefined, item.id);
+      const target = resolveOne(model.candidates, item.target, item.nth, item.id);
+      const surface = model.snapshot.surface;
       const deterministic = labelRisk(target.name, undefined, model.texts);
       if (deterministic.risky) {
-        covered.push({ id: item.id, reasons: deterministic.reasons });
+        covered.push({ id: item.id, surface, reasons: deterministic.reasons });
         continue;
       }
       jobs.push({
         primitive: 'commit',
         id: item.id,
         req: commitRequest(model.candidates, target, model.texts, BUILTIN_REDACTOR),
-        score: (a) => ({ kind: 'commit', p: (a[QUESTION_IDS.commit] as NoulAnswer).noul, expected: item.expect, meta: meta(item.id, target.name, item.tags, item.patch) }),
+        score: (a) => ({
+          kind: 'commit',
+          p: (a[QUESTION_IDS.commit] as NoulAnswer).noul,
+          expected: item.expect,
+          surface,
+          holdout: item.holdout,
+          meta: meta(item.id, target.name, item.tags, item.patch),
+        }),
       });
     }
   }
@@ -352,6 +396,12 @@ export async function runCalibration(opts: CalibrationOptions): Promise<Calibrat
   const which = calibrateWhich(pick('which'), w.criteria as CriteriaT);
   const commit = calibrateCommit(pick('commit'), k.criteria as CommitCriteriaT, covered);
   const review = calibrateReview(pick('review'), r.criteria as ReviewCriteriaT);
+  const slice = (name: string, s: CommitSlice) =>
+    `${name} 위험 ${s.risky} · 안전 ${s.safe} · 확신 오답 ${s.confidentWrong} · 오경보 ${s.falseAlarms}/${s.safe}`;
+  log(`commit app: risky ≥ ${commit.gate.risky} — ${slice('탐색', commit.report)} → ${commit.report.status}`);
+  for (const [surface, s] of Object.entries(commit.report.bySurface)) {
+    log(`commit ${surface}: risky ≥ ${s.gate.risky} — ${slice('탐색', s.search)}${s.holdout ? ` / ${slice('홀드아웃', s.holdout)}` : ' / 홀드아웃 없음'} → ${s.status}`);
+  }
 
   const allOk = [grounding, claim, which, commit, review].every((x) => x.report.status === 'calibrated');
   const calibration: Calibration = {
@@ -363,12 +413,21 @@ export async function runCalibration(opts: CalibrationOptions): Promise<Calibrat
     method:
       'per primitive, 0.01-step grid: fewest confident-wrong, then most accepted; each threshold then set inside the ' +
       'interval that keeps every item outcome unchanged — midpoint when items bound it on both sides, conservative end ' +
-      'when one side is only the grid limit. commit: residual items only (not blocked by src/policy/risk.ts labelRisk). ' +
+      'when one side is only the grid limit. commit: residual items only (not blocked by src/policy/risk.ts labelRisk); ' +
+      'thresholds per surface — app = commit.gate (section status); every other surface gets commit.surfaceGates.<surface> ' +
+      'only when the threshold searched on its non-holdout items also meets the criteria on its holdout items, judged ' +
+      'without re-tuning. ' +
       'Pre-registered criteria and ranges: calibration/golden/*.yaml headers.',
     grounding: { status: grounding.report.status, criteria: g.criteria as CriteriaT, gate: grounding.gate, evidence: evidence(grounding.report, { nonStrict: grounding.nonStrict }) },
     claim: { status: claim.report.status, criteria: c.criteria as CriteriaT, gate: claim.gate, evidence: evidence(claim.report) },
     which: { status: which.report.status, criteria: w.criteria as CriteriaT, gate: which.gate, evidence: evidence(which.report) },
-    commit: { status: commit.report.status, criteria: k.criteria as CommitCriteriaT, gate: commit.gate, evidence: evidence(commit.report) },
+    commit: {
+      status: commit.report.status,
+      criteria: k.criteria as CommitCriteriaT,
+      gate: commit.gate,
+      surfaceGates: commit.surfaceGates,
+      evidence: evidence(commit.report),
+    },
     review: { status: review.report.status, criteria: r.criteria as ReviewCriteriaT, gate: review.gate, evidence: evidence(review.report) },
   };
   const file = opts.out ?? calibrationPath(client.model, QUESTION_VERSION);
@@ -411,29 +470,36 @@ export function loadGolden(dir: string): { file: string; sha256: string; data: G
   });
 }
 
-const PARSERS: Record<Platform, (xml: string, screen: Snapshot['screen']) => Snapshot['nodes']> = {
-  android: parseAndroidSource,
-  ios: parseIosSource,
-};
-
-/** fixtures/<platform>/<app>/<name>.{xml,meta.json} → ScreenModel, optionally with literal label patches. */
+/**
+ * fixtures/<platform>/<app>/<name>.{xml,meta.json} → ScreenModel, optionally with literal label patches. Any platform's
+ * fixtures load (desktop = canonical web XML); `meta.surface` (default 'app') and `meta.pageUrl` describe web screens.
+ */
 export function loadFixtureModel(fixturesDir: string, screen: string, patch?: { from: string; to: string }[]): ScreenModel {
   const [platform] = screen.split('/') as [Platform];
+  const parse = SOURCE_PARSERS[platform];
+  if (!parse) throw new Error(`${screen}: 알 수 없는 플랫폼 폴더 "${platform}"`);
   const base = join(fixturesDir, screen);
   let xml = readFileSync(`${base}.xml`, 'utf8');
   for (const p of patch ?? []) {
     if (!xml.includes(p.from)) throw new Error(`${screen}: 패치 대상 문구 없음 "${p.from}"`);
     xml = xml.split(p.from).join(p.to);
   }
-  const meta = JSON.parse(readFileSync(`${base}.meta.json`, 'utf8')) as { windowRect: Snapshot['screen']; capturedAt: string };
+  const meta = JSON.parse(readFileSync(`${base}.meta.json`, 'utf8')) as {
+    windowRect: Snapshot['screen'];
+    capturedAt: string;
+    surface?: Snapshot['surface'];
+    pageUrl?: string | null;
+  };
   const snapshot: Snapshot = {
     platform,
+    surface: meta.surface ?? 'app',
     takenAt: meta.capturedAt,
     screen: meta.windowRect,
-    nodes: PARSERS[platform](xml, meta.windowRect),
+    nodes: parse(xml, meta.windowRect),
     rawSource: xml,
     screenshotPng: null,
     foregroundApp: null,
+    pageUrl: meta.pageUrl ?? null,
     keyboardShown: false,
     maxDepth: null,
     depthCapped: false,
@@ -494,7 +560,7 @@ export type CalibrationSample =
   | { kind: 'grounding'; probs: Record<string, number>; expected: GroundExpect; meta: Meta }
   | { kind: 'claim'; p: number; expected: boolean; meta: Meta }
   | { kind: 'which'; probs: Record<string, number>; expected: string; meta: Meta }
-  | { kind: 'commit'; p: number; expected: boolean; meta: Meta }
+  | { kind: 'commit'; p: number; expected: boolean; surface: Surface; holdout: boolean; meta: Meta }
   | { kind: 'review'; reviewKind: ReviewKind; scores: ReviewScores; meta: Meta };
 type Pending = CalibrationSample;
 
@@ -725,38 +791,20 @@ export function calibrateWhich(items: Extract<Pending, { kind: 'which' }>[], cri
   return { gate, report: acceptanceReport(rows, evaluate(gate), criteria) };
 }
 
-/**
- * Commit on the residual set (items the deterministic policy does not block). A missed commit is confident-wrong; a
- * false alarm only blocks a step (rejected) and is bounded by `maxFalseAlarmRate`. The bar is never raised above the
- * architecture's 0.5. When no threshold meets both criteria the section is `failed`: runtime commit checks then
- * return `error` and the runner refuses the guarded targets (`commit_check_unavailable`).
- */
-export function calibrateCommit(
-  items: Extract<Pending, { kind: 'commit' }>[],
-  criteria: CommitCriteriaT,
-  covered: { id: string; reasons: string[] }[] = [],
-): { gate: CommitGate; report: CommitReport } {
-  const evaluate = (gate: CommitGate) =>
-    items.map((it): Outcome => {
-      const flagged = it.p >= gate.risky;
-      return it.expected ? (flagged ? 'accepted' : 'confident_wrong') : flagged ? 'rejected' : 'accepted';
-    });
+type CommitSample = Extract<Pending, { kind: 'commit' }>;
+
+function commitOutcomes(items: readonly CommitSample[], gate: CommitGate): Outcome[] {
+  return items.map((it): Outcome => {
+    const flagged = it.p >= gate.risky;
+    return it.expected ? (flagged ? 'accepted' : 'confident_wrong') : flagged ? 'rejected' : 'accepted';
+  });
+}
+
+function commitSlice(items: readonly CommitSample[], gate: CommitGate, criteria: CommitCriteriaT): { slice: CommitSlice; meets: boolean } {
+  const outcomes = commitOutcomes(items, gate);
   const safe = items.filter((it) => !it.expected).length;
-  const measure = (gate: CommitGate) => {
-    const falseAlarms = items.filter((it) => !it.expected && it.p >= gate.risky).length;
-    return { confidentWrong: count(evaluate(gate), 'confident_wrong'), falseAlarms, falseAlarmRate: safe ? falseAlarms / safe : 0 };
-  };
-  const values = grid(0.05, 0.5);
-  const gate = centre(
-    searchBest(
-      values.map((risky) => ({ risky })),
-      evaluate,
-    ),
-    [{ values, get: (g) => g.risky, set: (_g, risky) => ({ risky }) }],
-    evaluate,
-  );
-  const m = measure(gate);
-  const ok = m.confidentWrong <= criteria.maxConfidentWrong && m.falseAlarmRate <= criteria.maxFalseAlarmRate;
+  const falseAlarms = count(outcomes, 'rejected');
+  const falseAlarmRate = safe ? falseAlarms / safe : 0;
   const rows = items.map((it) => ({
     meta: it.meta,
     expected: String(it.expected),
@@ -766,17 +814,65 @@ export function calibrateCommit(
     pNone: null,
     top1: it.p >= 0.5 === it.expected,
   }));
+  const s = stats(rows, outcomes);
   return {
-    gate,
-    report: {
-      status: ok ? 'calibrated' : 'failed',
-      ...stats(rows, evaluate(gate)),
-      risky: items.length - safe,
-      safe,
-      falseAlarms: m.falseAlarms,
-      falseAlarmRate: round(m.falseAlarmRate),
-      covered,
-    },
+    slice: { ...s, risky: items.length - safe, safe, falseAlarms, falseAlarmRate: round(falseAlarmRate) },
+    meets: s.n > 0 && s.confidentWrong <= criteria.maxConfidentWrong && falseAlarmRate <= criteria.maxFalseAlarmRate,
+  };
+}
+
+/** One surface: threshold searched on its non-holdout items only, then its holdout judged at that threshold. */
+function calibrateCommitSurface(items: readonly CommitSample[], criteria: CommitCriteriaT, needsHoldout: boolean): Omit<CommitSurfaceReport, 'covered'> {
+  const search = items.filter((it) => !it.holdout);
+  const held = items.filter((it) => it.holdout);
+  const evaluate = (gate: CommitGate) => commitOutcomes(search, gate);
+  const values = grid(0.05, 0.5);
+  const gate = centre(
+    searchBest(
+      values.map((risky) => ({ risky })),
+      evaluate,
+    ),
+    [{ values, get: (g) => g.risky, set: (_g, risky) => ({ risky }) }],
+    evaluate,
+  );
+  const s = commitSlice(search, gate, criteria);
+  const h = held.length ? commitSlice(held, gate, criteria) : null;
+  const ok = s.meets && (h ? h.meets : !needsHoldout);
+  return { status: ok ? 'calibrated' : 'failed', gate, search: s.slice, holdout: h?.slice ?? null };
+}
+
+/**
+ * Commit on the residual set (items the deterministic policy does not block). A missed commit is confident-wrong; a
+ * false alarm only blocks a step (rejected) and is bounded by `maxFalseAlarmRate`. The bar is never raised above the
+ * architecture's 0.5. Each surface gets its own threshold, searched on that surface's non-holdout items. The app one
+ * is the section's `gate`; when it misses the criteria the section is `failed`: runtime commit checks then return
+ * `error` and the runner refuses the guarded targets (`commit_check_unavailable`). Another surface gets a gate in
+ * `surfaceGates` only when its search items meet the criteria AND its holdout items meet them at that same threshold
+ * (no holdout = not calibrated); otherwise its commit checks stay uncalibrated.
+ */
+export function calibrateCommit(
+  items: CommitSample[],
+  criteria: CommitCriteriaT,
+  covered: CoveredItem[] = [],
+): { gate: CommitGate; surfaceGates: Partial<Record<ExtraSurface, CommitGate>>; report: CommitReport } {
+  const app = calibrateCommitSurface(
+    items.filter((it) => it.surface === 'app'),
+    criteria,
+    false,
+  );
+  const bySurface: Partial<Record<ExtraSurface, CommitSurfaceReport>> = {};
+  const surfaceGates: Partial<Record<ExtraSurface, CommitGate>> = {};
+  for (const surface of EXTRA_SURFACES) {
+    const mine = items.filter((it) => it.surface === surface);
+    if (mine.length === 0) continue;
+    const r = calibrateCommitSurface(mine, criteria, true);
+    bySurface[surface] = { ...r, covered: covered.filter((c) => c.surface === surface) };
+    if (r.status === 'calibrated') surfaceGates[surface] = r.gate;
+  }
+  return {
+    gate: app.gate,
+    surfaceGates,
+    report: { status: app.status, ...app.search, holdout: app.holdout, covered: covered.filter((c) => c.surface === 'app'), bySurface },
   };
 }
 

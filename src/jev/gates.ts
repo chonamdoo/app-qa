@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { PATHS } from '../core/config.ts';
+import type { Surface } from '../core/types.ts';
 import { JEV_MODEL, JevError } from './config.ts';
 import { NONE, QUESTION_VERSION } from './questions.ts';
 
@@ -55,11 +56,17 @@ export const Calibration = z.strictObject({
   grounding: section(GroundingGate),
   claim: section(ClaimGate),
   which: section(WhichGate),
-  /** failed = no threshold met the criteria: the commit check is unavailable and every target it guards is refused. */
+  /** failed = no app threshold met the criteria: the commit check is unavailable and every target it guards is refused. */
   commit: z.strictObject({
     status: Status,
     criteria: z.strictObject({ maxConfidentWrong: Count, maxFalseAlarmRate: P }),
+    /** App screens. */
     gate: CommitGate,
+    /**
+     * Other surfaces, each searched on its own golden items and confirmed on a holdout; a surface without an entry
+     * (or a record without the field) is uncalibrated for commit.
+     */
+    surfaceGates: z.strictObject({ web: CommitGate.optional() }).optional(),
     evidence: Evidence,
   }),
   review: z.strictObject({ status: Status, criteria: z.strictObject({ maxConfidentWrong: Count, minGoodApproval: P }), gate: ReviewGate, evidence: Evidence }),
@@ -90,14 +97,18 @@ export function loadCalibration(model = JEV_MODEL, questionVersion = QUESTION_VE
   return parsed.data;
 }
 
+const SURFACE_KO: Record<Surface, string> = { app: '앱', web: '웹' };
+
 /**
  * The gate for one primitive, or a reason why Jev must not decide: no record, a record for another model /
- * question version, or a primitive whose pre-registered criteria were not met.
+ * question version, a primitive whose pre-registered criteria were not met, or a commit check on a `surface` without
+ * its own calibrated gate.
  */
 export function usableGate<K extends CalibratedPrimitive>(
   calibration: Calibration | null | undefined,
   model: string,
   primitive: K,
+  surface: Surface = 'app',
 ): { gate: Calibration[K]['gate']; reason: null } | { gate: null; reason: string } {
   if (!calibration) return { gate: null, reason: 'uncalibrated' };
   if (calibration.model !== model || calibration.questionVersion !== QUESTION_VERSION) {
@@ -105,6 +116,11 @@ export function usableGate<K extends CalibratedPrimitive>(
   }
   const s = calibration[primitive];
   if (s.status === 'failed') return { gate: null, reason: `uncalibrated: ${primitive} 사전등록 기준 미달` };
+  if (primitive === 'commit' && surface !== 'app') {
+    const gate = calibration.commit.surfaceGates?.[surface];
+    // K is 'commit' here, so the surface's CommitGate is this primitive's gate type.
+    return gate ? { gate: gate as Calibration[K]['gate'], reason: null } : { gate: null, reason: `uncalibrated: ${SURFACE_KO[surface]} 화면 commit 보정 전` };
+  }
   return { gate: s.gate, reason: null };
 }
 

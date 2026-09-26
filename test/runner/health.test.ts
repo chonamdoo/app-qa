@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { crc32, deflateSync } from 'node:zlib';
-import type { Snapshot } from '../../src/core/types.ts';
+import type { AppTarget, Snapshot, WebTarget } from '../../src/core/types.ts';
 import { buildScreenModel } from '../../src/observe/index.ts';
 import type { Manifest } from '../../src/report/manifest.ts';
 import { checkHealth } from '../../src/runner/health.ts';
@@ -31,14 +31,16 @@ function solidPng(w: number, h: number, rgb: [number, number, number]): Uint8Arr
   return new Uint8Array(Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]));
 }
 
-function health(snap: Snapshot, appId = 'kr.tteonam.app') {
+const TTEONAM: AppTarget = { kind: 'app', platform: 'android', appId: 'kr.tteonam.app' };
+
+function health(snap: Snapshot, target: AppTarget = TTEONAM) {
   const model = buildScreenModel(snap, {});
-  return checkHealth(model, snap.screenshotPng ? decodePng(snap.screenshotPng) : null, appId);
+  return checkHealth(model, snap.screenshotPng ? decodePng(snap.screenshotPng) : null, target);
 }
 
 describe('health rules', () => {
   it('detects the RN RedBox on android/ticketestimate', () => {
-    const kinds = health(fixtureSnapshot('android', 'ticketestimate', 'launch'), 'com.ticketestimate').map((f) => `${f.kind}:${f.severity}`);
+    const kinds = health(fixtureSnapshot('android', 'ticketestimate', 'launch'), { ...TTEONAM, appId: 'com.ticketestimate' }).map((f) => `${f.kind}:${f.severity}`);
     assert.deepEqual(kinds, ['rn_redbox:fail']);
   });
 
@@ -92,5 +94,55 @@ describe('health rules', () => {
     const tap = result.tests[0]!.steps[1]!;
     assert.equal(tap.verdict, 'PASS', tap.reason);
     assert.equal(tap.settle?.changed, true);
+  });
+});
+
+describe('web health rules', () => {
+  const site = (platform: WebTarget['platform'], appId: string): WebTarget => ({
+    kind: 'web',
+    platform,
+    appId,
+    url: 'http://localhost:4173/',
+    origins: ['http://localhost:4173'],
+    viewport: { width: 1280, height: 800 },
+  });
+  const CHROME = site('desktop-chrome', 'chrome');
+  const kinds = (snap: Snapshot, target: WebTarget) => health(snap, target).map((f) => f.kind);
+
+  it('checks the desktop page origin from the full href', () => {
+    const page = (pageUrl: string | null) => fixtureSnapshot('desktop-chrome', 'web-demo', 'index', { pageUrl });
+    assert.deepEqual(kinds(page('http://localhost:4173/login.html?next=1'), CHROME), []);
+    assert.deepEqual(kinds(page(null), CHROME), [], 'no URL: nothing to judge');
+    for (const off of ['https://localhost:4173/', 'http://localhost:4174/', 'https://evil.example/', 'about:blank']) {
+      assert.deepEqual(kinds(page(off), CHROME), ['origin_mismatch'], off);
+    }
+  });
+
+  it('reads the mobile address bar as host[:port] (Safari drops the port, bidi marks and www.) or a full URL', () => {
+    const android = site('android', 'com.android.chrome');
+    const ios = site('ios', 'com.apple.mobilesafari');
+    const bar = (platform: 'android' | 'ios', pageUrl: string) => fixtureSnapshot(platform, 'web-demo', 'index', { pageUrl });
+    for (const shown of ['localhost:4173', 'localhost:4173/login.html', 'http://localhost:4173/x']) assert.deepEqual(kinds(bar('android', shown), android), [], shown);
+    assert.deepEqual(kinds(bar('ios', '\u200Elocalhost'), ios), []);
+    assert.deepEqual(kinds(bar('ios', 'www.localhost'), ios), []);
+    // A hint or search text in the bar tells nothing.
+    assert.deepEqual(kinds(bar('android', '검색어 또는 URL 입력'), android), []);
+    for (const shown of ['localhost:9999', 'evil.example', 'https://localhost:4173/']) assert.deepEqual(kinds(bar('android', shown), android), ['origin_mismatch'], shown);
+    assert.deepEqual(kinds(bar('ios', '\u200Eevil.example'), ios), ['origin_mismatch']);
+  });
+
+  it('fails Chrome and Safari error pages, and only on websites', () => {
+    for (const text of ['ERR_CONNECTION_REFUSED', '사이트에 연결할 수 없음', 'This site can’t be reached', 'Safari에서 페이지를 열 수 없습니다', 'Safari Can’t Open the Page', '서버에 연결할 수 없음']) {
+      const snap = fixtureSnapshot('desktop-chrome', 'web-demo', 'index', { patch: [['text="상품 3개"', `text="${text}"`]] });
+      assert.deepEqual(kinds(snap, CHROME), ['page_load_error'], text);
+    }
+    const app = fixtureSnapshot('android', 'tteonam', 'launch', { patch: [['text="출발했어요"', 'text="ERR_CONNECTION_REFUSED"']] });
+    assert.deepEqual(health(app), [], 'an app may show the text; the browser error page rule is for websites');
+  });
+
+  it('does not read a red web page as a React Native RedBox', () => {
+    const red = { ...fixtureSnapshot('desktop-chrome', 'web-demo', 'index'), screenshotPng: solidPng(90, 200, [230, 20, 20]) };
+    assert.deepEqual(kinds(red, CHROME), []);
+    assert.deepEqual(health({ ...fixtureSnapshot('android', 'tteonam', 'launch'), screenshotPng: solidPng(90, 200, [230, 20, 20]) }).map((f) => f.kind), ['rn_redbox']);
   });
 });

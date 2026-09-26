@@ -22,6 +22,12 @@ interface Pending {
 
 const BOUNDS = /^\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]$/;
 const EDITABLE_CLASS = /EditText|AutoCompleteTextView|SearchAutoComplete/;
+/**
+ * Chrome exposes a web `role="dialog"` element as this class (native dialogs are FrameLayout decor views). Its box
+ * swallows touches (a modal's full-screen container sits over the page), so it is marked focusable = touch-intercepting
+ * without becoming a target itself.
+ */
+const WEB_DIALOG_CLASS = 'android.app.AlertDialog';
 
 function parseBounds(bounds: string | undefined): Rect {
   const m = bounds ? BOUNDS.exec(bounds) : null;
@@ -68,7 +74,7 @@ export function parseAndroidSource(xml: string, _screen: Rect): RawNode[] {
       const flags: NodeFlags = {
         clickable: a.clickable === 'true',
         longClickable: a['long-clickable'] === 'true',
-        focusable: a.focusable === 'true',
+        focusable: a.focusable === 'true' || className === WEB_DIALOG_CLASS,
         checkable: a.checkable === 'true',
         checked: a.checked === 'true',
         enabled: a.enabled !== 'false',

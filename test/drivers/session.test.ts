@@ -7,7 +7,7 @@ import { AndroidDriver } from '../../src/drivers/android.ts';
 import { IosDriver } from '../../src/drivers/ios.ts';
 import { scriptOf, startAppiumStub, type AppiumStub, type Reply } from './stubs.ts';
 
-const APP = { platform: 'ios' as const, appId: 'kr.tteonam.app' };
+const APP = { kind: 'app' as const, platform: 'ios' as const, appId: 'kr.tteonam.app' };
 
 describe('iOS hideKeyboard outcome', () => {
   /** Keyboard shown until a hideKeyboard answer arrives that `dismisses`; the hideKeyboard reply is scripted. */
@@ -67,7 +67,7 @@ describe('gesture outcome on unvalidated 200 answers', () => {
   it('a tap answered with HTTP 200 but no W3C envelope is uncertain', async () => {
     stub = await startAppiumStub((req) => (req.path === '/session/s1/actions' ? { body: {} } : undefined));
     const driver = new AndroidDriver('emulator-5554', { serverUrl: stub.url });
-    await driver.open({ platform: 'android', appId: 'kr.tteonam.app' });
+    await driver.open({ kind: 'app', platform: 'android', appId: 'kr.tteonam.app' });
     assert.equal((await driver.tap({ x: 10, y: 10 })).status, 'uncertain');
     await driver.close();
   });
@@ -75,7 +75,7 @@ describe('gesture outcome on unvalidated 200 answers', () => {
   it('a tap answered with a message-less W3C refusal is rejected', async () => {
     stub = await startAppiumStub((req) => (req.path === '/session/s1/actions' ? { body: { value: { error: 'move target out of bounds' } } } : undefined));
     const driver = new AndroidDriver('emulator-5554', { serverUrl: stub.url });
-    await driver.open({ platform: 'android', appId: 'kr.tteonam.app' });
+    await driver.open({ kind: 'app', platform: 'android', appId: 'kr.tteonam.app' });
     assert.equal((await driver.tap({ x: 10, y: 10 })).status, 'rejected');
     await driver.close();
   });
@@ -89,7 +89,7 @@ describe('gesture outcome on unvalidated 200 answers', () => {
     let reply: { status: number; body: unknown } = { status: 200, body: null };
     stub = await startAppiumStub((req) => (req.path === '/session/s1/actions' ? reply : undefined));
     const driver = new AndroidDriver('emulator-5554', { serverUrl: stub.url });
-    await driver.open({ platform: 'android', appId: 'kr.tteonam.app' });
+    await driver.open({ kind: 'app', platform: 'android', appId: 'kr.tteonam.app' });
     for (const status of [200, 404]) {
       for (const body of bodies) {
         reply = { status, body };
@@ -129,7 +129,7 @@ describe('mutating commands succeed only with W3C value null', () => {
     });
     const driver = platform === 'android' ? new AndroidDriver('emulator-5554', { serverUrl: stub.url }) : new IosDriver('SIM-UDID', { serverUrl: stub.url });
     try {
-      await driver.open({ platform, appId: 'kr.tteonam.app' });
+      await driver.open({ kind: 'app', platform, appId: 'kr.tteonam.app' });
       return await act(driver);
     } finally {
       await driver.close();
@@ -157,7 +157,7 @@ describe('mutating commands succeed only with W3C value null', () => {
 
 describe('mutating mobile: scripts succeed only with their documented answer', () => {
   const AT = { x: 10, y: 10 };
-  const IOS_APP = { platform: 'ios' as const, appId: 'kr.tteonam.app' };
+  const IOS_APP = { kind: 'app' as const, platform: 'ios' as const, appId: 'kr.tteonam.app' };
   const NOT_NULL = [{ done: true }, false, true, ''];
   /** Driver actions and the script whose answer is scripted; `documented` = the pinned drivers' success answers. */
   const SCRIPTS: Record<string, { platform: 'android' | 'ios'; script: string; documented: unknown[]; malformed: unknown[]; act: (d: AndroidDriver | IosDriver) => Promise<ActionOutcome> }> = {
@@ -192,7 +192,7 @@ describe('mutating mobile: scripts succeed only with their documented answer', (
     });
     const driver = platform === 'android' ? new AndroidDriver('emulator-5554', { serverUrl: stub.url }) : new IosDriver('SIM-UDID', { serverUrl: stub.url });
     try {
-      await driver.open({ platform, appId: 'kr.tteonam.app' });
+      await driver.open({ kind: 'app', platform, appId: 'kr.tteonam.app' });
       return await act(driver);
     } finally {
       await driver.close();

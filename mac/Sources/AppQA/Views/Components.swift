@@ -31,7 +31,15 @@ enum Palette {
         "selector": "selector", "fast_path": "fast path", "jev": "Jev", "deterministic": "결정적", "none": "없음",
     ]
 
-    static let platformLabel: [String: String] = ["android": "Android", "ios": "iOS"]
+    /// Mirror of `PLATFORM_INFO` (src/core/platform.ts): `label` for app profiles, `webLabel` for website profiles.
+    static let platformLabel: [String: String] = [
+        "android": "Android", "ios": "iOS", "desktop-chrome": "Chrome (macOS)", "desktop-safari": "Safari (macOS)",
+    ]
+    static let webPlatformLabel: [String: String] = [
+        "android": "Android Chrome", "ios": "iOS Safari", "desktop-chrome": "Chrome (macOS)", "desktop-safari": "Safari (macOS)",
+    ]
+    /// This Mac's browsers: no live screen, recording or installed-app list (the engine answers 409).
+    static let desktopPlatforms: Set<String> = ["desktop-chrome", "desktop-safari"]
 }
 
 struct VerdictBadge: View {

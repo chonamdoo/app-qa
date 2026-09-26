@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { adbPath, PATHS } from '../core/config.ts';
 import { ensureDir } from '../core/fsx.ts';
+import { PLATFORM_INFO } from '../core/platform.ts';
 import { run, xcrun } from './exec.ts';
 import { APPIUM_MAIN } from './server.ts';
 
@@ -10,7 +11,28 @@ import { APPIUM_MAIN } from './server.ts';
 export const PINNED_DRIVERS: Record<string, { pkg: string; version: string }> = {
   uiautomator2: { pkg: 'appium-uiautomator2-driver', version: '8.7.0' },
   xcuitest: { pkg: 'appium-xcuitest-driver', version: '12.13.2' },
+  chromium: { pkg: 'appium-chromium-driver', version: '3.1.1' },
+  safari: { pkg: 'appium-safari-driver', version: '5.0.10' },
 };
+
+/** chromedriver binaries appium-chromium-driver downloads per Chrome version (`appium:executableDir`). */
+export const CHROMEDRIVER_DIR = join(PATHS.tools, 'chromedriver');
+
+export type DesktopPlatform = 'desktop-chrome' | 'desktop-safari';
+
+/** Each desktop browser: display name, app bundle (the location chromedriver / safaridriver launch) and its own WebDriver binary. */
+export const DESKTOP_BROWSERS: Record<DesktopPlatform, { name: string; app: string; webdriver: string | null }> = {
+  'desktop-chrome': { name: 'Chrome', app: '/Applications/Google Chrome.app', webdriver: null },
+  'desktop-safari': { name: 'Safari', app: '/Applications/Safari.app', webdriver: '/usr/bin/safaridriver' },
+};
+
+/** Installed browser version from its bundle's Info.plist; null when it is not installed (or this is not macOS). */
+export async function desktopBrowserVersion(platform: DesktopPlatform): Promise<string | null> {
+  const plist = join(DESKTOP_BROWSERS[platform].app, 'Contents', 'Info.plist');
+  if (process.platform !== 'darwin' || !existsSync(plist)) return null;
+  const r = await run('/usr/bin/plutil', ['-extract', 'CFBundleShortVersionString', 'raw', '-o', '-', plist], { allowFail: true, timeoutMs: 10_000 });
+  return (r.code === 0 && r.stdout.toString('utf8').trim()) || null;
+}
 
 export interface Check {
   label: string;
@@ -97,4 +119,36 @@ export async function checkXcode(): Promise<Check> {
   } catch (err) {
     return { label: 'Xcode', ok: false, detail: (err as Error).message.slice(0, 200), hint: 'Xcode 설치 후 `sudo xcode-select -s /Applications/Xcode.app` 실행' };
   }
+}
+
+/** How to let safaridriver control Safari (the user's own step: it needs admin rights). */
+export const SAFARI_AUTOMATION_HINT =
+  'Safari 설정 › 고급 › "웹 개발자용 기능 보기"를 켠 뒤 개발자 메뉴 › "원격 자동화 허용"을 선택하거나, 터미널에서 `sudo safaridriver --enable`을 한 번 실행하세요';
+
+/**
+ * Read-only readiness of the desktop browsers: Chrome installed (version), the pinned chromium/safari Appium drivers and
+ * safaridriver. Whether Safari allows remote automation can only be proven by opening a session.
+ */
+export async function desktopBrowserChecks(): Promise<Check[]> {
+  const [chrome, safari] = await Promise.all([desktopBrowserVersion('desktop-chrome'), desktopBrowserVersion('desktop-safari')]);
+  const installed = installedDriverVersions();
+  const checks: Check[] = [
+    chrome
+      ? { label: PLATFORM_INFO['desktop-chrome'].label, ok: true, detail: `Chrome ${chrome} (chromedriver는 첫 세션에서 ${CHROMEDRIVER_DIR}에 자동으로 받습니다)` }
+      : { label: PLATFORM_INFO['desktop-chrome'].label, ok: false, detail: `${DESKTOP_BROWSERS['desktop-chrome'].app} 없음`, hint: 'Google Chrome을 /Applications에 설치하세요' },
+  ];
+  for (const name of ['chromium', 'safari']) {
+    const { version } = PINNED_DRIVERS[name]!;
+    const got = installed[name] ?? null;
+    checks.push({ label: `Appium 드라이버 ${name}`, ok: got === version, detail: got === version ? version : `${got ?? '설치 안 됨'} (고정 버전 ${version})`, hint: '`qa setup` 실행' });
+  }
+  const safaridriver = DESKTOP_BROWSERS['desktop-safari'].webdriver!;
+  const ready = safari !== null && existsSync(safaridriver);
+  checks.push({
+    label: PLATFORM_INFO['desktop-safari'].label,
+    ok: ready,
+    detail: ready ? `Safari ${safari}, ${safaridriver} 있음 — 원격 자동화 허용 여부는 세션을 열어야 확인됩니다 (${SAFARI_AUTOMATION_HINT})` : `${safari === null ? 'Safari' : safaridriver} 없음`,
+    hint: 'Safari와 safaridriver는 macOS 기본 구성요소입니다. macOS에서 실행하세요',
+  });
+  return checks;
 }

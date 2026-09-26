@@ -285,7 +285,7 @@ describe('jobs', { timeout: 10_000 }, () => {
       writeFileSync(join(outside, 'spec.md'), '# outside');
       writeFileSync(join(outside, 'profile.md'), '# profile');
       mkdirSync(join(root, 'apps'), { recursive: true });
-      writeFileSync(join(root, 'apps', 'demo.yaml'), JSON.stringify({ id: 'demo', name: 'Demo', docs: [join(outside, 'profile.md')] }));
+      writeFileSync(join(root, 'apps', 'demo.yaml'), JSON.stringify({ id: 'demo', name: 'Demo', android: { package: 'kr.demo.app' }, docs: [join(outside, 'profile.md')] }));
       mkdirSync(join(root, 'docs', 'sub'), { recursive: true });
       writeFileSync(join(root, 'docs', 'spec.md'), '# inside');
       writeFileSync(join(root, 'docs', 'sub', 'a.md'), '# inside');
@@ -313,6 +313,43 @@ describe('jobs', { timeout: 10_000 }, () => {
     } finally {
       rmSync(outside, { recursive: true, force: true });
     }
+  });
+});
+
+describe('web targets', { timeout: 10_000 }, () => {
+  test('device-only routes refuse desktop browsers with 409 and a Korean reason; unknown platforms stay 400', async () => {
+    const screen = await call('/api/devices/desktop-chrome/desktop-chrome/screen');
+    assert.equal(screen.status, 409);
+    assert.match(JSON.parse(screen.body.toString()).error, /^Chrome \(macOS\): 데스크톱 브라우저는 실시간 화면이 없습니다/);
+    const recording = await call('/api/devices/desktop-safari/desktop-safari/recording', { method: 'POST', body: JSON.stringify({ on: true }) });
+    assert.equal(recording.status, 409);
+    assert.equal((await call('/api/apps?platform=desktop-chrome&device=desktop-chrome')).status, 409);
+    assert.equal((await call('/api/devices/windows/pc/screen')).status, 400);
+    assert.equal((await call('/api/devices/android/emu-1/screen')).status, 200);
+  });
+
+  test('app profiles expose web settings and the platforms each profile runs on', async () => {
+    mkdirSync(join(root, 'apps'), { recursive: true });
+    writeFileSync(join(root, 'apps', 'shop.yaml'), JSON.stringify({ id: 'shop', name: '상점', web: { url: 'http://localhost:4173/', platforms: ['desktop-chrome', 'android'] } }));
+    writeFileSync(join(root, 'apps', 'tteonam.yaml'), JSON.stringify({ id: 'tteonam', name: '떠남', android: { package: 'kr.tteonam.app' }, ios: { bundleId: 'kr.tteonam.app' } }));
+    const body = JSON.parse((await call('/api/app-profiles')).body.toString()) as { profiles: { id: string; platforms: string[]; web?: { url: string; viewport: { width: number } } }[] };
+    const shop = body.profiles.find((p) => p.id === 'shop');
+    assert.deepEqual(shop?.platforms, ['android', 'desktop-chrome']);
+    assert.equal(shop?.web?.url, 'http://localhost:4173/');
+    assert.equal(shop?.web?.viewport.width, 1280);
+    assert.deepEqual(body.profiles.find((p) => p.id === 'tteonam')?.platforms, ['android', 'ios']);
+  });
+
+  test('a smoke of a website on `all` claims its browsers (desktop by browser id) and is titled with web labels', async () => {
+    mkdirSync(join(root, 'apps'), { recursive: true });
+    writeFileSync(join(root, 'apps', 'shop.yaml'), JSON.stringify({ id: 'shop', name: '상점', web: { url: 'http://localhost:4173/', platforms: ['desktop-chrome', 'android'] } }));
+    const finished = waitForEvent((e) => e.type === 'job.finished' && e.kind === 'smoke');
+    const reply = await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'smoke', params: { app: 'shop', deviceIds: { android: 'emulator-5554' } } }) });
+    assert.equal(reply.status, 201, reply.body.toString());
+    const job = JSON.parse(reply.body.toString()) as { devices: string[]; title: string };
+    assert.deepEqual(job.devices, ['android:emulator-5554', 'desktop-chrome:desktop-chrome']);
+    assert.equal(job.title, '스모크 · shop · Android Chrome + Chrome (macOS)');
+    await finished;
   });
 });
 

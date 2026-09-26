@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>주문서 · 모아마켓</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="shop.html">모아마켓</a>
+    <nav><a href="cart.html">장바구니 2</a></nav>
+  </header>
+
+  <main class="narrow">
+    <ol class="steps">
+      <li>장바구니</li>
+      <li aria-current="step">주문서 작성</li>
+      <li>완료</li>
+    </ol>
+    <section class="card">
+      <div class="spread">
+        <h2>배송지</h2>
+        <button type="button" class="ghost">배송지 변경</button>
+      </div>
+      <p>김하늘 · 010-****-5678</p>
+      <p class="muted">서울시 마포구 월드컵북로 12, 3층</p>
+    </section>
+    <section class="card">
+      <h2>쿠폰</h2>
+      <div class="row">
+        <label for="coupon" class="sr">쿠폰 코드</label>
+        <input id="coupon" value="WELCOME10" placeholder="쿠폰 코드">
+        <button type="button" class="ghost" data-status="쿠폰 10%가 적용되었습니다">쿠폰 적용</button>
+      </div>
+      <p role="status"></p>
+    </section>
+    <section class="card">
+      <h2>결제 수단</h2>
+      <label class="inline"><input type="radio" name="pm" checked> 신한카드 (1234)</label>
+      <label class="inline"><input type="radio" name="pm"> 무통장 입금</label>
+      <div class="spread" style="margin-top: 10px">
+        <span>상품 2개 · 배송비 무료</span>
+        <span class="price">총 12,300원</span>
+      </div>
+    </section>
+    <div class="row end">
+      <a href="cart.html">이전 단계</a>
+      <button type="button" class="dark" data-open="confirm">결제하기</button>
+    </div>
+  </main>
+
+  <div id="confirm" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
+    <div class="scrim"></div>
+    <div class="sheet">
+      <h2 id="confirm-title">주문을 확정할까요?</h2>
+      <p>신한카드(1234)로 12,300원이 청구되고 판매자에게 주문이 전달됩니다.</p>
+      <div class="row end">
+        <button type="button" class="ghost" data-close>취소</button>
+        <button type="button" class="dark" data-close>확인</button>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

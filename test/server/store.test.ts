@@ -67,9 +67,66 @@ describe('events.jsonl validation', () => {
         { ...finished, seq: 3, ts: '2026-09-26T02:00:02.000Z', verdict: 'FAIL', platform: 'windows' },
       ),
     );
-    const view = await readPlanView({ root, generatedDir: generated, runsDir, app: 'demo' });
+    const view = await readPlanView({ root, generatedDir: generated, runsDir, appsDir: join(root, 'apps'), app: 'demo' });
     assert.ok(view !== null && !('error' in view), JSON.stringify(view));
     assert.deepEqual(view.tests[0]?.results, [{ platform: 'android', verdict: 'PASS', runId: 'run-b', ts: '2026-09-26T02:00:00.000Z' }]);
     assert.equal(view.invalidEventLines, 2);
+  });
+
+  test('runs on desktop browsers are read like device runs, not dropped as malformed', async () => {
+    const runsDir = join(root, 'runs-web');
+    mkdirSync(join(runsDir, 'run-w'), { recursive: true });
+    writeFileSync(
+      join(runsDir, 'run-w', 'events.jsonl'),
+      jsonl(
+        {
+          seq: 1,
+          ts: '2026-09-26T03:00:00.000Z',
+          type: 'run.started',
+          runId: 'run-w',
+          runDir: 'x',
+          tests: [{ id: 'search', name: '검색', platforms: ['desktop-chrome', 'desktop-safari'], steps: [] }],
+          devices: [{ platform: 'desktop-chrome', id: 'desktop-chrome', name: 'Chrome 153' }],
+        },
+        { seq: 2, ts: '2026-09-26T03:00:05.000Z', type: 'run.finished', runId: 'run-w', counts: { PASS: 1, FAIL: 0, INCONCLUSIVE: 0, ERROR: 0, SKIPPED: 0 }, reportPath: 'r.html', junitPath: null },
+      ),
+    );
+    const [run] = await listRuns(runsDir);
+    assert.equal(run?.invalidEventLines, 0);
+    assert.equal(run?.finished, true);
+    assert.deepEqual(run?.tests[0]?.platforms, ['desktop-chrome', 'desktop-safari']);
+    assert.deepEqual(run?.devices, [{ platform: 'desktop-chrome', id: 'desktop-chrome', name: 'Chrome 153' }]);
+  });
+
+  test('plan view: a test without platforms runs on its web profile platforms and shows their results', async () => {
+    const base = join(root, 'plan-web');
+    const generated = join(base, 'generated');
+    const runsDir = join(base, 'runs');
+    const apps = join(base, 'apps');
+    for (const dir of [join(generated, 'shop'), join(base, 'tests'), join(runsDir, 'run-c'), apps]) mkdirSync(dir, { recursive: true });
+    writeFileSync(join(apps, 'shop.yaml'), JSON.stringify({ id: 'shop', name: '상점', web: { url: 'http://localhost:4173/', platforms: ['desktop-safari', 'ios'] } }));
+    writeFileSync(join(base, 'tests', 'search.e2e.yaml'), JSON.stringify({ id: 'search', name: '검색', app: 'shop', steps: [{ back: true }] }));
+    writeFileSync(
+      join(generated, 'shop', 'plan.json'),
+      JSON.stringify({
+        version: 1,
+        app: 'shop',
+        createdAt: '2026-09-26T00:00:00.000Z',
+        llm: { provider: 'claude-cli', model: null },
+        docs: [],
+        requirements: [],
+        tests: [{ file: 'tests/search.e2e.yaml', covers: [], status: 'draft', review: { addressesRequirement: null, unrelatedSteps: null, needsClarification: null, issues: [] } }],
+        untestable: [],
+      }),
+    );
+    const finished = { type: 'test.finished', runId: 'run-c', testId: 'search', reason: '', durationMs: 1 };
+    writeFileSync(
+      join(runsDir, 'run-c', 'events.jsonl'),
+      jsonl({ ...finished, seq: 1, ts: '2026-09-26T04:00:00.000Z', verdict: 'PASS', platform: 'desktop-safari' }, { ...finished, seq: 2, ts: '2026-09-26T04:00:01.000Z', verdict: 'FAIL', platform: 'android' }),
+    );
+    const view = await readPlanView({ root: base, generatedDir: generated, runsDir, appsDir: apps, app: 'shop' });
+    assert.ok(view !== null && !('error' in view), JSON.stringify(view));
+    assert.deepEqual(view.tests[0]?.platforms, ['ios', 'desktop-safari']);
+    assert.deepEqual(view.tests[0]?.results, [{ platform: 'desktop-safari', verdict: 'PASS', runId: 'run-c', ts: '2026-09-26T04:00:00.000Z' }]);
   });
 });

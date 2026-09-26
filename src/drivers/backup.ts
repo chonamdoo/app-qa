@@ -6,6 +6,7 @@ import { pipeline } from 'node:stream/promises';
 import { adb, adbShell, xcrun } from '../appium/exec.ts';
 import { PATHS } from '../core/config.ts';
 import { ensureDir } from '../core/fsx.ts';
+import { PLATFORM_INFO } from '../core/platform.ts';
 import type { Platform } from '../core/types.ts';
 import { appIdProblem } from './appid.ts';
 
@@ -56,7 +57,8 @@ export async function hashTree(root: string): Promise<{ sha256: string; bytes: n
   return { sha256: createHash('sha256').update(entries.join('\n')).digest('hex'), bytes, files };
 }
 
-const EXT: Record<Platform, string[]> = { android: ['.apk', '.apks'], ios: ['.app'] };
+/** Backup file extensions per platform. Desktop browsers have no app binaries (`backupDir` refuses them first). */
+const EXT: Record<Platform, readonly string[]> = { android: ['.apk', '.apks'], ios: ['.app'], 'desktop-chrome': [], 'desktop-safari': [] };
 
 /** `.qa/apps/<appId>` for a validated app id; never a path outside `.qa/apps`. */
 function backupDir(platform: Platform, appId: string): string {
@@ -96,33 +98,40 @@ export async function backupApp(platform: Platform, deviceId: string, appId: str
   const dir = ensureDir(backupDir(platform, appId));
   const tmp = mkdtempSync(join(dir, '.tmp-'));
   try {
-    if (platform === 'android') {
-      const remote = parsePmPath(await adbShell(deviceId, ['pm', 'path', appId], { timeoutMs: 30_000, allowFail: true }));
-      if (remote.length === 0) throw new Error(`${deviceId}에 ${appId}가 설치되어 있지 않습니다.`);
-      for (const r of remote) await adb(deviceId, ['pull', r, join(tmp, basename(r))], { timeoutMs: 600_000 });
-      const tree = await hashTree(tmp);
-      if (remote.length === 1) {
-        const file = join(tmp, basename(remote[0]!));
-        const sha = await hashFile(file);
-        const target = join(dir, `${sha}.apk`);
-        const reused = commit(file, target);
-        return { platform, appId, path: target, sha256: sha, bytes: tree.bytes, files: 1, reused };
+    switch (platform) {
+      case 'android': {
+        const remote = parsePmPath(await adbShell(deviceId, ['pm', 'path', appId], { timeoutMs: 30_000, allowFail: true }));
+        if (remote.length === 0) throw new Error(`${deviceId}에 ${appId}가 설치되어 있지 않습니다.`);
+        for (const r of remote) await adb(deviceId, ['pull', r, join(tmp, basename(r))], { timeoutMs: 600_000 });
+        const tree = await hashTree(tmp);
+        if (remote.length === 1) {
+          const file = join(tmp, basename(remote[0]!));
+          const sha = await hashFile(file);
+          const target = join(dir, `${sha}.apk`);
+          const reused = commit(file, target);
+          return { platform, appId, path: target, sha256: sha, bytes: tree.bytes, files: 1, reused };
+        }
+        const target = join(dir, `${tree.sha256}.apks`);
+        const staged = join(tmp, 'bundle');
+        ensureDir(staged);
+        for (const r of remote) renameSync(join(tmp, basename(r)), join(staged, basename(r)));
+        const reused = commit(staged, target);
+        return { platform, appId, path: target, sha256: tree.sha256, bytes: tree.bytes, files: tree.files, reused };
       }
-      const target = join(dir, `${tree.sha256}.apks`);
-      const staged = join(tmp, 'bundle');
-      ensureDir(staged);
-      for (const r of remote) renameSync(join(tmp, basename(r)), join(staged, basename(r)));
-      const reused = commit(staged, target);
-      return { platform, appId, path: target, sha256: tree.sha256, bytes: tree.bytes, files: tree.files, reused };
+      case 'ios': {
+        const container = (await xcrun(['simctl', 'get_app_container', deviceId, appId, 'app'], { timeoutMs: 30_000 })).trim();
+        if (!container.endsWith('.app')) throw new Error(`${appId}의 앱 번들 경로를 얻지 못했습니다: ${container}`);
+        const staged = join(tmp, basename(container));
+        cpSync(container, staged, { recursive: true, verbatimSymlinks: true, preserveTimestamps: true });
+        const tree = await hashTree(staged);
+        const target = join(dir, `${tree.sha256}.app`);
+        const reused = commit(staged, target);
+        return { platform, appId, path: target, sha256: tree.sha256, bytes: tree.bytes, files: tree.files, reused };
+      }
+      case 'desktop-chrome':
+      case 'desktop-safari':
+        throw new Error(`${PLATFORM_INFO[platform].label}에는 백업할 앱이 없습니다 (웹 대상만 실행).`);
     }
-    const container = (await xcrun(['simctl', 'get_app_container', deviceId, appId, 'app'], { timeoutMs: 30_000 })).trim();
-    if (!container.endsWith('.app')) throw new Error(`${appId}의 앱 번들 경로를 얻지 못했습니다: ${container}`);
-    const staged = join(tmp, basename(container));
-    cpSync(container, staged, { recursive: true, verbatimSymlinks: true, preserveTimestamps: true });
-    const tree = await hashTree(staged);
-    const target = join(dir, `${tree.sha256}.app`);
-    const reused = commit(staged, target);
-    return { platform, appId, path: target, sha256: tree.sha256, bytes: tree.bytes, files: tree.files, reused };
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

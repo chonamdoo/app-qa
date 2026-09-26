@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>배달 주문 확인 · 한끼배달</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="food.html">한끼배달</a>
+    <nav><a href="food.html#store">가게 정보</a></nav>
+  </header>
+
+  <main class="narrow">
+    <h1>성수동 국수집</h1>
+    <section class="card">
+      <p>비빔국수 × 1 — 8,500원</p>
+      <p>만두 반 접시 × 1 — 5,000원</p>
+      <p class="muted">배달팁 3,000원 · 예상 도착 35~45분</p>
+      <label class="inline"><input type="checkbox" checked> 일회용 수저 안 받기</label>
+      <div class="row"><button type="button" class="link" aria-expanded="false" aria-controls="memo">요청사항 입력</button></div>
+      <div id="memo" class="acc-body" hidden><textarea aria-label="가게 요청사항"></textarea></div>
+    </section>
+    <form class="card" data-done="배달을 요청했습니다. 가게가 곧 접수합니다.">
+      <div class="spread"><span>현대카드 (5521)로 청구</span><span class="price">총 16,500원</span></div>
+      <div class="row end" style="margin-top: 10px"><button type="submit">배달 요청하기</button></div>
+    </form>
+    <p role="status"></p>
+  </main>
+  <script src="../app.js"></script>
+</body>
+</html>

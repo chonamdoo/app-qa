@@ -1,0 +1,453 @@
+{
+  "url": "http://localhost:4174/holdout/repo-en.html",
+  "title": "Settings · acme/billing-service · Forgehub",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "Settings · acme/billing-service · Forgehub",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "Forgehub",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 76.65625,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1087.546875,
+      "y": 12.25,
+      "w": 168.453125,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "Code",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1087.546875,
+      "y": 12.25,
+      "w": 32.25,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "Branches",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1133.796875,
+      "y": 12.25,
+      "w": 57.453125,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "Settings",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1205.25,
+      "y": 12.25,
+      "w": 50.75,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 499.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "heading",
+      "name": null,
+      "text": "acme/billing-service",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 113,
+      "w": 592,
+      "h": 108,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "heading",
+      "name": null,
+      "text": "Clone",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 130,
+      "w": 558,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 9,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 163.5,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "input",
+      "name": "Clone URL",
+      "text": null,
+      "id": null,
+      "value": "git@forgehub.dev:acme/billing-service.git",
+      "hint": null,
+      "x": 361,
+      "y": 163.5,
+      "w": 420.390625,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 11,
+      "kind": "button",
+      "name": null,
+      "text": "Copy clone URL",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 791.390625,
+      "y": 164.5,
+      "w": 127.609375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 235,
+      "w": 592,
+      "h": 108,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "heading",
+      "name": null,
+      "text": "Repository name",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 252,
+      "w": 558,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 14,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 285.5,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "input",
+      "name": "Repository name",
+      "text": null,
+      "id": null,
+      "value": "payments-service",
+      "hint": null,
+      "x": 361,
+      "y": 285.5,
+      "w": 469.15625,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 16,
+      "kind": "button",
+      "name": null,
+      "text": "Rename",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 840.15625,
+      "y": 286.5,
+      "w": 78.84375,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 357,
+      "w": 592,
+      "h": 135.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "heading",
+      "name": null,
+      "text": "Visibility",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 374,
+      "w": 558,
+      "h": 25.5,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "text",
+      "name": null,
+      "text": "This repository is private. Anyone on the internet will be able to see and clone it once public.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 407.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 19,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 435,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 22,
+      "kind": "button",
+      "name": null,
+      "text": "Make public",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 435,
+      "w": 105.5,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 22,
+      "kind": "button",
+      "name": null,
+      "text": "Show more",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 476.5,
+      "y": 440,
+      "w": 83.234375,
+      "h": 30.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 7,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 506.5,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

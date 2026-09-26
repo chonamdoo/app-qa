@@ -79,7 +79,7 @@ describe('android device log capture', () => {
         .map((f) => join(PATHS.logs, f));
     const driver = new AndroidDriver(serial);
     try {
-      await driver.startLogs({ platform: 'android', appId: 'kr.tteonam.app' }, mask);
+      await driver.startLogs({ kind: 'app', platform: 'android', appId: 'kr.tteonam.app' }, mask);
       // The fake logcat exits after printing; the last line is written once the stream ends.
       for (let i = 0; i < 100 && (await driver.logSlice('2026-09-26T00:59:00Z', '2026-09-26T01:01:00Z')).split('\n').length < 3; i++) await delay(50);
       await driver.close();
@@ -92,6 +92,44 @@ describe('android device log capture', () => {
     } finally {
       await driver.close();
       for (const f of files()) rmSync(f, { force: true });
+    }
+  });
+
+  it('slices and crash windows are host time although the device clock is 5 s behind (offset measured at startLogs)', async () => {
+    fake.skewClock(-5000);
+    const now = Date.now();
+    const deviceStamp = (hostMs: number) => new Date(hostMs - 5000).toISOString().replace('T', ' ').replace('Z', ' +0000');
+    const lines = [
+      `${deviceStamp(now - 60_000)}  4242  4242 I ReactNativeJS: 이전 테스트`,
+      `${deviceStamp(now - 1000)}  4242  4242 E AndroidRuntime: FATAL EXCEPTION: main`,
+      `${deviceStamp(now - 999)}  4242  4242 E AndroidRuntime: Process: kr.tteonam.app, PID: 4242`,
+    ];
+    writeFileSync(join(fake.root, 'logcat.txt'), `${lines.join('\n')}\n`);
+    const serial = `emulator-skew-${process.pid}`;
+    const app = { kind: 'app' as const, platform: 'android' as const, appId: 'kr.tteonam.app' };
+    const driver = new AndroidDriver(serial);
+    try {
+      const armedFrom = Date.now();
+      await driver.startLogs(app, (line) => line);
+      const armedTo = Date.now();
+      const [from, to] = [new Date(now - 3000).toISOString(), new Date(now).toISOString()];
+      let slice = '';
+      for (let i = 0; i < 60 && !slice.includes('PID: 4242'); i++, await delay(50)) slice = await driver.logSlice(from, to);
+      assert.equal(slice, lines.slice(1).join('\n'));
+      assert.deepEqual(
+        (await driver.crashArtifacts(app, from)).map((a) => a.content),
+        [lines.slice(1).join('\n')],
+      );
+      // `-T` is taken while startLogs runs: 30 s before "now" on the device clock (host − 5 s), within the arm window.
+      const since = Number(fake.hostCalls().find((c) => c.includes('--pid=4242'))?.at(-2)) * 1000;
+      const skewSlackMs = 500;
+      assert.ok(
+        since >= armedFrom - 5000 - 30_000 - skewSlackMs && since <= armedTo - 5000 - 30_000 + skewSlackMs,
+        `logcat -T ${since / 1000} is 30 s back in device time`,
+      );
+    } finally {
+      await driver.close();
+      for (const f of readdirSync(PATHS.logs).filter((n) => n.startsWith(`android-${serial}-`))) rmSync(join(PATHS.logs, f), { force: true });
     }
   });
 

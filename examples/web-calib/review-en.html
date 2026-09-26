@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checkout — Review · Northwind Goods</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="checkout-en.html">Northwind Goods</a>
+    <nav><a href="cart.html">Cart (3)</a></nav>
+  </header>
+
+  <main class="narrow">
+    <ol class="steps">
+      <li>Cart</li>
+      <li>Shipping</li>
+      <li>Payment</li>
+      <li aria-current="step">Review</li>
+    </ol>
+    <section class="card">
+      <h2>Items</h2>
+      <p>Ceramic pour-over set × 1 — $38.00</p>
+      <p>Stoneware mug, sand × 2 — $24.00</p>
+      <p class="muted">Ships to Jordan Lee, 221 Market St, Apt 4, San Francisco · Visa ending 4242</p>
+      <div class="spread"><span>Total</span><span class="price">$55.70</span></div>
+    </section>
+    <div class="row end">
+      <a href="checkout-en.html">Edit shipping</a>
+      <button type="button" class="dark" data-open="confirm">Place order</button>
+    </div>
+  </main>
+
+  <div id="confirm" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
+    <div class="scrim"></div>
+    <div class="sheet">
+      <h2 id="confirm-title">Ready to buy?</h2>
+      <p>Your Visa ending 4242 will be charged $55.70 and the seller will start packing right away.</p>
+      <div class="row end">
+        <button type="button" class="ghost" data-close>Go back</button>
+        <button type="button" class="dark" data-close>Confirm</button>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

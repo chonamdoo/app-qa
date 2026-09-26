@@ -2,9 +2,12 @@
 // tables with thumbnails (linked relatively inside the run dir), decision sources, health findings and log excerpts.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { PLATFORMS } from '../core/platform.ts';
 import type { Platform, Verdict } from '../core/types.ts';
+import { platformLabel, QA_STATUSES, type QaStatus } from './status.ts';
 import type { Traceability } from './trace.ts';
 import type { DecisionSummary, RunSummary, StepResult, TestResult } from './types.ts';
+import { WEB_QA_DIR } from './webqa.ts';
 
 const VERDICT_KO: Record<Verdict, string> = { PASS: '통과', FAIL: '실패', INCONCLUSIVE: '판정 불가', ERROR: '오류', SKIPPED: '건너뜀' };
 const SOURCE_KO: Record<DecisionSummary['source'], string> = { selector: '셀렉터', fast_path: '라벨 일치', jev: 'Jev', deterministic: '결정적', none: '없음' };
@@ -18,6 +21,11 @@ function esc(s: string): string {
 
 function badge(v: Verdict): string {
   return `<span class="v v-${v}">${VERDICT_KO[v]}</span>`;
+}
+
+/** web-qa status (PASS / FAIL / BLOCKED / NOT_RUN …) next to the verdict. */
+function qaTag(s: QaStatus): string {
+  return `<span class="qa qa-${s}">${s}</span>`;
 }
 
 function statusBadge(status: TestResult['status']): string {
@@ -66,7 +74,7 @@ function testSection(t: TestResult, runDir: string): string {
     : '';
   const logs = [t.logs, ...t.crash].filter((p): p is string => p !== null).map((p) => excerpt(runDir, p)).join('');
   return `<section class="test" id="${esc(`${t.id}-${t.platform}`)}">
-<h3>${badge(t.verdict)} ${esc(t.name)} <span class="muted">${esc(t.id)} · ${esc(t.platform)}${t.deviceName ? ` · ${esc(t.deviceName)}` : ''} · ${(t.durationMs / 1000).toFixed(1)}초</span>${statusBadge(t.status)}</h3>
+<h3>${badge(t.verdict)} ${qaTag(t.qaStatus)} ${esc(t.name)} <span class="muted">${esc(t.id)} · ${esc(platformLabel(t.platform, t.surface ?? 'app'))}${t.deviceName ? ` · ${esc(t.deviceName)}` : ''} · ${(t.durationMs / 1000).toFixed(1)}초</span>${statusBadge(t.status)}</h3>
 <p>${esc(t.reason)}${t.file ? ` <span class="muted">(${esc(t.file)})</span>` : ''}</p>
 ${t.covers.length ? `<p class="muted">요구사항: ${t.covers.map(esc).join(', ')}</p>` : ''}
 ${warnings}${health}${logs ? `<div class="logs"><b>로그·크래시</b>${logs}</div>` : ''}
@@ -75,7 +83,8 @@ ${steps}
 </tbody></table></section>`;
 }
 
-function matrix(trace: Traceability, platforms: readonly Platform[]): string {
+/** `heads`: the platform column headers, one per `platforms` entry. */
+function matrix(trace: Traceability, platforms: readonly Platform[], heads: string): string {
   if (trace.error) return `<section><h3>요구사항 추적 매트릭스 — ${esc(trace.app)}</h3><p class="warn">${esc(trace.error)}</p></section>`;
   const docs = trace.docs
     .map((d) => `<li>${esc(d.path)}${d.state !== 'same' ? ` <span class="tag ${d.state}">${DOC_STATE_KO[d.state]}</span>` : ''}</li>`)
@@ -100,7 +109,7 @@ function matrix(trace: Traceability, platforms: readonly Platform[]): string {
     : '';
   return `<section class="trace"><h3>요구사항 추적 매트릭스 — ${esc(trace.app)}</h3>
 <p class="muted">계획: ${esc(trace.plan)} · 생성 ${esc(trace.createdAt)}</p><ul class="docs">${docs}</ul>
-<table><thead><tr><th>요구사항</th><th>테스트</th>${platforms.map((p) => `<th>${esc(p)}</th>`).join('')}</tr></thead><tbody>
+<table><thead><tr><th>요구사항</th><th>테스트</th>${heads}</tr></thead><tbody>
 ${rows}
 </tbody></table>${untestable}</section>`;
 }
@@ -121,11 +130,23 @@ th{background:#f2f2f5;font-weight:600}.muted{color:#6e6e73;font-size:12px}.req{f
 .dec{margin-bottom:6px}.warn{background:#fff8e1;border:1px solid #f0d58c;padding:6px 10px;border-radius:6px;margin:6px 0}
 .health{color:#9a1c1c;font-size:12px}pre{background:#f6f8fa;padding:8px;overflow:auto;max-height:320px;font-size:12px}
 .counts span{margin-right:10px}.row-FAIL td,.row-ERROR td{background:#fff5f5}.row-INCONCLUSIVE td{background:#fffbea}
+.qa{display:inline-block;padding:0 6px;border-radius:4px;font-size:11px;font-weight:600;border:1px solid #c9c9d1;color:#333;background:#fff}
+.qa-PASS{border-color:#1a7f37;color:#1a7f37}.qa-FAIL{border-color:#cf222e;color:#cf222e}.qa-BLOCKED{border-color:#6e2fb5;color:#6e2fb5}
 `;
 
 export function renderHtml(summary: RunSummary, traces: readonly Traceability[], runDir: string): string {
-  const platforms = [...new Set(summary.tests.map((t) => t.platform))].sort() as Platform[];
+  const platforms = PLATFORMS.filter((p) => summary.tests.some((t) => t.platform === p));
+  // A column holds every result of one platform: `Android`, `Android Chrome`, or both when a run mixes apps and sites.
+  const heads = platforms
+    .map((p) => `<th>${esc([...new Set(summary.tests.filter((t) => t.platform === p).map((t) => platformLabel(p, t.surface ?? 'app')))].join(' / '))}</th>`)
+    .join('');
   const counts = (Object.keys(VERDICT_KO) as Verdict[]).map((v) => `<span>${badge(v)} ${summary.counts[v]}</span>`).join('');
+  const qaCounts = QA_STATUSES.filter((s) => summary.qaCounts[s] > 0)
+    .map((s) => `<span>${qaTag(s)} ${summary.qaCounts[s]}</span>`)
+    .join('');
+  const webQa = summary.tests.some((t) => t.surface === 'web')
+    ? `<p class="muted">web-qa 기록(check-run v1): <a href="${WEB_QA_DIR}/plan.json">${WEB_QA_DIR}/plan.json</a> · <a href="${WEB_QA_DIR}/result.json">${WEB_QA_DIR}/result.json</a> (증거 루트: 실행 디렉터리)</p>`
+    : '';
   const devices = summary.devices.map((d) => `${esc(d.platform)}: ${esc(d.name)} (${esc(d.id)})`).join(' · ') || '없음';
   const ids = [...new Set(summary.tests.map((t) => t.id))];
   const grid = ids
@@ -135,7 +156,7 @@ export function renderHtml(summary: RunSummary, traces: readonly Traceability[],
       const cells = platforms
         .map((p) => {
           const r = rows.find((x) => x.platform === p);
-          return `<td>${r ? `<a href="#${esc(`${id}-${p}`)}">${badge(r.verdict)}</a><div class="muted">${esc(r.reason.slice(0, 120))}</div>` : '<span class="muted">—</span>'}</td>`;
+          return `<td>${r ? `<a href="#${esc(`${id}-${p}`)}">${badge(r.verdict)}</a> ${qaTag(r.qaStatus)}<div class="muted">${esc(r.reason.slice(0, 120))}</div>` : '<span class="muted">—</span>'}</td>`;
         })
         .join('');
       return `<tr><td>${esc(first.name)}${statusBadge(first.status)}<div class="muted">${esc(id)}</div></td>${cells}</tr>`;
@@ -148,12 +169,13 @@ export function renderHtml(summary: RunSummary, traces: readonly Traceability[],
 <header><h1>app-qa ${summary.kind === 'smoke' ? '스모크' : '테스트 실행'} 리포트</h1>
 <p class="muted">실행 ID ${esc(summary.runId)} · 시작 ${esc(summary.startedAt)} · ${(summary.durationMs / 1000).toFixed(1)}초 · 플랫폼 ${esc(summary.platform)} · 기기 ${devices}</p>
 <p class="counts">${counts}</p>
-<p class="muted">판정 규칙: 오류 &gt; 실패 &gt; 판정 불가 &gt; 통과. 판정 불가는 통과가 아닙니다.</p></header>
+<p class="counts">QA 상태: ${qaCounts || '없음'}</p>
+<p class="muted">판정 규칙: 오류 &gt; 실패 &gt; 판정 불가 &gt; 통과. 판정 불가는 통과가 아닙니다. QA 상태: 오류는 BLOCKED(원래 코드 유지), 명세 오류·취소는 NOT_RUN.</p>${webQa}</header>
 <h2>테스트 × 플랫폼</h2>
-<table><thead><tr><th>테스트</th>${platforms.map((p) => `<th>${esc(p)}</th>`).join('')}</tr></thead><tbody>
+<table><thead><tr><th>테스트</th>${heads}</tr></thead><tbody>
 ${grid}
 </tbody></table>
-${traces.length ? `<h2>요구사항 추적</h2>${traces.map((t) => matrix(t, platforms)).join('\n')}` : ''}
+${traces.length ? `<h2>요구사항 추적</h2>${traces.map((t) => matrix(t, platforms, heads)).join('\n')}` : ''}
 <h2>상세</h2>
 ${summary.tests.map((t) => testSection(t, runDir)).join('\n')}
 </body></html>

@@ -7,7 +7,7 @@ import type { RunSummary } from '../../src/report/types.ts';
 import { captureScreen } from '../../src/runner/index.ts';
 import { EvidenceSanitizer } from '../../src/runner/sanitize.ts';
 import { FakeDriver, fixtureSnapshot } from '../helpers/fake-driver.ts';
-import { commitSafe } from '../helpers/jev-stub.ts';
+import { choice, commitSafe, jevStub, noul } from '../helpers/jev-stub.ts';
 import { fakeDeps, PROFILES, readJsonl, runYaml, tempRoot } from '../helpers/run.ts';
 
 const APP = 'kr.tteonam.app';
@@ -153,7 +153,8 @@ describe('evidence sanitizer: run evidence', () => {
     assert.equal(result.tests[0]!.verdict, 'PASS', result.tests[0]!.reason);
     assert.equal(driver.called('openUrl')[0]!.args[1], 'tteonam://login?token=tok-7f3a9c');
     const action = events.find((e) => e.type === 'action');
-    assert.ok(action && action.type === 'action' && action.kind === 'open' && action.text === `tteonam://login?token=${'•'.repeat(10)}`, JSON.stringify(action));
+    // The ${ENV} value is masked, and `token=` is a sensitive query parameter whose value the built-in redactor hides.
+    assert.ok(action && action.type === 'action' && action.kind === 'open' && action.text === 'tteonam://login?token=[REDACTED]', JSON.stringify(action));
     assert.ok(!JSON.stringify(events).includes('tok-7f3a9c'));
     assert.ok(!evidenceText(result.runDir).includes('tok-7f3a9c'));
   });
@@ -265,5 +266,34 @@ describe('evidence sanitizer: run evidence', () => {
     assert.equal(result.tests[0]!.verdict, 'PASS', result.tests[0]!.reason);
     assert.ok(driver.logSanitize, 'startLogs received the sanitizer');
     assert.equal(driver.logSanitize('E App: token=tok-7f3a9c flight J27-J35'), `E App: token=${'•'.repeat(10)} flight [REDACTED]`);
+  });
+});
+
+describe('evidence sanitizer: URL secrets', () => {
+  it('masks sensitive query values (the name stays) in events, evidence and Jev bodies, while `open` dispatches the real URL', async () => {
+    const page = fixtureSnapshot('desktop-chrome', 'web-demo', 'index', {
+      pageUrl: 'http://localhost:4173/?token=PAGETOK1',
+      patch: [
+        ['url="http://localhost:4173/"', 'url="http://localhost:4173/?token=PAGETOK1"'],
+        ['text="상품 3개"', 'text="https://auth.example/cb?code=CBSECRET&amp;state=ok#access_token=CBTOKEN"'],
+      ],
+    });
+    const driver = new FakeDriver(page);
+    const jev = jevStub((_id, q) => (q.type === 'noul' ? noul(0.97) : choice(q, 'none', 0.9)));
+    const steps = '  - claim: 로그인 콜백 주소가 보인다\n  - open: /cb?code=OPENCODE1&state=ok\n    expectNoChange: true\n';
+    const { result, events } = await runYaml({ 'tests/u.e2e.yaml': `name: URL\napp: web-demo\nstart: attach\nsteps:\n${steps}` }, driver, { platform: 'desktop-chrome', jev: jev.setup });
+    assert.equal(result.tests[0]!.verdict, 'PASS', result.tests[0]!.reason);
+    assert.deepEqual(driver.called('openUrl').map((c) => c.args[1]), ['http://localhost:4173/cb?code=OPENCODE1&state=ok']);
+    const action = events.find((e) => e.type === 'action' && e.kind === 'open');
+    assert.ok(action?.type === 'action' && action.text === 'http://localhost:4173/cb?code=[REDACTED]&state=ok', JSON.stringify(action));
+    const sent = JSON.stringify(jev.requests);
+    assert.ok(sent.includes('cb?code=[REDACTED]&state=ok#access_token=[REDACTED]'), sent);
+    for (const [name, text] of [
+      ['events', JSON.stringify(events)],
+      ['evidence', evidenceText(result.runDir)],
+      ['Jev requests', sent],
+    ] as const) {
+      for (const secret of ['PAGETOK1', 'CBSECRET', 'CBTOKEN', 'OPENCODE1']) assert.ok(!text.includes(secret), `${name} leaks ${secret}`);
+    }
   });
 });

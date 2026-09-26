@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>정기 후원 · 푸른숲 재단</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="donate.html">푸른숲 재단</a>
+    <nav><a href="donate.html#about">재단 소개</a></nav>
+  </header>
+
+  <main class="narrow">
+    <h1>매달 나무 한 그루를 심어요</h1>
+    <form class="card" data-done="정기 후원이 시작되었습니다. 매달 25일에 출금됩니다.">
+      <p>후원 금액</p>
+      <div class="row" role="group" aria-label="후원 금액" data-pressed-group>
+        <button type="button" class="ghost" aria-pressed="false">1만원</button>
+        <button type="button" class="ghost" aria-pressed="true">2만원</button>
+        <button type="button" class="ghost" aria-pressed="false">3만원</button>
+      </div>
+      <button type="button" class="link">금액 직접 입력</button>
+      <p class="muted">국민은행 계좌에서 매달 25일 20,000원이 자동 출금됩니다. <a href="donate.html#usage">후원금 사용처 보기</a></p>
+      <div class="row end"><button type="submit">정기 후원 시작</button></div>
+    </form>
+    <p role="status"></p>
+  </main>
+  <script src="../app.js"></script>
+</body>
+</html>

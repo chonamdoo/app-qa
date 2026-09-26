@@ -1,0 +1,387 @@
+{
+  "url": "http://localhost:4174/post-en.html",
+  "title": "New discussion · Fieldnotes Forum",
+  "width": 1280,
+  "height": 800,
+  "dpr": 1,
+  "scrollX": 0,
+  "scrollY": 0,
+  "truncated": false,
+  "nodes": [
+    {
+      "parent": -1,
+      "kind": "document",
+      "name": "New discussion · Fieldnotes Forum",
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 800,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 48,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "link",
+      "name": null,
+      "text": "Fieldnotes Forum",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 24,
+      "y": 10,
+      "w": 140.46875,
+      "h": 27,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 1,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1119.03125,
+      "y": 12.25,
+      "w": 136.96875,
+      "h": 22.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "Discussions",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1119.03125,
+      "y": 12.25,
+      "w": 72.21875,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 3,
+      "kind": "link",
+      "name": null,
+      "text": "Settings",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 1205.25,
+      "y": 12.25,
+      "w": 50.75,
+      "h": 22.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 0,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 320,
+      "y": 48,
+      "w": 640,
+      "h": 473.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "heading",
+      "name": null,
+      "text": "Start a new discussion",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 68,
+      "w": 592,
+      "h": 33,
+      "flags": [
+        "enabled",
+        "heading"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 113,
+      "w": 592,
+      "h": 353.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "text",
+      "name": null,
+      "text": "Title",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 138,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "input",
+      "name": "Title",
+      "text": null,
+      "id": "title",
+      "value": "Best budget tripod for night sky shots?",
+      "hint": null,
+      "x": 361,
+      "y": 161.5,
+      "w": 558,
+      "h": 40.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "text",
+      "name": null,
+      "text": "Message",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 210,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "input",
+      "name": "Message",
+      "text": null,
+      "id": "body",
+      "value": "I'm shooting the Milky Way next month with a 14mm lens. Anything under $120 that won't wobble in wind?",
+      "hint": null,
+      "x": 361,
+      "y": 233.5,
+      "w": 558,
+      "h": 72,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled",
+        "editable"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "text",
+      "name": null,
+      "text": "Category",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 321,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "select",
+      "name": "Category",
+      "text": null,
+      "id": "cat",
+      "value": "Gear",
+      "hint": null,
+      "x": 361,
+      "y": 344.5,
+      "w": 108,
+      "h": 39,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "text",
+      "name": null,
+      "text": "Everyone in the forum can see and reply to this post.",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 383.5,
+      "w": 558,
+      "h": 19.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 15,
+      "kind": "link",
+      "name": null,
+      "text": "Formatting help",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 653.3125,
+      "y": 384.5,
+      "w": 87.125,
+      "h": 16,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 8,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 361,
+      "y": 411,
+      "w": 558,
+      "h": 38.5,
+      "flags": [
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "button",
+      "name": null,
+      "text": "Cancel",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 695.765625,
+      "y": 411,
+      "w": 69.328125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "button",
+      "name": null,
+      "text": "Preview",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 775.09375,
+      "y": 411,
+      "w": 78.125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 17,
+      "kind": "button",
+      "name": null,
+      "text": "Post",
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 863.21875,
+      "y": 411,
+      "w": 55.78125,
+      "h": 38.5,
+      "flags": [
+        "clickable",
+        "focusable",
+        "enabled"
+      ]
+    },
+    {
+      "parent": 6,
+      "kind": "generic",
+      "name": null,
+      "text": null,
+      "id": null,
+      "value": null,
+      "hint": null,
+      "x": 344,
+      "y": 480.5,
+      "w": 592,
+      "h": 13,
+      "flags": [
+        "enabled"
+      ]
+    }
+  ]
+}

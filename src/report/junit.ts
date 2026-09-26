@@ -1,5 +1,7 @@
-// JUnit XML for CI: one testsuite per platform, one testcase per test. INCONCLUSIVE is a failure (never a pass).
+// JUnit XML for CI: one testsuite per platform, one testcase per test. INCONCLUSIVE is a failure (never a pass). Each
+// testcase carries its web-qa status and target label as properties (the verdict stays the failure/error type).
 import type { Platform } from '../core/types.ts';
+import { platformLabel } from './status.ts';
 import type { RunSummary, TestResult } from './types.ts';
 
 function xmlEscape(s: string): string {
@@ -8,18 +10,19 @@ function xmlEscape(s: string): string {
 
 function testcase(t: TestResult): string {
   const attrs = `name="${xmlEscape(t.name)}" classname="${xmlEscape(`${t.app}.${t.id}`)}" time="${(t.durationMs / 1000).toFixed(3)}"`;
+  const props = `<properties><property name="qaStatus" value="${t.qaStatus}"/><property name="target" value="${xmlEscape(platformLabel(t.platform, t.surface ?? 'app'))}"/></properties>`;
   const steps = t.steps.map((s) => `${s.verdict.padEnd(12)} ${s.label} — ${s.reason}`).join('\n');
   const out = `<system-out>${xmlEscape(steps)}</system-out>`;
   const msg = xmlEscape(t.reason);
   switch (t.verdict) {
     case 'PASS':
-      return `    <testcase ${attrs}>${out}</testcase>`;
+      return `    <testcase ${attrs}>${props}${out}</testcase>`;
     case 'SKIPPED':
-      return `    <testcase ${attrs}><skipped message="${msg}"/>${out}</testcase>`;
+      return `    <testcase ${attrs}>${props}<skipped message="${msg}"/>${out}</testcase>`;
     case 'ERROR':
-      return `    <testcase ${attrs}><error type="${xmlEscape(t.code ?? 'ERROR')}" message="${msg}"/>${out}</testcase>`;
+      return `    <testcase ${attrs}>${props}<error type="${xmlEscape(t.code ?? 'ERROR')}" message="${msg}"/>${out}</testcase>`;
     default:
-      return `    <testcase ${attrs}><failure type="${t.verdict}${t.code ? `:${xmlEscape(t.code)}` : ''}" message="${msg}"/>${out}</testcase>`;
+      return `    <testcase ${attrs}>${props}<failure type="${t.verdict}${t.code ? `:${xmlEscape(t.code)}` : ''}" message="${msg}"/>${out}</testcase>`;
   }
 }
 

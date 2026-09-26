@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AppiumAUT>
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Safari" label="Safari" enabled="true" x="0" y="0" width="402" height="874" traits="" processId="47102" bundleId="com.apple.mobilesafari">
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" x="0" y="0" width="402" height="874" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" name="SafariWindow?View=Narrow&amp;BarsKeptMinimized=false&amp;UUID=9D76052E-AD74-4910-91E8-EBC2CF1ADD87&amp;UsingLoweredBar=true&amp;IsSecure=false&amp;IsTabBarAvailable=false" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="49" traits="">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="49" traits=""/>
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="49" traits=""/>
+                            </XCUIElementTypeOther>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="62" traits=""/>
+                            <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" name="TabDocument?IsLoadedUsingDesktopUserAgent=false&amp;InReaderMode=false&amp;UUID=40E19AD4-1332-4828-89FB-710147C31C6D&amp;IsPrivate=false&amp;IsPageLoaded=true&amp;WebViewProcessID=47131" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                                <XCUIElementTypeWebView type="XCUIElementTypeWebView" name="WebView" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                                  <XCUIElementTypeWebView type="XCUIElementTypeWebView" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+                                    <XCUIElementTypeWebView type="XCUIElementTypeWebView" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="62" width="402" height="874" traits="">
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" name="로그인 · QA 데모 상점" label="로그인 · QA 데모 상점" enabled="true" x="0" y="62" width="402" height="714" traits="">
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" name="배너" label="배너" enabled="true" x="0" y="62" width="402" height="55" traits="">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" value="1" name="로그인" label="로그인" enabled="true" x="16" y="74" width="52" height="30" traits="Header">
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="로그인" name="로그인" label="로그인" enabled="true" x="16" y="76" width="52" height="25" traits="Header, StaticText"/>
+                                                </XCUIElementTypeOther>
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" name="탐색" label="탐색" enabled="true" x="330" y="77" width="56" height="24" traits="">
+                                                  <XCUIElementTypeLink type="XCUIElementTypeLink" name="상점으로" label="상점으로" enabled="true" x="330" y="79" width="56" height="20" traits="Link">
+                                                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="상점으로" name="상점으로" label="상점으로" enabled="true" x="330" y="79" width="56" height="20" traits="Link, StaticText"/>
+                                                  </XCUIElementTypeLink>
+                                                </XCUIElementTypeOther>
+                                              </XCUIElementTypeOther>
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" name="메인" label="메인" enabled="true" x="0" y="117" width="402" height="304" traits="">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" name="형식" label="형식" enabled="true" x="16" y="133" width="360" height="216" traits="">
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="이메일" label="이메일" enabled="true" x="16" y="133" width="360" height="24" traits="">
+                                                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="이메일" name="이메일" label="이메일" enabled="true" x="16" y="135" width="42" height="20" traits="StaticText"/>
+                                                  </XCUIElementTypeOther>
+                                                  <XCUIElementTypeTextField type="XCUIElementTypeTextField" value="qa@example.com" name="이메일" label="이메일" enabled="true" x="16" y="165" width="360" height="46" placeholderValue="name@example.com" traits=""/>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="비밀번호" label="비밀번호" enabled="true" x="16" y="219" width="360" height="24" traits="">
+                                                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="비밀번호" name="비밀번호" label="비밀번호" enabled="true" x="16" y="221" width="56" height="20" traits="StaticText"/>
+                                                  </XCUIElementTypeOther>
+                                                  <XCUIElementTypeSecureTextField type="XCUIElementTypeSecureTextField" name="비밀번호" label="비밀번호" enabled="true" x="16" y="251" width="360" height="46" placeholderValue="" traits=""/>
+                                                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="로그인" label="로그인" enabled="true" x="16" y="305" width="360" height="44" traits="Button"/>
+                                                </XCUIElementTypeOther>
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" name="응용 프로그램 상태" label="응용 프로그램 상태" enabled="true" x="16" y="365" width="370" height="24" traits="">
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="로그인하지 않음" name="로그인하지 않음" label="로그인하지 않음" enabled="true" x="16" y="367" width="102" height="20" traits="StaticText"/>
+                                                </XCUIElementTypeOther>
+                                              </XCUIElementTypeOther>
+                                            </XCUIElementTypeOther>
+                                          </XCUIElementTypeOther>
+                                        </XCUIElementTypeOther>
+                                      </XCUIElementTypeOther>
+                                    </XCUIElementTypeWebView>
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="수직 스크롤 막대, 3페이지" label="수직 스크롤 막대, 3페이지" enabled="true" x="369" y="62" width="30" height="377" traits="Adjustable">
+                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="396" y="65" width="3" height="248" traits=""/>
+                                    </XCUIElementTypeOther>
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="수평 스크롤 막대, 1페이지" label="수평 스크롤 막대, 1페이지" enabled="true" x="62" y="406" width="278" height="30" traits="Adjustable">
+                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="65" y="433" width="272" height="3" traits=""/>
+                                    </XCUIElementTypeOther>
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="수직 스크롤 막대, 3페이지" label="수직 스크롤 막대, 3페이지" enabled="true" x="369" y="62" width="30" height="377" traits="Adjustable">
+                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="396" y="65" width="3" height="248" traits=""/>
+                                    </XCUIElementTypeOther>
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="수평 스크롤 막대, 1페이지" label="수평 스크롤 막대, 1페이지" enabled="true" x="62" y="406" width="278" height="30" traits="Adjustable">
+                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="65" y="433" width="272" height="3" traits=""/>
+                                    </XCUIElementTypeOther>
+                                  </XCUIElementTypeWebView>
+                                </XCUIElementTypeWebView>
+                              </XCUIElementTypeOther>
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="수평 스크롤 막대, 1페이지" label="수평 스크롤 막대, 1페이지" enabled="true" x="62" y="841" width="278" height="30" traits="Adjustable">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="65" y="868" width="272" height="3" traits=""/>
+                              </XCUIElementTypeOther>
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="수평 스크롤 막대, 1페이지" label="수평 스크롤 막대, 1페이지" enabled="true" x="62" y="841" width="278" height="30" traits="Adjustable">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="65" y="868" width="272" height="3" traits=""/>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeScrollView>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeOther>
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" name="CapsuleViewController" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="439" width="402" height="435" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="439" width="402" height="435" traits="">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="439" width="402" height="435" traits="">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="439" width="402" height="435" traits="">
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="439" width="402" height="435" traits="">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="439" width="402" height="435" traits="">
+                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="439" width="402" height="98" traits=""/>
+                                    </XCUIElementTypeOther>
+                                  </XCUIElementTypeOther>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="439" width="402" height="435" traits="">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="439" width="402" height="98" traits=""/>
+                                  </XCUIElementTypeOther>
+                                </XCUIElementTypeOther>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="156" y="439" width="90" height="32" traits="">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="156" y="439" width="90" height="32" traits="">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="156" y="439" width="90" height="32" traits="">
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="CapsuleNavigationBar?isSelected=true&amp;isDistractionControlOverlayUp=false" enabled="true" x="156" y="439" width="90" height="32" traits="Selected">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" value="‎localhost" name="TabBarItemTitle" label="주소" enabled="true" x="174" y="448" width="54" height="15" traits=""/>
+                                  </XCUIElementTypeOther>
+                                </XCUIElementTypeOther>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeOther>
+                      </XCUIElementTypeOther>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" x="0" y="0" width="402" height="874" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="439" width="402" height="435" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="439" width="402" height="100" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="471" width="402" height="68" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="471" width="402" height="68" traits="">
+                <XCUIElementTypeToolbar type="XCUIElementTypeToolbar" name="Toolbar" label="도구 막대" enabled="true" x="0" y="481" width="402" height="48" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="481" width="402" height="48" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="16" y="481" width="370" height="48" traits="">
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="16" y="481" width="370" height="48" traits="">
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="16" y="481" width="0" height="0" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="16" y="481" width="370" height="48" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="16" y="481" width="51" height="48" traits="">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="21" y="486" width="41" height="38" traits="">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="21" y="486" width="41" height="38" traits="">
+                                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="이전" label="이전" enabled="false" x="21" y="486" width="41" height="38" traits="NotEnabled, Button"/>
+                                </XCUIElementTypeOther>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="70" y="481" width="51" height="48" traits="">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="75" y="486" width="41" height="38" traits="">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="75" y="486" width="41" height="38" traits="">
+                                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="다음" label="다음" enabled="true" x="75" y="486" width="41" height="38" traits="Button"/>
+                                </XCUIElementTypeOther>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="336" y="481" width="50" height="48" traits="">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="341" y="486" width="40" height="38" traits="">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="341" y="486" width="40" height="38" traits="">
+                                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="완료" label="완료" enabled="true" x="341" y="486" width="40" height="38" traits="Button"/>
+                                </XCUIElementTypeOther>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeOther>
+                      </XCUIElementTypeOther>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeToolbar>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+          <XCUIElementTypeOther type="XCUIElementTypeOther" name="inputView" enabled="true" x="0" y="539" width="402" height="335" traits=""/>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" x="0" y="0" width="402" height="874" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="439" width="402" height="435" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="439" width="402" height="100" traits=""/>
+          <XCUIElementTypeOther type="XCUIElementTypeOther" name="SystemInputAssistantView" enabled="true" x="0" y="539" width="402" height="44" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="539" width="402" height="44" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" name="CenterPageView" enabled="true" x="0" y="539" width="402" height="44" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="-61" width="402" height="1244" traits="">
+                  <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" x="0" y="539" width="402" height="44" traits=""/>
+                </XCUIElementTypeOther>
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="539" width="402" height="44" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="예상 단어 입력하기" label="예상 단어 입력하기" enabled="true" x="0" y="539" width="402" height="44" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="539" width="402" height="44" traits="">
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="30" y="539" width="342" height="44" traits="">
+                        <XCUIElementTypeButton type="XCUIElementTypeButton" name="암호" label="암호" enabled="true" x="30" y="539" width="342" height="44" traits="Button">
+                          <XCUIElementTypeImage type="XCUIElementTypeImage" name="kb-autofill-key" enabled="true" x="176" y="553" width="14" height="23" traits="Image"/>
+                        </XCUIElementTypeButton>
+                      </XCUIElementTypeOther>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="539" width="402" height="335" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="539" width="402" height="335" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="539" width="402" height="335" traits=""/>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="583" width="402" height="233" traits="">
+            <XCUIElementTypeKeyboard type="XCUIElementTypeKeyboard" enabled="true" x="0" y="583" width="402" height="233" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="583" width="402" height="233" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" name="UIKeyboardLayoutStar Preview" enabled="true" x="0" y="583" width="402" height="233" traits="">
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="Padding-Left" label="Padding-Left" enabled="true" x="0" y="583" width="0" height="0" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="Padding-Right" label="Padding-Right" enabled="true" x="0" y="583" width="0" height="0" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="Padding-Left" label="Padding-Left" enabled="true" x="0" y="583" width="0" height="0" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="Padding-Right" label="Padding-Right" enabled="true" x="0" y="583" width="0" height="0" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="Padding-Left" label="Padding-Left" enabled="true" x="0" y="583" width="0" height="0" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="Padding-Right" label="Padding-Right" enabled="true" x="0" y="583" width="0" height="0" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅂ" label="ㅂ" enabled="true" x="4" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅈ" label="ㅈ" enabled="true" x="44" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㄷ" label="ㄷ" enabled="true" x="83" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㄱ" label="ㄱ" enabled="true" x="122" y="590" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅅ" label="ㅅ" enabled="true" x="162" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅛ" label="ㅛ" enabled="true" x="202" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅕ" label="ㅕ" enabled="true" x="241" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅑ" label="ㅑ" enabled="true" x="281" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅐ" label="ㅐ" enabled="true" x="320" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅔ" label="ㅔ" enabled="true" x="360" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅁ" label="ㅁ" enabled="true" x="24" y="644" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㄴ" label="ㄴ" enabled="true" x="63" y="644" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅇ" label="ㅇ" enabled="true" x="103" y="644" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㄹ" label="ㄹ" enabled="true" x="142" y="644" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅎ" label="ㅎ" enabled="true" x="182" y="644" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅗ" label="ㅗ" enabled="true" x="221" y="644" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅓ" label="ㅓ" enabled="true" x="261" y="644" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅏ" label="ㅏ" enabled="true" x="300" y="644" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅣ" label="ㅣ" enabled="true" x="340" y="644" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="shift" label="shift" enabled="true" x="4" y="698" width="52" height="54" traits="PlaysSound, KeyboardKey, Button"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅋ" label="ㅋ" enabled="true" x="63" y="698" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅌ" label="ㅌ" enabled="true" x="103" y="698" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅊ" label="ㅊ" enabled="true" x="142" y="698" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅍ" label="ㅍ" enabled="true" x="182" y="698" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅠ" label="ㅠ" enabled="true" x="221" y="698" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅜ" label="ㅜ" enabled="true" x="261" y="698" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅡ" label="ㅡ" enabled="true" x="300" y="698" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="delete" label="삭제" enabled="true" x="348" y="698" width="52" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="more" label="숫자" enabled="true" x="4" y="752" width="50" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="emoji" label="이모지" enabled="true" x="53" y="752" width="51" height="54" traits="PlaysSound, KeyboardKey, Button"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="space" label=" " enabled="true" x="103" y="752" width="99" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="@" label="@" enabled="true" x="202" y="752" width="50" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="." label="." enabled="true" x="251" y="752" width="50" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="Return" label="Return 키" enabled="true" x="300" y="752" width="100" height="54" traits="PlaysSound, KeyboardKey, Button"/>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeKeyboard>
+          </XCUIElementTypeOther>
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="583" width="402" height="291" traits="">
+            <XCUIElementTypeButton type="XCUIElementTypeButton" value="English (US)" name="다음 키보드" label="다음 키보드" enabled="true" x="8" y="805" width="69" height="70" traits="KeyboardKey, Button">
+              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" enabled="true" x="8" y="805" width="1" height="1" traits="StaticText"/>
+            </XCUIElementTypeButton>
+            <XCUIElementTypeButton type="XCUIElementTypeButton" name="dictation" label="받아쓰기" enabled="true" x="325" y="805" width="69" height="70" traits="KeyboardKey, Button">
+              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" enabled="true" x="325" y="805" width="1" height="1" traits="StaticText"/>
+            </XCUIElementTypeButton>
+            <XCUIElementTypeButton type="XCUIElementTypeButton" name="dictation" label="받아쓰기" enabled="true" x="325" y="805" width="69" height="70" traits="KeyboardKey, Button">
+              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" enabled="true" x="325" y="805" width="1" height="1" traits="StaticText"/>
+            </XCUIElementTypeButton>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+  </XCUIElementTypeApplication>
+</AppiumAUT>
