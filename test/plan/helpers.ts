@@ -100,9 +100,14 @@ export interface FakeLlm {
 
 /**
  * Fake `claude` / `codex` CLI (a Node script). Replies are served in order; `codex` mode writes the reply to `-o`.
- * `rejectSchema` makes codex fail like the real API when `--output-schema` is passed; `sleepMs` delays every reply.
+ * `rejectSchema` makes codex fail like the real API when `--output-schema` is passed; `sleepMs` delays every reply;
+ * `printEnv` replies with the sorted names of the CLI's environment; `floodBytes` prints that many bytes to stdout first.
  */
-export function fakeLlm(mode: 'claude' | 'codex', replies: string[], opts: { rejectSchema?: boolean; sleepMs?: number; claudeError?: boolean } = {}): FakeLlm {
+export function fakeLlm(
+  mode: 'claude' | 'codex',
+  replies: string[],
+  opts: { rejectSchema?: boolean; sleepMs?: number; claudeError?: boolean; printEnv?: boolean; floodBytes?: number } = {},
+): FakeLlm {
   const dir = tempDir('qa-fake-llm-');
   const script = join(dir, mode);
   writeFileSync(join(dir, 'script.json'), JSON.stringify({ mode, replies, ...opts }));
@@ -124,7 +129,8 @@ const finish = () => {
     process.exit(1);
   }
   fs.writeFileSync(counter, String(n + 1));
-  const reply = cfg.replies[Math.min(n, cfg.replies.length - 1)];
+  if (cfg.floodBytes) process.stdout.write('x'.repeat(cfg.floodBytes));
+  const reply = cfg.printEnv ? JSON.stringify(Object.keys(process.env).sort()) : cfg.replies[Math.min(n, cfg.replies.length - 1)];
   if (cfg.mode === 'claude') {
     process.stdout.write(JSON.stringify(cfg.claudeError ? { type: 'result', subtype: 'error_during_execution', is_error: true, result: 'boom' } : { type: 'result', subtype: 'success', is_error: false, result: reply }));
   } else {
@@ -161,7 +167,7 @@ export const TEST_CALIBRATION: Calibration = Calibration.parse({
   grounding: { status: 'failed', criteria, gate: { minTop: 0.9, minGap: 0.5, maxNone: 0.1, noneMin: 0.5, rescueGap: null }, evidence: {} },
   claim: { status: 'failed', criteria, gate: { yes: 0.9, no: 0.1 }, evidence: {} },
   which: { status: 'failed', criteria, gate: { minTop: 0.9, minGap: 0.5, noneMin: 0.5 }, evidence: {} },
-  commit: { status: 'advisory', criteria: { maxConfidentWrong: 0, maxFalseAlarmRate: 0.2 }, gate: { risky: 0.5 }, evidence: {} },
+  commit: { status: 'failed', criteria: { maxConfidentWrong: 0, maxFalseAlarmRate: 0.2 }, gate: { risky: 0.5 }, evidence: {} },
   review: {
     status: 'calibrated',
     criteria: { maxConfidentWrong: 0, minGoodApproval: 0.5 },

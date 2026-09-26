@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
+import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import type { QaEvent } from '../../src/core/events.ts';
-import type { JobContext, JobOutcome, RunParams } from '../../src/server/jobs.ts';
+import type { JobContext, JobOutcome, PlanParams, RunParams } from '../../src/server/jobs.ts';
 import { createServer, type QaServer, type ServerHandlers } from '../../src/server/server.ts';
 
 interface Reply {
@@ -19,6 +20,8 @@ let server: QaServer;
 let port: number;
 /** Run-handler behaviour per test; defaults to an immediate PASS. */
 let runImpl: (params: RunParams, ctx: JobContext) => Promise<JobOutcome>;
+/** Params every plan job handler received, in order. */
+const planCalls: PlanParams[] = [];
 
 /** Raw HTTP (no URL normalization, so `..` reaches the server as sent). */
 function call(path: string, opts: { method?: string; headers?: Record<string, string>; body?: string | Buffer; auth?: boolean } = {}): Promise<Reply> {
@@ -80,7 +83,10 @@ before(async () => {
   const handlers: ServerHandlers = {
     run: (params, ctx) => runImpl(params, ctx),
     smoke: ok,
-    plan: ok,
+    plan: async (params) => {
+      planCalls.push(params);
+      return ok();
+    },
     calibrate: ok,
     capture: ok,
     devices: async () => [],
@@ -229,6 +235,49 @@ describe('jobs', { timeout: 10_000 }, () => {
     const reply = await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'run', params: { platform: 'windows' } }) });
     assert.equal(reply.status, 400);
   });
+
+  test('a JSON body that is not an object is a 400, not a 500', async () => {
+    for (const body of ['null', '[]', '"on"', '1']) {
+      assert.equal((await call('/api/devices/android/emu-1/recording', { method: 'POST', body })).status, 400, body);
+      assert.equal((await call('/api/jobs', { method: 'POST', body })).status, 400, body);
+    }
+  });
+
+  test('plan job documents must stay inside the project, uploads, or the app profile docs', async () => {
+    const outside = mkdtempSync(join(tmpdir(), 'qa-outside-'));
+    try {
+      writeFileSync(join(outside, 'spec.md'), '# outside');
+      writeFileSync(join(outside, 'profile.md'), '# profile');
+      mkdirSync(join(root, 'apps'), { recursive: true });
+      writeFileSync(join(root, 'apps', 'demo.yaml'), JSON.stringify({ id: 'demo', name: 'Demo', docs: [join(outside, 'profile.md')] }));
+      mkdirSync(join(root, 'docs', 'sub'), { recursive: true });
+      writeFileSync(join(root, 'docs', 'spec.md'), '# inside');
+      writeFileSync(join(root, 'docs', 'sub', 'a.md'), '# inside');
+      symlinkSync(join(outside, 'spec.md'), join(root, 'docs', 'linked.md'));
+      symlinkSync(outside, join(root, 'docs', 'linked-dir'));
+      for (const doc of [
+        join(outside, 'spec.md'),
+        '../spec.md',
+        'docs/linked.md',
+        'docs/linked-dir/spec.md',
+        `${outside}/*.md`,
+        'docs/linked*.md',
+        '~/.ssh/id_rsa',
+      ]) {
+        const reply = await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'plan', params: { app: 'demo', docs: [doc] } }) });
+        assert.equal(reply.status, 400, `${doc} → ${reply.status}`);
+        assert.match(reply.body.toString(), /허용된 위치 밖/, doc);
+      }
+      assert.equal(planCalls.length, 0);
+
+      const done = waitForEvent((e) => e.type === 'job.finished' && e.kind === 'plan');
+      await postJob({ kind: 'plan', params: { app: 'demo', docs: ['docs/spec.md', 'docs/sub/*.md', join(root, 'uploads', 'new.md'), join(outside, 'profile.md')] } });
+      await done;
+      assert.deepEqual(planCalls.at(-1)?.docs, [join(root, 'docs', 'spec.md'), join(root, 'docs', 'sub', '*.md'), join(root, 'uploads', 'new.md'), join(outside, 'profile.md')]);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('files', { timeout: 10_000 }, () => {
@@ -253,6 +302,53 @@ describe('files', { timeout: 10_000 }, () => {
       assert.ok(!reply.body.toString().includes('outside'), path);
     }
     assert.equal((await call('/api/runs/run-1/files/../../secret.txt')).status, 400);
+  });
+
+  test('a file that cannot be opened fails that request only; the server keeps serving', { skip: process.getuid?.() === 0 }, async () => {
+    const file = join(root, 'runs', 'run-1', 'locked.txt');
+    writeFileSync(file, 'locked');
+    chmodSync(file, 0);
+    const outcome = await call('/api/runs/run-1/files/locked.txt').then(
+      (reply) => reply.status,
+      () => 'closed',
+    );
+    assert.ok(outcome === 500 || outcome === 'closed', String(outcome));
+    assert.equal((await call('/api/runs/run-1/files/step-01/before.png')).status, 200);
+  });
+
+  test('events.jsonl that is not a regular file is a 404; the server keeps serving', async () => {
+    mkdirSync(join(root, 'runs', 'run-dir', 'events.jsonl'), { recursive: true });
+    assert.equal((await call('/api/runs/run-dir/events')).status, 404);
+    assert.equal((await call('/api/health')).status, 200);
+  });
+
+  test('events.jsonl that grows during the response is sent exactly up to the stat size', async () => {
+    const file = join(root, 'runs', 'run-grow', 'events.jsonl');
+    mkdirSync(join(root, 'runs', 'run-grow'));
+    const line = `${JSON.stringify({ seq: 1, ts: '2026-09-26T00:00:00.000Z', type: 'log', level: 'info', source: 'grow', message: 'x'.repeat(200) })}\n`;
+    const initial = Buffer.from(line.repeat(Math.ceil((16 * 1024 * 1024) / line.length)));
+    writeFileSync(file, initial);
+    // Raw socket with `Connection: close`: every byte the server writes is observed, not just `content-length` of them.
+    const socket = connect(port, '127.0.0.1');
+    const chunks: Buffer[] = [];
+    const ended = Promise.withResolvers<void>();
+    socket.on('data', (chunk: Buffer) => {
+      // Server and client share this event loop, so the append lands while the server is still mid-file.
+      if (chunks.length === 0) appendFileSync(file, line.repeat(4096));
+      chunks.push(chunk);
+    });
+    socket.on('end', () => ended.resolve());
+    socket.on('error', ended.reject);
+    socket.write(`GET /api/runs/run-grow/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer ${server.token}\r\nConnection: close\r\n\r\n`);
+    await ended.promise;
+    const raw = Buffer.concat(chunks);
+    const split = raw.indexOf('\r\n\r\n');
+    const head = raw.subarray(0, split).toString();
+    assert.match(head, /^HTTP\/1\.1 200/);
+    assert.equal(Number(/^content-length: (\d+)$/im.exec(head)?.[1]), initial.length);
+    const body = raw.subarray(split + 4);
+    assert.equal(body.length, initial.length);
+    assert.ok(body.equals(initial));
   });
 });
 

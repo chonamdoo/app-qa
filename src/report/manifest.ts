@@ -2,7 +2,7 @@
 // Kinds are fixed up front — adding one is a schema change (new `$schema` version).
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { writeJson } from '../core/fsx.ts';
+import { writeJsonAtomic } from '../core/fsx.ts';
 
 export const MANIFEST_SCHEMA = 'app-qa/manifest/v1';
 
@@ -22,7 +22,8 @@ export interface Manifest {
   entries: ManifestEntry[];
 }
 
-/** Merges `entries` (by relativePath) into the run's manifest, re-reading every size; missing files are dropped. */
+/** Merges `entries` (by relativePath) into the run's manifest, re-reading every size; missing files are dropped. The
+ * manifest is rewritten on every update, so it is replaced atomically. */
 export function updateManifest(runDir: string, runId: string, entries: Iterable<{ kind: ManifestKind; relativePath: string }>): Manifest {
   const file = join(runDir, 'manifest.json');
   const byPath = new Map<string, ManifestKind>();
@@ -36,6 +37,6 @@ export function updateManifest(runDir: string, runId: string, entries: Iterable<
     const abs = join(runDir, relativePath);
     if (existsSync(abs)) manifest.entries.push({ kind, relativePath, sizeBytes: statSync(abs).size });
   }
-  writeJson(file, manifest);
+  writeJsonAtomic(file, manifest);
   return manifest;
 }

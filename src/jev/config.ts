@@ -59,7 +59,13 @@ export function loadJevConfig(env: NodeJS.ProcessEnv = process.env, overrides: {
   // Aliases (jev-latest) resolve server-side to a versioned id, which would then fail the model check on every call.
   if (!/^jev-\d+\.\d+\.\d+$/.test(model)) throw new JevError('config', `QA_JEV_MODEL은 버전이 고정된 모델 id여야 합니다 (예: ${JEV_MODEL})`);
   const baseUrl = (env.TYPESAFE_BASE_URL?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, '');
-  if (!/^https?:\/\//.test(baseUrl)) throw new JevError('config', 'TYPESAFE_BASE_URL은 http(s) URL이어야 합니다');
+  // The API key travels as a bearer header: plain http only to a local proxy/mock on this machine.
+  const url = URL.parse(baseUrl);
+  if (!url) throw new JevError('config', 'TYPESAFE_BASE_URL이 올바른 URL이 아닙니다');
+  const loopback = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+    throw new JevError('config', 'TYPESAFE_BASE_URL은 https URL이어야 합니다 (http는 127.0.0.1·localhost만 허용)');
+  }
   const recordingsDir = overrides.recordingsDir ?? (env.QA_JEV_RECORDINGS ? expandHome(env.QA_JEV_RECORDINGS) : join(PATHS.state, 'jev', 'recordings'));
   const apiKey = mode === 'replay' ? null : readKey(env);
   const config = { baseUrl, model, mode, recordingsDir } as JevConfig;

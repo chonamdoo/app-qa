@@ -1,17 +1,18 @@
 // Engine HTTP server (`qa serve`): 127.0.0.1 only, bearer-token auth on every route, SSE events, job queue, file views.
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { closeSync, createReadStream, existsSync, fstatSync, openSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { basename, extname, join } from 'node:path';
+import { pipeline } from 'node:stream';
 import { PATHS } from '../core/config.ts';
 import { EventBus } from '../core/events.ts';
 import { writeSecure } from '../core/fsx.ts';
 import type { DeviceInfo, Platform } from '../core/types.ts';
 import { JobQueue, JobRequest, type JobHandlers } from './jobs.ts';
 import { SseHub } from './sse.ts';
-import { listAppProfiles, listPlans, listRuns, PathRejected, readPlanView, resolveInside, runDirFor } from './store.ts';
+import { listAppProfiles, listPlans, listRuns, PathRejected, readPlanView, resolveInside, resolvePlanDocs, runDirFor } from './store.ts';
 
 export interface ServerHandlers extends JobHandlers {
   devices(): Promise<DeviceInfo[]>;
@@ -111,14 +112,17 @@ async function readBody(req: IncomingMessage, limit: number): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-async function readJson(req: IncomingMessage): Promise<unknown> {
+async function readJson(req: IncomingMessage): Promise<object> {
   const body = await readBody(req, MAX_JSON_BYTES);
   if (body.length === 0) return {};
+  let value: unknown;
   try {
-    return JSON.parse(body.toString('utf8'));
+    value = JSON.parse(body.toString('utf8'));
   } catch {
     throw new HttpError(400, 'JSON 본문을 해석할 수 없습니다');
   }
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new HttpError(400, 'JSON 본문은 객체여야 합니다');
+  return value;
 }
 
 function platformParam(value: string | undefined): Platform {
@@ -175,7 +179,12 @@ export function createServer(opts: ServerOptions): QaServer {
       handle: async (req, res) => {
         const parsed = JobRequest.safeParse(await readJson(req));
         if (!parsed.success) throw new HttpError(400, '작업 요청이 올바르지 않습니다', parsed.error.issues);
-        sendJson(res, 201, jobs.enqueue(parsed.data));
+        const request = parsed.data;
+        if (request.kind === 'plan' && request.params.docs.length) {
+          const profile = (await listAppProfiles(paths.apps)).profiles.find((p) => p.id === request.params.app);
+          request.params.docs = resolvePlanDocs(request.params.docs, { root: paths.root, roots: [paths.root, paths.uploads], allowed: profile?.docs ?? [] });
+        }
+        sendJson(res, 201, jobs.enqueue(request));
       },
     },
     {
@@ -213,8 +222,8 @@ export function createServer(opts: ServerOptions): QaServer {
       pattern: /^\/api\/devices\/([^/]+)\/([^/]+)\/recording$/,
       handle: async (req, res, [rawPlatform, deviceId]) => {
         const platform = platformParam(rawPlatform);
-        const body = (await readJson(req)) as { on?: unknown };
-        if (typeof body.on !== 'boolean') throw new HttpError(400, '{"on": true|false} 가 필요합니다');
+        const body = await readJson(req);
+        if (!('on' in body) || typeof body.on !== 'boolean') throw new HttpError(400, '{"on": true|false} 가 필요합니다');
         const key = `${platform}:${deviceId}`;
         const active = recordings.get(key);
         if (body.on) {
@@ -313,14 +322,42 @@ export function createServer(opts: ServerOptions): QaServer {
     return dir;
   }
 
+  /**
+   * Opens first and sizes the response from the open descriptor, so a delete/rename after the existence check cannot
+   * crash the stream, and a file still being appended to (events.jsonl during a run) is sent exactly up to that size.
+   */
   function streamFile(res: ServerResponse, file: string): void {
+    let fd: number;
+    try {
+      fd = openSync(file, 'r');
+    } catch (err) {
+      if (err instanceof Error && 'code' in err && err.code === 'ENOENT') throw new HttpError(404, '파일이 없습니다');
+      throw err;
+    }
+    let size: number;
+    try {
+      const stat = fstatSync(fd);
+      if (!stat.isFile()) throw new HttpError(404, '파일이 없습니다');
+      size = stat.size;
+    } catch (err) {
+      closeSync(fd);
+      throw err;
+    }
     res.writeHead(200, {
       'content-type': CONTENT_TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
-      'content-length': statSync(file).size,
+      'content-length': size,
       'cache-control': 'no-store',
       'x-content-type-options': 'nosniff',
     });
-    createReadStream(file).pipe(res);
+    if (size === 0) {
+      closeSync(fd);
+      res.end();
+      return;
+    }
+    // pipeline destroys both sides on failure: a read error closes the connection instead of an unhandled 'error'.
+    pipeline(createReadStream(file, { fd, start: 0, end: size - 1 }), res, (err) => {
+      if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE') bus.emit({ type: 'log', level: 'error', source: 'server', message: `${basename(file)} 전송 실패: ${err.message}` });
+    });
   }
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {

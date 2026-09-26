@@ -1,6 +1,7 @@
 // Deterministic checks on LLM output before anything is written: TestSpec schema, allowed step kinds, no risky or
-// unlabeled actions, no `allowRisky`, compilable regexes, declared `${VAR}`s, known `covers`, and full coverage
-// (every requirement is covered by a valid test or listed as untestable with a reason).
+// unlabeled actions, no `allowRisky`, no keyboard submit (`type.submit`, `press` other than `back`), compilable regexes,
+// declared `${VAR}`s, known `covers`, and full coverage (every requirement is covered by a valid test or listed as
+// untestable with a reason).
 import type { z } from 'zod';
 import { labelRisk } from '../policy/risk.ts';
 import { STEP_BRANCHES, TestSpec, type AppProfile } from '../spec/schema.ts';
@@ -156,8 +157,15 @@ export function checkTest(raw: unknown, index: number, ctx: CheckContext): Check
       if (value.permissions !== undefined) errors.push(`${path}: launch.permissions는 자동 생성 테스트에서 바꿀 수 없습니다`);
       if (value.reset === 'clear' || value.reset === 'reinstall') errors.push(`${path}: launch.reset ${value.reset}는 앱 데이터를 지웁니다 — none|relaunch만`);
     }
-    if (kind === 'tap' || kind === 'longPress' || (kind === 'type' && step.submit === true)) {
-      for (const label of targetLabels(kind === 'type' ? step.into : value)) {
+    // Invariant 8: Enter can send or confirm whatever the focused form does, and no label names that effect.
+    if (kind === 'type' && step.submit === true) {
+      errors.push(`${path}: type.submit은 자동 생성 테스트에 쓸 수 없습니다 (Enter가 전송·확정할 수 있음) — 입력 후 화면의 라벨 있는 버튼을 탭하거나, 필요하면 해당 요구사항은 untestable(needs_approval)`);
+    }
+    if (kind === 'press' && value !== 'back') {
+      errors.push(`${path}: press ${JSON.stringify(value)}는 자동 생성 테스트에 쓸 수 없습니다 — press는 "back"만 허용 (Enter 등은 전송·확정할 수 있음), 필요하면 해당 요구사항은 untestable(needs_approval)`);
+    }
+    if (kind === 'tap' || kind === 'longPress') {
+      for (const label of targetLabels(value)) {
         const risk = labelRisk(label, ctx.profile.risk, strings);
         if (risk.unknown) errors.push(`${path}: 라벨 없는 대상에는 행동할 수 없습니다`);
         else if (risk.risky) errors.push(`${path}: 위험 동작 대상 "${label}" (${risk.reasons.join(', ')}) — 해당 요구사항은 untestable(needs_approval)`);

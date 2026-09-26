@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 import { buildScreenModel } from '../../src/observe/index.ts';
 import type { Manifest } from '../../src/report/manifest.ts';
 import { FakeDriver, fixtureSnapshot, hits } from '../helpers/fake-driver.ts';
-import { choice, jevStub, keyNamed, noul } from '../helpers/jev-stub.ts';
+import { choice, commitSafe, jevStub, keyNamed, noul } from '../helpers/jev-stub.ts';
 import { readJsonl, runYaml } from '../helpers/run.ts';
 
 const APP = 'kr.tteonam.app';
@@ -21,7 +21,7 @@ describe('tap resolution and settle', () => {
     const launch = screen('launch');
     const driver = new FakeDriver(launch);
     driver.onTap = (p) => (hits(launch, '출국장', p) ? screen('tab-departures') : null);
-    const { result, root, events } = await runYaml({ 'tests/tab.e2e.yaml': spec('  - tap: 출국장\n') }, driver);
+    const { result, root, events } = await runYaml({ 'tests/tab.e2e.yaml': spec('  - tap: 출국장\n') }, driver, { jev: commitSafe().setup });
 
     const expected = buildScreenModel(launch, {}).candidates.find((c) => c.name === '출국장' && c.role === 'tab')!;
     assert.deepEqual(driver.called('tap').map((c) => c.args[0]), [expected.tapPoint]);
@@ -57,20 +57,20 @@ describe('tap resolution and settle', () => {
 
   it('reports no_effect as INCONCLUSIVE when nothing changes, and PASS with expectNoChange', async () => {
     const driver = new FakeDriver(screen('launch'));
-    const plain = await runYaml({ 'tests/noop.e2e.yaml': spec('  - tap: 설정\n') }, driver);
+    const plain = await runYaml({ 'tests/noop.e2e.yaml': spec('  - tap: 설정\n') }, driver, { jev: commitSafe().setup });
     const t = plain.result.tests[0]!;
     assert.equal(t.verdict, 'INCONCLUSIVE');
     assert.equal(t.code, 'no_effect');
     assert.equal(driver.called('tap').length, 1, 'never re-taps on no change');
 
-    const allowed = await runYaml({ 'tests/noop.e2e.yaml': spec('  - tap: 설정\n    expectNoChange: true\n') }, new FakeDriver(screen('launch')));
+    const allowed = await runYaml({ 'tests/noop.e2e.yaml': spec('  - tap: 설정\n    expectNoChange: true\n') }, new FakeDriver(screen('launch')), { jev: commitSafe().setup });
     assert.equal(allowed.result.tests[0]!.verdict, 'PASS', allowed.result.tests[0]!.reason);
   });
 
   it('ends the test with ERROR on an uncertain tap, journals the intent and never taps again', async () => {
     const driver = new FakeDriver(screen('launch'));
     driver.tapStatus = 'uncertain';
-    const { result } = await runYaml({ 'tests/uncertain.e2e.yaml': spec('  - tap: 출국장\n  - tap: 주차\n') }, driver);
+    const { result } = await runYaml({ 'tests/uncertain.e2e.yaml': spec('  - tap: 출국장\n  - tap: 주차\n') }, driver, { jev: commitSafe().setup });
     const t = result.tests[0]!;
     assert.equal(t.verdict, 'ERROR');
     assert.equal(t.code, 'uncertain_action');
@@ -168,6 +168,24 @@ describe('deterministic assertions', () => {
     assert.doesNotMatch(t.reason, /대기 8분/);
   });
 
+  it('checkEach rules that check nothing are ERROR, never a truthy PASS', async () => {
+    const check = (rule: string) => `  - checkEach:\n      pattern: "대기 (?<wait>\\\\d+)분"\n      rule: ${rule}\n`;
+    const cases: Record<string, string> = {
+      'empty object inside and': '{ and: [ {}, { "<": [ { var: wait }, 100 ] } ] }',
+      'multi-operator object': '{ "!": [ { "<": [ 1, 2 ], ">": [ 1, 2 ] } ] }',
+      'unknown operator': '{ between: [ { var: wait }, 0, 100 ] }',
+      'non-boolean result': '{ var: wait }',
+    };
+    for (const [name, rule] of Object.entries(cases)) {
+      const { result } = await runYaml({ 'tests/check.e2e.yaml': spec(check(rule)) }, new FakeDriver(screen('tab-departures')));
+      const t = result.tests[0]!;
+      assert.equal(t.verdict, 'ERROR', `${name}: ${t.reason}`);
+      assert.equal(t.code, 'invalid_rule', `${name}: ${t.reason}`);
+    }
+    const empty = await runYaml({ 'tests/check.e2e.yaml': spec(check('{}')) }, new FakeDriver(screen('tab-departures')));
+    assert.equal(empty.result.tests[0]!.verdict, 'ERROR', 'a top-level {} is rejected when the test loads');
+  });
+
   it('assertNoText passes when absent for 500 ms and fails when present', async () => {
     const pass = await runYaml({ 'tests/n.e2e.yaml': spec('  - assertNoText: 오류가 발생했습니다\n') }, new FakeDriver(screen('launch')));
     assert.equal(pass.result.tests[0]!.verdict, 'PASS');
@@ -208,17 +226,13 @@ describe('Jev-backed steps', () => {
   });
 
   it('uncalibrated Jev steps ERROR while deterministic steps still pass', async () => {
-    const launch = screen('launch');
-    const driver = new FakeDriver(launch);
-    driver.onTap = (p) => (hits(launch, '출국장', p) ? screen('tab-departures') : null);
-    const steps = '  - tap: 출국장\n  - assertText: 빨리 빠지는 순서\n  - claim: 출국장별 대기 시간이 보인다\n';
-    const { result } = await runYaml({ 'tests/u.e2e.yaml': spec(steps) }, driver);
+    const steps = '  - assertText: 빨리 빠지는 순서\n  - claim: 출국장별 대기 시간이 보인다\n';
+    const { result } = await runYaml({ 'tests/u.e2e.yaml': spec(steps) }, new FakeDriver(screen('tab-departures')));
     const t = result.tests[0]!;
     assert.deepEqual(
       t.steps.map((s) => [s.kind, s.verdict]),
       [
         ['start', 'PASS'],
-        ['tap', 'PASS'],
         ['assertText', 'PASS'],
         ['claim', 'ERROR'],
       ],
@@ -260,6 +274,7 @@ describe('flow control', () => {
     const flow = 'name: 탭 열기\nsteps:\n  - tap: "${tab}"\n  - see: { desc: "${tab}" }\n';
     const { result } = await runYaml({ 'tests/u.e2e.yaml': spec('  - use: flows/open.flow.yaml\n    with: { tab: 출국장 }\n') }, driver, {
       files: { 'tests/flows/open.flow.yaml': flow },
+      jev: commitSafe().setup,
     });
     const t = result.tests[0]!;
     assert.equal(t.verdict, 'PASS', t.reason);
@@ -306,7 +321,7 @@ describe('flow control', () => {
       'tests/b.e2e.yaml': spec('  - assertText: 없는문구\n    timeout: 100\n').replace('러너 테스트', 'B'),
       'tests/c.e2e.yaml': spec('  - tap: 설정\n').replace('러너 테스트', 'C'),
     };
-    const { result } = await runYaml(tests, new FakeDriver(screen('launch')));
+    const { result } = await runYaml(tests, new FakeDriver(screen('launch')), { jev: commitSafe().setup });
     const by = Object.fromEntries(result.tests.map((t) => [t.id, t]));
     assert.equal(by.a!.verdict, 'PASS');
     assert.deepEqual(by.a!.steps.map((s) => s.verdict), ['PASS', 'SKIPPED', 'PASS', 'SKIPPED']);
@@ -320,7 +335,7 @@ describe('flow control', () => {
     const driver = new FakeDriver(sheet);
     driver.onTap = (p) => (hits(sheet, '닫기', p) ? screen('launch') : null);
     const yaml = spec('  - see: 출발했어요\n', 'when:\n  - see: { desc: 닫기 }\n    do: [ { tap: 닫기 } ]\n');
-    const { result } = await runYaml({ 'tests/w.e2e.yaml': yaml }, driver);
+    const { result } = await runYaml({ 'tests/w.e2e.yaml': yaml }, driver, { jev: commitSafe().setup });
     const t = result.tests[0]!;
     assert.equal(t.verdict, 'PASS', t.reason);
     assert.ok(t.steps.some((s) => s.phase === 'interrupt' && s.kind === 'tap'));

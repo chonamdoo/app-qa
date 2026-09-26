@@ -37,11 +37,6 @@ export interface ReviewDecision {
   reason: string;
 }
 
-/** Commit judgement; `advisory` = the commit gate did not meet its criteria, so log it but never block on it alone. */
-export interface CommitDecision extends ClaimDecision {
-  advisory: boolean;
-}
-
 /** Exact request a decision sends; calibration builds requests through the same functions so recordings replay. */
 export interface JevRequest {
   state: Record<string, unknown>;
@@ -151,24 +146,22 @@ export async function judgeWhich(client: JevClient, cands: readonly Candidate[],
 
 /**
  * Would activating `target` commit an irreversible/external change? verdict 'pass' = yes (treat as risky).
- * Refusal-add only: callers may block on 'pass' (unless `advisory`) but must never unblock a deterministic risk on 'fail'.
+ * Refusal-add only: callers block on 'pass' and never unblock a deterministic risk on 'fail'. A commit section that
+ * did not meet its criteria (or any failed call) is 'error', which callers must treat as the check being unavailable.
  */
-export async function judgeCommit(client: JevClient, cands: readonly Candidate[], target: Candidate, opts: JudgeOptions): Promise<CommitDecision> {
+export async function judgeCommit(client: JevClient, cands: readonly Candidate[], target: Candidate, opts: JudgeOptions): Promise<ClaimDecision> {
   const usable = usableGate(opts.calibration, client.model, 'commit');
-  const advisory = opts.calibration?.commit.status === 'advisory';
-  if (!usable.gate) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: null, reason: usable.reason, advisory };
+  if (!usable.gate) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: null, reason: usable.reason };
   const call = await ask(client, commitRequest(cands, target, opts.texts, opts.redact ?? BUILTIN_REDACTOR), opts.signal);
-  if (!call.ok) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: call.receipt, reason: call.reason, advisory };
+  if (!call.ok) return { verdict: 'error', pYes: null, decisionSource: 'jev', receipt: call.receipt, reason: call.reason };
   const p = (call.answers[QUESTION_IDS.commit] as NoulAnswer).noul;
   const risky = p >= usable.gate.risky;
-  const note = advisory ? ' [참고용: commit 보정 기준 미달, 단독 차단 금지]' : '';
   return {
     verdict: risky ? 'pass' : 'fail',
     pYes: p,
     decisionSource: 'jev',
     receipt: call.receipt,
-    reason: `${risky ? `Jev: 되돌릴 수 없는 변경일 수 있음 (P=${fmt(p)} ≥ ${fmt(usable.gate.risky)})` : `Jev: 커밋 동작 아님 (P=${fmt(p)})`}${note}`,
-    advisory,
+    reason: risky ? `Jev: 되돌릴 수 없는 변경일 수 있음 (P=${fmt(p)} ≥ ${fmt(usable.gate.risky)})` : `Jev: 커밋 동작 아님 (P=${fmt(p)})`,
   };
 }
 

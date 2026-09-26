@@ -3,7 +3,7 @@
 // and that the committed thresholds reproduce the recorded verdicts. A change to question wording, row format or the
 // golden set shows up here as a replay miss or a verdict drift → recalibrate.
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { closeSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
@@ -89,8 +89,8 @@ test('runtime claim, which and commit reproduce every recorded golden verdict', 
       const target = m.candidates.find((c) => typeof item.target === 'string' && normLabel(c.name) === normLabel(item.target));
       assert.ok(target, item.id);
       const d = await judgeCommit(client, m.candidates, target, { texts: m.texts, calibration });
+      assert.notEqual(d.verdict, 'error', `${item.id}: ${d.reason}`);
       assert.equal(d.verdict === 'pass' ? 'risky' : 'safe', commitWant.get(item.id), `${item.id}: ${d.reason}`);
-      assert.equal(d.advisory, calibration!.commit.status === 'advisory');
     }
   }
 });
@@ -112,7 +112,18 @@ after(() => rmSync(tmp, { recursive: true, force: true }));
 
 test('re-running the calibration from the recordings reproduces the committed thresholds and evidence', async () => {
   const out = join(tmp, 'q-v1.json');
-  await runCalibration({ client, goldenDir, out });
+  // A reader holding the previous record keeps seeing it whole: the new record replaces it by rename, never in place.
+  const previous = '{"previous": true}\n';
+  writeFileSync(out, previous);
+  const reader = openSync(out, 'r');
+  try {
+    await runCalibration({ client, goldenDir, out });
+    assert.equal(readFileSync(reader, 'utf8'), previous);
+  } finally {
+    closeSync(reader);
+  }
+  assert.deepEqual(readdirSync(tmp), ['q-v1.json'], 'no temp file left next to the record');
+  assert.equal(statSync(out).mode & 0o777, 0o600);
   const fresh = JSON.parse(readFileSync(out, 'utf8')) as Calibration;
   const committed = calibration!;
   assert.deepEqual(fresh.golden, committed.golden, 'golden files changed since calibration');

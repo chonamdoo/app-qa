@@ -11,7 +11,7 @@
     },
     {
       "file": "calibration/golden/commit.yaml",
-      "sha256": "692983fceb16276d510c6fbc318d4fedb5c70f3cea0c81f9c53e4cca31f57305",
+      "sha256": "b2b92cd3e41a58d118b32e3d82d3aaeec504c54fb6e9f05a0f3b57a396caba8b",
       "items": 34
     },
     {
@@ -30,7 +30,7 @@
       "items": 17
     }
   ],
-  "method": "per primitive, 0.01-step grid: fewest confident-wrong, then most accepted; each threshold then set inside the interval that keeps every item outcome unchanged — midpoint when items bound it on both sides, conservative end when one side is only the grid limit. commit: residual items only (not blocked by src/runner/risk.ts labelRisk). Pre-registered criteria and ranges: calibration/golden/*.yaml headers.",
+  "method": "per primitive, 0.01-step grid: fewest confident-wrong, then most accepted; each threshold then set inside the interval that keeps every item outcome unchanged — midpoint when items bound it on both sides, conservative end when one side is only the grid limit. commit: residual items only (not blocked by src/policy/risk.ts labelRisk). Pre-registered criteria and ranges: calibration/golden/*.yaml headers.",
   "grounding": {
     "status": "calibrated",
     "criteria": {
@@ -2720,11 +2720,6 @@
       "safe": 20,
       "falseAlarms": 0,
       "falseAlarmRate": 0,
-      "best": {
-        "risky": 0.47,
-        "confidentWrong": 0,
-        "falseAlarmRate": 0
-      },
       "covered": []
     }
   },

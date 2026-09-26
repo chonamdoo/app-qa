@@ -6,6 +6,7 @@ import { sha256 } from '../../src/core/fsx.ts';
 import { regenerateReport } from '../../src/report/index.ts';
 import type { PlanFile } from '../../src/spec/schema.ts';
 import { FakeDriver, fixtureSnapshot } from '../helpers/fake-driver.ts';
+import { commitSafe } from '../helpers/jev-stub.ts';
 import { runYaml } from '../helpers/run.ts';
 
 const DOC_V1 = '# 떠남\n\n## 출국장\n혼잡 단계는 대기 시간과 맞아야 한다.\n';
@@ -69,7 +70,7 @@ describe('report', () => {
 
   it('counts INCONCLUSIVE as a JUnit failure and omits the matrix without covers', async () => {
     const yaml = 'name: noop\napp: tteonam\nstart: attach\nsteps:\n  - tap: 설정\n';
-    const { result } = await runYaml({ 'tests/noop.e2e.yaml': yaml }, new FakeDriver(fixtureSnapshot('android', 'tteonam', 'launch', { foreground: 'kr.tteonam.app' })), { junit: true });
+    const { result } = await runYaml({ 'tests/noop.e2e.yaml': yaml }, new FakeDriver(fixtureSnapshot('android', 'tteonam', 'launch', { foreground: 'kr.tteonam.app' })), { junit: true, jev: commitSafe().setup });
     assert.match(readFileSync(result.junitPath!, 'utf8'), /<failure type="INCONCLUSIVE:no_effect"/);
     assert.doesNotMatch(readFileSync(result.reportPath, 'utf8'), /요구사항 추적 매트릭스/);
   });

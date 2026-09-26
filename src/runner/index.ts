@@ -18,6 +18,7 @@ import { loadAppProfile, loadTests, type LoadedTest } from '../spec/load.ts';
 import type { AppProfile } from '../spec/schema.ts';
 import { appTarget, TestSession, type Clock, type JevSetup, type OcrFn } from './engine.ts';
 import { writeInventory } from './inventory.ts';
+import { EvidenceSanitizer } from './sanitize.ts';
 import { assessRisk } from '../policy/risk.ts';
 import { RunStore } from './store.ts';
 import { countVerdicts } from './verdict.ts';
@@ -206,7 +207,7 @@ function finishRun(
     reportPath: 'report.html',
     junitPath: meta.junit ? 'junit.xml' : null,
   };
-  store.writeJson('summary.json', summary, 'report');
+  store.writeRecord('summary.json', summary, 'report');
   const { reportPath, junitPath } = writeReports(store.runDir, summary, { junit: meta.junit, root: d.root });
   store.emit({ type: 'run.finished', runId: store.runId, counts, reportPath, junitPath });
   store.writeManifest();
@@ -456,7 +457,10 @@ export interface CaptureResult {
   inventory: string;
 }
 
-/** Saves the current screen as a fixture triplet `fixtures/<platform>/<app>/<name>.{xml,png,meta.json}` + inventory. */
+/**
+ * Saves the current screen as a fixture triplet `fixtures/<platform>/<app>/<name>.{xml,png,meta.json}` + inventory.
+ * The XML and inventory pass the evidence sanitizer (password values, profile `redact`, built-in PII).
+ */
 export async function captureScreen(opts: ScreenOptions & { name: string }, deps?: Partial<RunnerDeps>): Promise<CaptureResult> {
   if (!/^[\w.-]+$/.test(opts.name)) throw new Error(`캡처 이름은 영문·숫자·._- 만 허용됩니다: ${opts.name}`);
   const d = resolveDeps(deps);
@@ -464,7 +468,9 @@ export async function captureScreen(opts: ScreenOptions & { name: string }, deps
     const snap = await driver.snapshot({ screenshot: true });
     const png = snap.screenshotPng ?? (await driver.screenshot());
     const base = join(d.fixturesDir, opts.platform, opts.app, opts.name);
-    writeSecure(`${base}.xml`, snap.rawSource);
+    const clean = new EvidenceSanitizer(profile.redact);
+    clean.observe(snap);
+    writeSecure(`${base}.xml`, clean.source(snap.rawSource));
     writeSecure(`${base}.png`, png);
     writeJson(`${base}.meta.json`, {
       platform: opts.platform,
@@ -480,7 +486,7 @@ export async function captureScreen(opts: ScreenOptions & { name: string }, deps
       depthCapped: snap.depthCapped,
     });
     const model = buildScreenModel(snap, { volatile: profile.volatile });
-    const inventory = writeInventory(d.inventoryDir, opts.app, opts.platform, opts.name, model, 'capture');
+    const inventory = writeInventory(d.inventoryDir, opts.app, opts.platform, opts.name, model, 'capture', clean);
     opts.events?.emit({ type: 'log', level: 'info', source: 'capture', message: `화면 캡처 저장: ${relative(d.root, base)} (후보 ${model.candidates.length}개)` });
     return { xml: `${base}.xml`, png: `${base}.png`, meta: `${base}.meta.json`, inventory };
   });

@@ -75,6 +75,24 @@ test('rejects a choice that is not the argmax beyond rounding tolerance', () => 
 
 test('rejects a choice outside the criteria', () => rejects((b) => (b.answers.target!.choice = 'e7'), 'invalid_response', 'choice'));
 
+test('a choice naming an Object.prototype member is not a criteria key', () => {
+  for (const choice of ['toString', 'constructor', '__proto__', 'hasOwnProperty']) {
+    rejects((b) => (b.answers.target!.choice = choice), 'invalid_response', 'answers.target.choice');
+  }
+});
+
+test('an own __proto__ key in the wire body is rejected, not silently dropped', () => {
+  // JSON.parse keeps `__proto__` as an own key; the parsed record would otherwise look exactly like the criteria.
+  const probs = JSON.parse('{"e1":0.9,"e2":0.06,"none":0.04,"__proto__":0.5}');
+  rejects((b) => (b.answers.target!.probabilities = probs), 'invalid_response', 'answers.target.probabilities');
+  rejects((b) => (b.answers = JSON.parse(`{"__proto__":{},${JSON.stringify(good().answers).slice(1)}`)), 'invalid_response', 'answers');
+});
+
+test('probabilities supplied only through the prototype chain are missing', () => {
+  const inherited = Object.assign(Object.create({ none: 0.04 }), { e1: 0.9, e2: 0.06 });
+  rejects((b) => (b.answers.target!.probabilities = inherited), 'invalid_response', 'probabilities.none');
+});
+
 test('rejects a response from another model as model_mismatch', () => rejects((b) => (b.model = 'jev-1.14.0'), 'model_mismatch', 'jev-1.14.0'));
 
 test('rejects NaN, infinite and out-of-range numbers', () => {

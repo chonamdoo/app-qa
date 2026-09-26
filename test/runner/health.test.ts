@@ -9,6 +9,7 @@ import type { Manifest } from '../../src/report/manifest.ts';
 import { checkHealth } from '../../src/runner/health.ts';
 import { dHash, decodePng, hammingHex } from '../../src/runner/image.ts';
 import { FakeDriver, fixtureSnapshot, hits } from '../helpers/fake-driver.ts';
+import { commitSafe } from '../helpers/jev-stub.ts';
 import { runYaml } from '../helpers/run.ts';
 
 /** Minimal RGB PNG with one colour (filter 0 rows). */
@@ -69,7 +70,7 @@ describe('health rules', () => {
     const driver = new FakeDriver(launch);
     driver.crashes = [{ name: 'crash-1.txt', content: 'FATAL EXCEPTION: main' }];
     driver.onTap = (p) => (hits(launch, '출국장', p) ? { ...fixtureSnapshot('android', 'settings', 'launch'), foregroundApp: 'com.android.settings' } : null);
-    const { result } = await runYaml({ 'tests/crash.e2e.yaml': 'name: crash\napp: tteonam\nstart: attach\nsteps:\n  - tap: 출국장\n  - tap: 주차\n' }, driver);
+    const { result } = await runYaml({ 'tests/crash.e2e.yaml': 'name: crash\napp: tteonam\nstart: attach\nsteps:\n  - tap: 출국장\n  - tap: 주차\n' }, driver, { jev: commitSafe().setup });
     const t = result.tests[0]!;
     assert.equal(t.verdict, 'FAIL');
     assert.equal(t.code, 'app_not_foreground');
@@ -87,7 +88,7 @@ describe('health rules', () => {
     const driver = new FakeDriver(launch);
     const repainted = { ...launch, screenshotPng: new Uint8Array(readFileSync('fixtures/android/tteonam/tab-departures.png')) };
     driver.onTap = () => repainted;
-    const { result } = await runYaml({ 'tests/canvas.e2e.yaml': 'name: canvas\napp: tteonam\nstart: attach\nsteps:\n  - tap: 출국장\n' }, driver);
+    const { result } = await runYaml({ 'tests/canvas.e2e.yaml': 'name: canvas\napp: tteonam\nstart: attach\nsteps:\n  - tap: 출국장\n' }, driver, { jev: commitSafe().setup });
     const tap = result.tests[0]!.steps[1]!;
     assert.equal(tap.verdict, 'PASS', tap.reason);
     assert.equal(tap.settle?.changed, true);

@@ -1,4 +1,5 @@
-// Host process helpers shared by the drivers module (adb, xcrun, appium CLI). Never routed through a shell.
+// Host process helpers (adb, xcrun, appium CLI). Never routed through a host shell.
+// Bottom layer of the drivers module: `src/drivers/*` builds on `src/appium/*`, never the reverse.
 import { execFile } from 'node:child_process';
 import { adbPath, androidHome, PATHS } from '../core/config.ts';
 
@@ -67,11 +68,16 @@ export async function adb(serial: string | null, args: string[], opts?: RunOptio
   return (await run(adbPath(), full, opts)).stdout.toString('utf8');
 }
 
-export async function xcrun(args: string[], opts?: RunOptions): Promise<string> {
-  return (await run('xcrun', args, opts)).stdout.toString('utf8');
+/** Single-quotes an argument for the device shell (`adb shell` joins argv into one shell string). */
+export function shq(s: string): string {
+  return `'${s.replace(/'/g, `'\\''`)}'`;
 }
 
-/** NFC + collapsed whitespace, used for read-back comparisons. */
-export function normText(s: string): string {
-  return s.normalize('NFC').replace(/\s+/g, ' ').trim();
+/** `adb shell` with every argument single-quoted, so the device shell never splits or expands one. */
+export function adbShell(serial: string, argv: string[], opts?: RunOptions): Promise<string> {
+  return adb(serial, ['shell', argv.map(shq).join(' ')], opts);
+}
+
+export async function xcrun(args: string[], opts?: RunOptions): Promise<string> {
+  return (await run('xcrun', args, opts)).stdout.toString('utf8');
 }

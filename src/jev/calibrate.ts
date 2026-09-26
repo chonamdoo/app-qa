@@ -7,7 +7,7 @@ import { join, relative } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 import { PATHS } from '../core/config.ts';
-import { sha256, writeJson } from '../core/fsx.ts';
+import { sha256, writeJsonAtomic } from '../core/fsx.ts';
 import type { Candidate, Platform, ScreenModel, Snapshot } from '../core/types.ts';
 import { buildScreenModel, normLabel, parseAndroidSource, parseIosSource } from '../observe/index.ts';
 import { labelRisk } from '../policy/risk.ts';
@@ -128,13 +128,11 @@ export interface PrimitiveReport extends ItemStats {
 
 /** commit on the residual set: misses are confident-wrong, false alarms are `rejected`. */
 export interface CommitReport extends ItemStats {
-  status: 'calibrated' | 'advisory';
+  status: 'calibrated' | 'failed';
   risky: number;
   safe: number;
   falseAlarms: number;
   falseAlarmRate: number;
-  /** Best threshold the search found, even when it missed the criteria (the gate is then 0.5, advisory). */
-  best: { risky: number; confidentWrong: number; falseAlarmRate: number };
   /** Golden items the deterministic risk policy already blocks (excluded from the threshold). */
   covered: { id: string; reasons: string[] }[];
 }
@@ -355,7 +353,7 @@ export async function runCalibration(opts: CalibrationOptions): Promise<Calibrat
   const commit = calibrateCommit(pick('commit'), k.criteria as CommitCriteriaT, covered);
   const review = calibrateReview(pick('review'), r.criteria as ReviewCriteriaT);
 
-  const allOk = [grounding, claim, which, review].every((x) => x.report.status === 'calibrated');
+  const allOk = [grounding, claim, which, commit, review].every((x) => x.report.status === 'calibrated');
   const calibration: Calibration = {
     model: client.model,
     questionVersion: QUESTION_VERSION,
@@ -365,7 +363,7 @@ export async function runCalibration(opts: CalibrationOptions): Promise<Calibrat
     method:
       'per primitive, 0.01-step grid: fewest confident-wrong, then most accepted; each threshold then set inside the ' +
       'interval that keeps every item outcome unchanged — midpoint when items bound it on both sides, conservative end ' +
-      'when one side is only the grid limit. commit: residual items only (not blocked by src/runner/risk.ts labelRisk). ' +
+      'when one side is only the grid limit. commit: residual items only (not blocked by src/policy/risk.ts labelRisk). ' +
       'Pre-registered criteria and ranges: calibration/golden/*.yaml headers.',
     grounding: { status: grounding.report.status, criteria: g.criteria as CriteriaT, gate: grounding.gate, evidence: evidence(grounding.report, { nonStrict: grounding.nonStrict }) },
     claim: { status: claim.report.status, criteria: c.criteria as CriteriaT, gate: claim.gate, evidence: evidence(claim.report) },
@@ -374,7 +372,7 @@ export async function runCalibration(opts: CalibrationOptions): Promise<Calibrat
     review: { status: review.report.status, criteria: r.criteria as ReviewCriteriaT, gate: review.gate, evidence: evidence(review.report) },
   };
   const file = opts.out ?? calibrationPath(client.model, QUESTION_VERSION);
-  writeJson(file, calibration);
+  writeJsonAtomic(file, calibration);
   const sorted = [...latencies].sort((a, b) => a - b);
   return {
     file,
@@ -730,8 +728,8 @@ export function calibrateWhich(items: Extract<Pending, { kind: 'which' }>[], cri
 /**
  * Commit on the residual set (items the deterministic policy does not block). A missed commit is confident-wrong; a
  * false alarm only blocks a step (rejected) and is bounded by `maxFalseAlarmRate`. The bar is never raised above the
- * architecture's 0.5. When no threshold meets both criteria the gate is 0.5 and the status `advisory` (log, never
- * block on commit alone).
+ * architecture's 0.5. When no threshold meets both criteria the section is `failed`: runtime commit checks then
+ * return `error` and the runner refuses the guarded targets (`commit_check_unavailable`).
  */
 export function calibrateCommit(
   items: Extract<Pending, { kind: 'commit' }>[],
@@ -749,7 +747,7 @@ export function calibrateCommit(
     return { confidentWrong: count(evaluate(gate), 'confident_wrong'), falseAlarms, falseAlarmRate: safe ? falseAlarms / safe : 0 };
   };
   const values = grid(0.05, 0.5);
-  const best = centre(
+  const gate = centre(
     searchBest(
       values.map((risky) => ({ risky })),
       evaluate,
@@ -757,10 +755,8 @@ export function calibrateCommit(
     [{ values, get: (g) => g.risky, set: (_g, risky) => ({ risky }) }],
     evaluate,
   );
-  const b = measure(best);
-  const ok = b.confidentWrong <= criteria.maxConfidentWrong && b.falseAlarmRate <= criteria.maxFalseAlarmRate;
-  const gate: CommitGate = ok ? best : { risky: 0.5 };
   const m = measure(gate);
+  const ok = m.confidentWrong <= criteria.maxConfidentWrong && m.falseAlarmRate <= criteria.maxFalseAlarmRate;
   const rows = items.map((it) => ({
     meta: it.meta,
     expected: String(it.expected),
@@ -773,13 +769,12 @@ export function calibrateCommit(
   return {
     gate,
     report: {
-      status: ok ? 'calibrated' : 'advisory',
+      status: ok ? 'calibrated' : 'failed',
       ...stats(rows, evaluate(gate)),
       risky: items.length - safe,
       safe,
       falseAlarms: m.falseAlarms,
       falseAlarmRate: round(m.falseAlarmRate),
-      best: { risky: best.risky, confidentWrong: b.confidentWrong, falseAlarmRate: round(b.falseAlarmRate) },
       covered,
     },
   };

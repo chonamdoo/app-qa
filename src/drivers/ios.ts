@@ -2,12 +2,12 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { swipeGesture } from '../appium/client.ts';
+import { swipeGesture, unexpectedResponse } from '../appium/client.ts';
+import { xcrun } from '../appium/exec.ts';
 import type { ActionOutcome, AppTarget, Point, RawNode, Rect, TypeOutcome } from '../core/types.ts';
 import { parseIosSource } from '../observe/ios.ts';
 import { iosAppExecutable } from './apps.ts';
 import { AppiumDriver, IOS_PRIVACY_SERVICES, PERMISSION_GROUPS, RefusedError, type FieldValue, type Key, type LaunchOptions } from './base.ts';
-import { xcrun } from './common.ts';
 import { iosLogArgs, LogCapture } from './logs.ts';
 
 /** Characters XCTest typeText maps to hardware keys. */
@@ -57,7 +57,9 @@ export class IosDriver extends AppiumDriver {
   }
 
   protected async keyboardShown(): Promise<boolean> {
-    return (await this.api.execute<boolean>('mobile: isKeyboardShown')) === true;
+    const shown = await this.api.execute('mobile: isKeyboardShown');
+    if (typeof shown !== 'boolean') throw unexpectedResponse('mobile: isKeyboardShown', shown);
+    return shown;
   }
 
   protected async focusedElement(): Promise<string | null> {
@@ -102,12 +104,15 @@ export class IosDriver extends AppiumDriver {
     });
   }
 
-  /** WDA dismiss via a "done" key only; keys that submit (search/go) are never pressed. */
+  /**
+   * WDA dismiss via a "done" key only; keys that submit (search/go) are never pressed. A lost, timed-out or garbled
+   * answer propagates as `uncertain`; only a keyboard verified still shown after an answered command is `rejected`.
+   */
   async hideKeyboard(): Promise<ActionOutcome> {
     const t0 = performance.now();
     const o = await this.act(async () => {
       if (!(await this.keyboardShown())) return;
-      await this.api.execute('mobile: hideKeyboard', { keys: ['done', 'Done', '완료'] }).catch(() => undefined);
+      await this.api.execute('mobile: hideKeyboard', { keys: ['done', 'Done', '완료'] });
       if (await this.waitKeyboard(false, 500)) throw new RefusedError('키보드를 닫을 수 있는 완료(done) 키가 없어 키보드가 그대로입니다');
     });
     return { ...o, ms: Math.round(performance.now() - t0) };
@@ -132,8 +137,9 @@ export class IosDriver extends AppiumDriver {
   async launch(app: AppTarget, opts: LaunchOptions = {}): Promise<ActionOutcome> {
     let skipped: string[] = [];
     const o = await this.act(async () => {
-      if (opts.permissions) skipped = await this.applyPermissions(app.appId, opts.permissions);
-      await this.api.execute('mobile: launchApp', { bundleId: app.appId, ...(opts.arguments?.length ? { arguments: opts.arguments } : {}) }, 120_000);
+      const bundleId = this.appId(app);
+      if (opts.permissions) skipped = await this.applyPermissions(bundleId, opts.permissions);
+      await this.api.execute('mobile: launchApp', { bundleId, ...(opts.arguments?.length ? { arguments: opts.arguments } : {}) }, 120_000);
     });
     if (o.status === 'completed' && skipped.length) return { ...o, error: `NOTE: iOS 시뮬레이터에서 설정할 수 없는 권한은 건너뜀: ${skipped.join(', ')}` };
     return o;
@@ -141,7 +147,8 @@ export class IosDriver extends AppiumDriver {
 
   terminate(app: AppTarget): Promise<ActionOutcome> {
     return this.act(async () => {
-      await this.api.execute('mobile: terminateApp', { bundleId: app.appId });
+      const bundleId = this.appId(app);
+      await this.api.execute('mobile: terminateApp', { bundleId });
     });
   }
 
@@ -151,12 +158,13 @@ export class IosDriver extends AppiumDriver {
   }
 
   protected async reinstall(app: AppTarget, binary: string): Promise<void> {
-    await xcrun(['simctl', 'uninstall', this.deviceId, app.appId], { timeoutMs: 120_000 });
+    await xcrun(['simctl', 'uninstall', this.deviceId, this.appId(app)], { timeoutMs: 120_000 });
     await xcrun(['simctl', 'install', this.deviceId, binary], { timeoutMs: 600_000 });
   }
 
-  openUrl(_app: AppTarget, url: string): Promise<ActionOutcome> {
+  openUrl(app: AppTarget, url: string): Promise<ActionOutcome> {
     return this.act(async () => {
+      this.appId(app);
       await xcrun(['simctl', 'openurl', this.deviceId, url], { timeoutMs: 30_000 });
     });
   }
@@ -169,8 +177,11 @@ export class IosDriver extends AppiumDriver {
   }
 
   async foregroundApp(): Promise<string | null> {
-    const info = await this.api.execute<{ bundleId?: string } | null>('mobile: activeAppInfo');
-    return info?.bundleId ?? null;
+    const info = await this.api.execute('mobile: activeAppInfo');
+    if (typeof info !== 'object' || info === null || !('bundleId' in info)) throw unexpectedResponse('mobile: activeAppInfo', info);
+    const { bundleId } = info;
+    if (bundleId !== null && typeof bundleId !== 'string') throw unexpectedResponse('mobile: activeAppInfo', info);
+    return bundleId || null;
   }
 
   /**
@@ -187,14 +198,16 @@ export class IosDriver extends AppiumDriver {
   }
 
   async startLogs(app: AppTarget): Promise<void> {
+    const bundleId = this.appId(app);
     this.logApp = app;
     this.logs ??= new LogCapture('ios', this.deviceId);
-    const exe = await iosAppExecutable(this.deviceId, app.appId);
-    if (!exe) throw new Error(`${app.appId}의 실행 파일 이름을 알 수 없습니다.`);
+    const exe = await iosAppExecutable(this.deviceId, bundleId);
+    if (!exe) throw new Error(`${bundleId}의 실행 파일 이름을 알 수 없습니다.`);
     this.logs.arm(`exec:${exe}`, 'xcrun', iosLogArgs(this.deviceId, exe));
   }
 
   async crashArtifacts(app: AppTarget, sinceIso: string): Promise<{ name: string; content: string }[]> {
+    const bundleId = this.appId(app);
     const since = Date.parse(sinceIso);
     if (!existsSync(DIAGNOSTIC_REPORTS)) return [];
     const out: { name: string; content: string }[] = [];
@@ -203,7 +216,7 @@ export class IosDriver extends AppiumDriver {
       const file = join(DIAGNOSTIC_REPORTS, name);
       if (statSync(file).mtimeMs < since) continue;
       const content = readFileSync(file, 'utf8');
-      if (ipsNamesApp(content, app.appId)) out.push({ name, content });
+      if (ipsNamesApp(content, bundleId)) out.push({ name, content });
     }
     return out;
   }

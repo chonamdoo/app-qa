@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { adbPath, PATHS } from '../core/config.ts';
 import { ensureDir } from '../core/fsx.ts';
-import { run, xcrun } from '../drivers/common.ts';
+import { run, xcrun } from './exec.ts';
 import { APPIUM_MAIN } from './server.ts';
 
 /** Driver name → exact version installed into APPIUM_HOME. */

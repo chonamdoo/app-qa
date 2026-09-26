@@ -3,23 +3,24 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PATHS } from '../core/config.ts';
-import { writeSecure } from '../core/fsx.ts';
+import { writeAtomic } from '../core/fsx.ts';
 import { renderHtml } from './html.ts';
 import { renderJunit } from './junit.ts';
 import { updateManifest } from './manifest.ts';
 import { buildTraceability } from './trace.ts';
 import { SUMMARY_SCHEMA, type RunSummary } from './types.ts';
 
-/** Writes report.html (+ junit.xml) for a run and records them in the manifest; returns absolute paths. */
+/** Writes report.html (+ junit.xml) for a run and records them in the manifest; returns absolute paths. `qa report`
+ * rewrites them, so both are replaced atomically. */
 export function writeReports(runDir: string, summary: RunSummary, opts: { junit: boolean; root?: string }): { reportPath: string; junitPath: string | null } {
   const traces = buildTraceability(summary, opts.root ?? PATHS.root);
   const reportPath = join(runDir, 'report.html');
-  writeSecure(reportPath, renderHtml(summary, traces, runDir));
+  writeAtomic(reportPath, renderHtml(summary, traces, runDir));
   const entries: { kind: 'report' | 'junit'; relativePath: string }[] = [{ kind: 'report', relativePath: 'report.html' }];
   let junitPath: string | null = null;
   if (opts.junit) {
     junitPath = join(runDir, 'junit.xml');
-    writeSecure(junitPath, renderJunit(summary));
+    writeAtomic(junitPath, renderJunit(summary));
     entries.push({ kind: 'junit', relativePath: 'junit.xml' });
   }
   updateManifest(runDir, summary.runId, entries);

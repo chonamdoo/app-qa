@@ -1,11 +1,12 @@
 // Shared Appium session driver: W3C gestures, snapshot, typed-text verification, outcome mapping.
 import { existsSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
-import { ensureAppium } from '../appium/server.ts';
 import { actionStatusOf, AppiumClient, swipeGesture, tapGesture } from '../appium/client.ts';
+import { CommandError } from '../appium/exec.ts';
+import { ensureAppium } from '../appium/server.ts';
 import type { ActionOutcome, ActionStatus, AppTarget, Driver, Platform, Point, RawNode, Rect, ResetMode, Snapshot, TypeOutcome } from '../core/types.ts';
+import { appIdProblem } from './appid.ts';
 import { findBackup } from './backup.ts';
-import { CommandError, normText } from './common.ts';
 import { LogCapture } from './logs.ts';
 
 export type Key = 'enter' | 'back' | 'tab' | 'escape' | 'delete';
@@ -79,6 +80,9 @@ export interface FieldValue {
   raw: string;
 }
 
+/** NFC + collapsed whitespace, used for read-back comparisons. */
+const normText = (s: string) => s.normalize('NFC').replace(/\s+/g, ' ').trim();
+
 /** Read-back rule: NFC + whitespace-normalized equality; secure fields compare length only (values are masked). */
 export function valueMatches(expected: string, actual: string, secure: boolean): boolean {
   return secure ? [...actual].length === [...expected].length : normText(actual) === normText(expected);
@@ -93,11 +97,6 @@ export function valueMatches(expected: string, actual: string, secure: boolean):
 export function typeVerdict(expected: string, before: string, after: string, secure: boolean): 'match' | 'unchanged' | 'partial' {
   if (valueMatches(expected, after, secure)) return 'match';
   return after === before ? 'unchanged' : 'partial';
-}
-
-/** Single-quotes an argument for the device shell (`adb shell` joins argv into one shell string). */
-export function shq(s: string): string {
-  return `'${s.replace(/'/g, `'\\''`)}'`;
 }
 
 const elapsed = (t0: number) => Math.round(performance.now() - t0);
@@ -148,7 +147,15 @@ export abstract class AppiumDriver implements Driver {
     return this.client;
   }
 
+  /** The app's id once validated (it reaches device shells, simctl and backup paths); refused otherwise. */
+  protected appId(app: AppTarget): string {
+    const problem = appIdProblem(this.platform, app.appId);
+    if (problem) throw new RefusedError(problem);
+    return app.appId;
+  }
+
   async open(app: AppTarget): Promise<void> {
+    this.appId(app);
     const url = this.opts.serverUrl ?? (await ensureAppium()).url;
     const client = new AppiumClient(url);
     await client.createSession(this.capabilities(app));
@@ -324,12 +331,14 @@ export abstract class AppiumDriver implements Driver {
     const t0 = performance.now();
     if (mode === 'none') return { status: 'completed', ms: 0 };
     let binary: string | null = null;
-    if (mode === 'reinstall' || (mode === 'clear' && this.platform === 'ios')) {
-      binary = app.binaryPath ?? findBackup(this.platform, app.appId);
-      if (!binary || !existsSync(binary)) {
-        return { status: 'rejected', ms: elapsed(t0), error: `${app.appId} 백업이 없어 ${mode} 초기화를 거부합니다. \`qa apps --backup ${app.appId}\`로 먼저 백업하세요.` };
+    const pre = await this.act(async () => {
+      const appId = this.appId(app);
+      if (mode === 'reinstall' || (mode === 'clear' && this.platform === 'ios')) {
+        binary = app.binaryPath ?? findBackup(this.platform, appId);
+        if (!binary || !existsSync(binary)) throw new RefusedError(`${appId} 백업이 없어 ${mode} 초기화를 거부합니다. \`qa apps --backup ${appId}\`로 먼저 백업하세요.`);
       }
-    }
+    });
+    if (pre.status !== 'completed') return { ...pre, ms: elapsed(t0) };
     const steps = await this.act(async () => {
       const stopped = await this.terminate(app);
       if (stopped.status !== 'completed') throw new StepError(stopped);

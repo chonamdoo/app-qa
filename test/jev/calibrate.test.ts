@@ -42,13 +42,13 @@ test('commit: lowered to catch every residual commit while false alarms stay wit
   assert.ok(r.gate.risky > 0.11 && r.gate.risky <= 0.34, `risky=${r.gate.risky}`);
 });
 
-test('commit: if catching every residual commit costs more than 10% false alarms, fall back to 0.5 advisory', () => {
+test('commit: if catching every residual commit costs more than 10% false alarms, the section fails (no fallback gate)', () => {
   const items = [commit('r1', 0.2, true), commit('s1', 0.3, false), commit('s2', 0.25, false), ...safeLow];
   const r = calibrateCommit(items, commitCriteria);
-  assert.equal(r.report.status, 'advisory');
-  assert.equal(r.gate.risky, 0.5);
-  // The search still reports what the best threshold would have cost.
-  assert.ok(r.report.best.risky <= 0.2 && r.report.best.falseAlarmRate > 0.1, JSON.stringify(r.report.best));
+  assert.equal(r.report.status, 'failed');
+  // The record keeps the measured threshold and what it cost, for the audit trail.
+  assert.ok(r.gate.risky <= 0.2 && r.report.falseAlarmRate > 0.1, JSON.stringify({ gate: r.gate, far: r.report.falseAlarmRate }));
+  assert.equal(r.report.confidentWrong, 0);
 });
 
 test('commit: the bar is never raised above 0.5 even when every risky item scores far higher', () => {

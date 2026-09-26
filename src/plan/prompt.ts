@@ -34,7 +34,7 @@ Do not set "app", "source", "reset", "start" or "budget".
    - "see" for element presence; target = the exact label as a plain string, or {"intent": "<exact label>", "state": {"selected": true}} to check state.
    - "claim" only for semantic statements that text matching cannot express: one concrete, checkable fact about the current screen, in Korean.
 6. Navigation: the app is launched fresh before steps. Reach screens by tapping labels listed in APP SCREENS (tabs, buttons). Use {"wait": {"until": ...}} for content that loads.
-7. Forbidden (validation rejects them): "allowRisky"; tap/longPress on destructive or external actions (삭제, 지우기, 제거, 결제, 구매, 주문, 탈퇴, 로그아웃, 초기화, 송금, 이체, 전송, 보내기, 공유, 신고, 차단, 구독, 해지, 전화, 권한 허용, delete, remove, erase, pay, purchase, buy, order, checkout, unsubscribe, sign out, log out, reset, send, transfer, share, report, block, call) or confirm buttons of such dialogs; steps "tapAt", "swipe", "use", "open", "location"; "launch" with "permissions" or reset clear/reinstall; selectors with "id". A requirement that needs any of these goes to "untestable" with reason "needs_approval: ...".
+7. Forbidden (validation rejects them): "allowRisky"; tap/longPress on destructive or external actions (삭제, 지우기, 제거, 결제, 구매, 주문, 탈퇴, 로그아웃, 초기화, 송금, 이체, 전송, 보내기, 공유, 신고, 차단, 구독, 해지, 전화, 권한 허용, delete, remove, erase, pay, purchase, buy, order, checkout, unsubscribe, sign out, log out, reset, send, transfer, share, report, block, call) or confirm buttons of such dialogs; steps "tapAt", "swipe", "use", "open", "location"; "submit": true on "type" and any "press" other than "back" (Enter can send or confirm a form — tap the labelled button instead); "launch" with "permissions" or reset clear/reinstall; selectors with "id". A requirement that needs any of these goes to "untestable" with reason "needs_approval: ...".
 8. Requirements that depend on state you cannot set up or observe (a specific real flight, live airport data values, the current time, network failures, saved data that may not exist) go to "untestable" with the reason, unless a check holds for whatever data is shown (formats, terminology, presence of labels). Glossary definitions with no observable UI consequence go to "untestable" with reason "화면에서 관찰 불가: ...".
 9. "\${NAME}" placeholders only for names listed under ENV VARIABLES or set earlier with "remember".
 10. Write every "name", "note", "claim" and "reason" in Korean.
@@ -44,8 +44,8 @@ const DSL = `# DSL REFERENCE (the JSON Schema below is authoritative for shapes)
 Target = "<exact element label>" | {"intent"?: "<label>", "text"?: TextMatch, "desc"?: TextMatch, "state"?: {"enabled"?, "checked"?, "selected"?, "focused"?}}
 TextMatch = "<literal>" | {"regex": "<JS regex>", "flags"?: "imsu"}
 Each step is an object with exactly one kind key plus optional common fields: timeout (ms), optional, platforms, expect, expectNoChange, within, nth, near, note.
-  {"tap": Target} | {"longPress": Target, "holdMs"?: 1000} | {"type": "<text>", "into": Target, "submit"?: true, "append"?: true} | {"clear": Target}
-  {"press": "enter"|"back"|"tab"|"escape"|"delete"} | {"hideKeyboard": true} | {"back": true} | {"launch": true}
+  {"tap": Target} | {"longPress": Target, "holdMs"?: 1000} | {"type": "<text>", "into": Target, "append"?: true} | {"clear": Target}
+  {"press": "back"} | {"hideKeyboard": true} | {"back": true} | {"launch": true}
   {"see": Target} (element visible) | {"seeNot": "<label>"} (element absent)
   {"assertText": TextMatch} (a visible text line contains it) | {"assertNoText": TextMatch} (no visible line contains it)
   {"checkEach": {"pattern": "<regex with named groups>", "rule": <JSONLogic>, "min": 1}} (every matching visible line satisfies rule; at least min lines match)

@@ -6,16 +6,23 @@ import type { Questions } from './questions.ts';
 // z.number() rejects NaN and ±Infinity.
 const Unit = z.number().min(0).max(1);
 
+/** JSON.parse keeps an own `__proto__` key that zod records silently drop, which would hide an unexpected key. */
+const WireRecord = <T extends z.ZodType>(value: T) =>
+  z
+    .unknown()
+    .refine((v) => typeof v !== 'object' || v === null || !Object.hasOwn(v, '__proto__'), 'reserved key __proto__')
+    .pipe(z.record(z.string(), value));
+
 const ChoiceWire = z.object({
   type: z.literal('choice'),
   choice: z.string(),
   confidence: Unit,
-  probabilities: z.record(z.string(), Unit),
+  probabilities: WireRecord(Unit),
 });
 
 const NoulWire = z.object({ type: z.literal('noul'), noul: Unit });
 
-const Envelope = z.object({ model: z.string(), answers: z.record(z.string(), z.unknown()) });
+const Envelope = z.object({ model: z.string(), answers: WireRecord(z.unknown()) });
 
 const Usage = z.object({ usage: z.object({ input_tokens: z.number().int().nonnegative() }) });
 
@@ -46,7 +53,11 @@ const ARGMAX_TOLERANCE = 0.011;
 /** Float noise when adding rounded decimals (0.9 + 0.06 + 0.06 = 1.0200000000000002). */
 const EPS = 1e-9;
 
-/** Checks a parsed 2xx body against the questions that were sent. Throws `JevError('invalid_response' | 'model_mismatch')`. */
+/**
+ * Checks a parsed 2xx body against the questions that were sent. Throws `JevError('invalid_response' | 'model_mismatch')`.
+ * Key sets must match exactly (own keys, no `__proto__`), and the choice must be an own criteria key, so `toString` /
+ * `constructor` / `__proto__` never resolve through a prototype.
+ */
 export function validateResponse(raw: unknown, questions: Questions, model: string): ValidatedResponse {
   const envelope = parseOrThrow(Envelope, raw, '');
   if (envelope.model !== model) throw new JevError('model_mismatch', `응답 모델 ${envelope.model} ≠ 고정 모델 ${model}`);
@@ -70,8 +81,8 @@ export function validateResponse(raw: unknown, questions: Questions, model: stri
       if (p > max) max = p;
     }
     if (Math.abs(sum - 1) > SUM_TOLERANCE + EPS) throw invalid(`${path}.probabilities`, `sum ${sum.toFixed(3)}`);
-    const chosen = a.probabilities[a.choice];
-    if (chosen === undefined) throw invalid(`${path}.choice`, 'not a criteria key');
+    if (!Object.hasOwn(question.criteria, a.choice)) throw invalid(`${path}.choice`, 'not a criteria key');
+    const chosen = a.probabilities[a.choice]!;
     if (chosen < max - ARGMAX_TOLERANCE - EPS) throw invalid(`${path}.choice`, 'not the argmax');
     answers[id] = a;
   }

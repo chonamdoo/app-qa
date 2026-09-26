@@ -1,19 +1,21 @@
 // `qa plan` programmatic API (architecture §6, §10): documents → requirements → LLM tests → deterministic validation →
 // Jev review → tests/generated/<app>/<doc-slug>/<test-id>.e2e.yaml + tests/generated/<app>/plan.json.
 // plan.json is merged per document: re-planning a document replaces only that document's requirements, tests and
-// untestable entries (the inline scenario is the document `inline.md`).
-import { existsSync, readdirSync, readFileSync, rmdirSync, rmSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+// untestable entries (the inline scenario is the document `inline.md`). The new generation is swapped in atomically
+// (`commit.ts`): the previous one stays intact until the new one is complete.
+import { existsSync, readFileSync } from 'node:fs';
+import { join, relative, resolve, sep } from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 import { loadEnv, ROOT } from '../core/config.ts';
 import type { EventSink } from '../core/events.ts';
-import { newRunId, writeJson, writeSecure } from '../core/fsx.ts';
+import { newRunId } from '../core/fsx.ts';
 import { JevClient } from '../jev/client.ts';
 import { loadJevConfig } from '../jev/config.ts';
 import { reviewGenerated } from '../jev/decide.ts';
 import { loadCalibration, type Calibration } from '../jev/gates.ts';
 import { createRedactor, type Redactor } from '../jev/redact.ts';
 import { PlanFile, type Requirement } from '../spec/schema.ts';
+import { commitGeneration, recoverStaging } from './commit.ts';
 import { DEFAULT_CONTEXT_DIRS, loadAppContext, type ContextDirs } from './context.ts';
 import { generateTests, type DroppedTest, type GeneratedTest } from './generate.ts';
 import { ingestDocuments, INLINE_DOC } from './ingest.ts';
@@ -98,6 +100,7 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
     context.warnings.forEach(warn);
     if (!sources.length && !hasText) throw new Error(`문서가 없습니다: 문서 경로나 --text를 주거나 apps/${opts.app}.yaml에 docs를 적으세요`);
 
+    for (const note of recoverStaging(planDir)) warn(note);
     const previous = readPlan(planPath);
     const reservedSlugs = new Map<string, string>();
     for (const r of previous?.requirements ?? []) reservedSlugs.set(r.doc, r.id.slice(0, r.id.indexOf('#')));
@@ -171,23 +174,21 @@ export async function generatePlan(opts: GeneratePlanOptions): Promise<GenerateP
       untestable: [...keptUntestable, ...generated.untestable],
     });
 
-    // ── write ──
-    if (opts.signal?.aborted) throw new Error('계획 생성이 취소되었습니다');
+    // ── write: stage → swap → prune (a failure leaves the previous generation intact) ──
     const newFiles = new Set(placed.map((p) => p.file));
-    for (const t of removedTests) {
-      const file = resolve(root, t.file);
-      if (!file.startsWith(planDir + sep) || newFiles.has(file) || !existsSync(file)) continue;
-      rmSync(file);
-      const dir = dirname(file);
-      if (dir !== planDir && readdirSync(dir).length === 0) rmdirSync(dir);
-    }
-    placed.forEach(({ test, id, file }, k) => {
-      const status = entries[k]!.status;
-      const { id: _id, name, platforms, tags, covers, app, ...rest } = test.spec;
-      const body = { id, name, app, ...(platforms ? { platforms } : {}), ...(tags ? { tags } : {}), covers, source: { plan: rel(planPath), status }, ...rest };
-      writeSecure(file, `# qa plan으로 생성됨 · 상태 ${status} · 계획 ${rel(planPath)}\n${stringifyYaml(body, { lineWidth: 0 })}`);
+    const stale = removedTests.map((t) => resolve(root, t.file)).filter((file) => file.startsWith(planDir + sep) && !newFiles.has(file));
+    const tests = new Map(
+      placed.map(({ test, id, file }, k): [string, string] => {
+        const status = entries[k]!.status;
+        const { id: _id, name, platforms, tags, covers, app, ...rest } = test.spec;
+        const body = { id, name, app, ...(platforms ? { platforms } : {}), ...(tags ? { tags } : {}), covers, source: { plan: rel(planPath), status }, ...rest };
+        return [relative(planDir, file), `# qa plan으로 생성됨 · 상태 ${status} · 계획 ${rel(planPath)}\n${stringifyYaml(body, { lineWidth: 0 })}`];
+      }),
+    );
+    commitGeneration(planDir, planId, { tests, plan, stale: stale.map((file) => relative(planDir, file)) }, () => {
+      progress('write', `새 계획 준비 완료 (테스트 ${placed.length}개) — 기존 계획과 교체`);
+      if (opts.signal?.aborted) throw new Error('계획 생성이 취소되었습니다');
     });
-    writeJson(planPath, plan);
     progress('write', `테스트 ${placed.length}개 저장: ${rel(planDir)}`);
     const message = `요구사항 ${requirements.length}개 · 테스트 ${placed.length}개 · 테스트 불가 ${generated.untestable.length}개`;
     events?.emit({ type: 'plan.finished', planId, planPath, requirements: requirements.length, tests: placed.length, untestable: generated.untestable.length, ok: true, message });

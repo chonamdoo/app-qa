@@ -290,15 +290,18 @@ private struct EventRow: View {
 
     private func actionTitle(_ kind: String) -> String {
         let titles: [String: String] = [
-            "tap": "화면 탭", "type": "텍스트 입력", "swipe": "화면 스와이프", "scroll": "스크롤", "back": "뒤로 가기",
-            "launch": "앱 실행", "terminate": "앱 종료", "reset": "앱 초기화",
+            "tap": "화면 탭", "longPress": "길게 누르기", "type": "텍스트 입력", "clear": "지우기", "press": "키 누르기",
+            "hideKeyboard": "키보드 숨기기", "swipe": "화면 스와이프", "scroll": "스크롤", "back": "뒤로 가기",
+            "open": "링크 열기", "location": "위치 설정", "launch": "앱 실행", "terminate": "앱 종료", "reset": "앱 초기화",
         ]
         return titles[kind] ?? kind
     }
 
     private func actionIcon(_ kind: String) -> String {
         let icons: [String: String] = [
-            "tap": "hand.tap", "type": "keyboard", "swipe": "hand.draw", "scroll": "scroll", "back": "arrow.uturn.backward",
+            "tap": "hand.tap", "longPress": "hand.point.up.left", "type": "keyboard", "clear": "delete.left",
+            "press": "keyboard.badge.ellipsis", "hideKeyboard": "keyboard.chevron.compact.down", "swipe": "hand.draw",
+            "scroll": "scroll", "back": "arrow.uturn.backward", "open": "link", "location": "location",
             "launch": "power", "terminate": "stop.circle", "reset": "arrow.counterclockwise",
         ]
         return icons[kind] ?? "bolt"

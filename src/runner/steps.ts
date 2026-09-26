@@ -1,9 +1,6 @@
-// Step helpers: kind detection, Korean labels (run.started / reports) and run-time `${NAME}` expansion.
+// Step labels (run.started / reports) and run-time `${NAME}` expansion; kinds come from `src/spec/steps.ts`.
 import type { StepSpec } from '../spec/schema.ts';
 import { STEP_KIND_LABEL, stepKind } from '../spec/steps.ts';
-
-export { stepKind };
-export type { StepKind } from '../spec/schema.ts';
 
 function describe(value: unknown): string {
   if (value === true || value === undefined) return '';
@@ -21,7 +18,6 @@ function describe(value: unknown): string {
 /** "탭: 출국장", "입력: "인천" → 검색창", "반복: 3회" … Secure text is never shown. */
 export function stepLabel(step: StepSpec): string {
   const kind = stepKind(step);
-  const fields = step as Record<string, unknown>;
   let detail: string;
   if ('type' in step) detail = `${step.secure ? '••••' : `"${step.type}"`} → ${describe(step.into)}`;
   else if ('which' in step) detail = Object.keys(step.which).join(' | ');
@@ -30,7 +26,7 @@ export function stepLabel(step: StepSpec): string {
   else if ('checkEach' in step) detail = `/${step.checkEach.pattern}/`;
   else if ('remember' in step) detail = `${step.remember.name} ← ${describe(step.remember.from)}`;
   else if ('scroll' in step) detail = `${step.scroll.direction}${step.scroll.until ? ` → ${describe(step.scroll.until)}` : ''}`;
-  else detail = describe(fields[kind]);
+  else detail = describe(Object.entries(step).find(([key]) => key === kind)?.[1]);
   return detail ? `${STEP_KIND_LABEL[kind]}: ${detail}` : STEP_KIND_LABEL[kind];
 }
 
@@ -61,15 +57,14 @@ function expandString(text: string, lookup: (name: string) => string | undefined
   return out;
 }
 
-function expandDeep(value: unknown, lookup: (name: string) => string | undefined): unknown {
-  if (typeof value === 'string') return expandString(value, lookup);
-  if (Array.isArray(value)) return value.map((v) => expandDeep(v, lookup));
-  if (value && typeof value === 'object') {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) out[k] = expandDeep(v, lookup);
-    return out;
-  }
-  return value;
+/** Same shape with every string expanded (object keys are DSL field names and stay as they are). */
+function expandDeep<T>(value: T, lookup: (name: string) => string | undefined): T {
+  if (typeof value === 'string') return expandString(value, lookup) as T;
+  if (Array.isArray(value)) return value.map((v: unknown) => expandDeep(v, lookup)) as T;
+  if (value === null || typeof value !== 'object') return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) out[k] = expandDeep(v, lookup);
+  return out as T;
 }
 
 /**
@@ -80,17 +75,17 @@ export function expandStep(step: StepSpec, lookup: (name: string) => string | un
   if ('repeat' in step) {
     const { steps, ...condition } = step.repeat;
     const { repeat: _r, ...common } = step;
-    return { ...(expandDeep(common, lookup) as object), repeat: { ...(expandDeep(condition, lookup) as object), steps } } as StepSpec;
+    return { ...expandDeep(common, lookup), repeat: { ...expandDeep(condition, lookup), steps } };
   }
   if ('which' in step) {
-    const which: Record<string, unknown> = {};
+    const which: Record<string, StepSpec[]> = {};
     for (const [option, branch] of Object.entries(step.which)) which[expandString(option, lookup)] = branch;
     const { which: _w, ...rest } = step;
-    return { ...(expandDeep(rest, lookup) as object), which } as StepSpec;
+    return { ...expandDeep(rest, lookup), which };
   }
   if ('use' in step) {
     const { use, ...rest } = step;
-    return { ...(expandDeep(rest, lookup) as object), use } as StepSpec;
+    return { ...expandDeep(rest, lookup), use };
   }
-  return expandDeep(step, lookup) as StepSpec;
+  return expandDeep(step, lookup);
 }

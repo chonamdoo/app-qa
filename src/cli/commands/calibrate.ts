@@ -13,7 +13,7 @@ const USAGE = `사용법: qa calibrate [옵션]
   --reuse              녹화에 있는 요청은 다시 묻지 않고 재사용 (골든셋을 늘릴 때)
   --out <file>         결과 파일 (기본: calibration/<model>/q-v1.json)
   --concurrency <n>    동시 호출 수 (기본: 4)
-종료 코드: 0 = 전체 통과(commit은 advisory 허용), 1 = 사전등록 기준 미달(레코드에 failed로 기록), 2 = 오류`;
+종료 코드: 0 = 전체 통과, 1 = 사전등록 기준 미달(레코드에 failed로 기록), 2 = 오류`;
 
 export async function cmdCalibrate(argv: string[]): Promise<number> {
   let values;
@@ -79,7 +79,7 @@ function renderReport(r: CalibrationReport): string {
     row('grounding', grounding.n, `수용 ${pct(grounding.acceptance)}`, grounding.confidentWrong, grounding.status, `minTop ${g.minTop} · minGap ${g.minGap} · maxNone ${g.maxNone} · noneMin ${g.noneMin} · rescueGap ${g.rescueGap ?? '없음'}`),
     row('claim', claim.n, `수용 ${pct(claim.acceptance)}`, claim.confidentWrong, claim.status, `yes ≥ ${c.claim.gate.yes} · no ≤ ${c.claim.gate.no}`),
     row('which', which.n, `수용 ${pct(which.acceptance)}`, which.confidentWrong, which.status, `minTop ${c.which.gate.minTop} · minGap ${c.which.gate.minGap} · noneMin ${c.which.gate.noneMin}`),
-    row('commit', commit.n, `오경보 ${commit.falseAlarms}/${commit.safe} (${pct(commit.falseAlarmRate)})`, commit.confidentWrong, commit.status, `risky ≥ ${c.commit.gate.risky} (탐색 최적 ${commit.best.risky}: 놓침 ${commit.best.confidentWrong}, 오경보 ${pct(commit.best.falseAlarmRate)})`),
+    row('commit', commit.n, `오경보 ${commit.falseAlarms}/${commit.safe} (${pct(commit.falseAlarmRate)})`, commit.confidentWrong, commit.status, `risky ≥ ${c.commit.gate.risky}`),
     row('review', review.n, `good 승인 ${review.goodApproved}/${review.good} (${pct(review.goodApproval)})`, review.confidentWrong, review.status, `addresses ≥ ${rg.addressesMin} · unrelated ≤ ${rg.unrelatedMax} · clarification ≤ ${rg.clarificationMax}`),
     `grounding(비엄격, tap/type): 수용률 ${pct(r.groundingNonStrict.acceptance)}, 확신 오답 ${r.groundingNonStrict.confidentWrong}`,
     `commit: 잔여 위험 ${commit.risky} · 잔여 안전 ${commit.safe} · 결정적 정책이 이미 막아 제외 ${commit.covered.length}건${commit.covered.length ? ` (${commit.covered.map((x) => x.id).join(', ')})` : ''}`,

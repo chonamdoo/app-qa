@@ -53,13 +53,22 @@ describe('generated test validation', () => {
     assert.match(errorsOf({ ...valid, steps: [{ longPress: { text: 'Delete' } }] }).join('\n'), /위험 동작 대상 "Delete"/);
     assert.match(errorsOf({ ...valid, steps: [{ which: { 홈: [{ tap: '결제하기' }], 검색: [{ back: true }] } }] }).join('\n'), /which\["홈"\]\[0\]: 위험 동작 대상 "결제하기"/);
     assert.match(errorsOf({ ...valid, steps: [{ repeat: { times: 2, steps: [{ tap: { text: { regex: '삭제' } } }] } }] }).join('\n'), /위험 동작 대상 "삭제"/);
-    assert.match(errorsOf({ ...valid, steps: [{ type: 'hi', into: '메시지 보내기', submit: true }] }).join('\n'), /위험 동작 대상 "메시지 보내기"/);
+    assert.match(errorsOf({ ...valid, steps: [{ repeat: { times: 1, steps: [{ longPress: '메시지 보내기' }] } }] }).join('\n'), /위험 동작 대상 "메시지 보내기"/);
     // Confirm labels are risky once the test itself mentions a destructive dialog.
     assert.match(errorsOf({ ...valid, steps: [{ assertText: '정말 삭제하시겠어요?' }, { tap: '확인' }] }).join('\n'), /위험 동작 대상 "확인"/);
     assert.deepEqual(errorsOf({ ...valid, steps: [{ tap: '확인' }] }), []);
     const idOnly = errorsOf({ ...valid, steps: [{ tap: { id: 'kr.tteonam.app:id/delete' } }] }).join('\n');
     assert.match(idOnly, /라벨 없는 대상/);
     assert.match(idOnly, /id 셀렉터/);
+  });
+
+  test('keyboard submit is rejected: type.submit and every press except back (invariant 8)', () => {
+    assert.match(errorsOf({ ...valid, steps: [{ type: '인천', into: '검색', submit: true }] }).join('\n'), /steps\[0\]: type\.submit은 자동 생성 테스트에 쓸 수 없습니다/);
+    for (const key of ['enter', 'tab', 'escape', 'delete']) {
+      assert.match(errorsOf({ ...valid, steps: [{ press: key }] }).join('\n'), new RegExp(`steps\\[0\\]: press "${key}"는 자동 생성 테스트에 쓸 수 없습니다`), key);
+    }
+    assert.match(errorsOf({ ...valid, when: [{ see: '광고', do: [{ press: 'enter' }] }] }).join('\n'), /when\[0\]\.do\[0\]: press "enter"/);
+    assert.deepEqual(errorsOf({ ...valid, steps: [{ type: '인천', into: '검색' }, { press: 'back' }, { type: '김포', into: '검색', submit: false }] }), []);
   });
 
   test('unknown and disallowed step kinds are named', () => {

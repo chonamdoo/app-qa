@@ -71,6 +71,8 @@ export class FakeDriver implements Driver {
   onTap: (p: Point, driver: FakeDriver) => Snapshot | null = () => null;
   /** Called for every other mutating action (swipe, back, press, launch…); may replace `screen`. */
   onAction: (method: string, driver: FakeDriver) => void = () => undefined;
+  /** Called before every snapshot (e.g. content that keeps moving, or a screen that changes between observations). */
+  onSnapshot: (driver: FakeDriver) => void = () => undefined;
   /** Outcome status for the next taps (default completed). */
   tapStatus: ActionStatus = 'completed';
   /** Read-back error for typeText (e.g. `INPUT_UNVERIFIED: …`). */
@@ -104,6 +106,7 @@ export class FakeDriver implements Driver {
   }
   async snapshot(opts: { screenshot?: boolean } = {}): Promise<Snapshot> {
     this.record('snapshot', opts.screenshot ?? false);
+    this.onSnapshot(this);
     return { ...this.screen, takenAt: new Date(this.clock.now()).toISOString(), screenshotPng: opts.screenshot ? this.screen.screenshotPng : null };
   }
   async screenshot(): Promise<Uint8Array> {

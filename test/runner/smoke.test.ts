@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 import type { Snapshot } from '../../src/core/types.ts';
 import type { InventoryFile } from '../../src/runner/inventory.ts';
 import { FakeDriver, fixtureSnapshot, hits } from '../helpers/fake-driver.ts';
-import { jevStub, noul } from '../helpers/jev-stub.ts';
+import { commitSafe, jevStub, noul } from '../helpers/jev-stub.ts';
 import { smokeFake } from '../helpers/run.ts';
 
 const APP = 'kr.tteonam.app';
@@ -48,7 +48,7 @@ describe('smoke', () => {
       const tab = Object.keys(byTab).find((name) => hits(d.screen, name, p) && p.y > 2100);
       return tab ? byTab[tab]!() : null;
     };
-    const { result, root } = await smokeFake(driver, { crawl: true });
+    const { result, root } = await smokeFake(driver, { crawl: true, jev: commitSafe().setup });
     const t = result.tests[0]!;
     assert.equal(t.verdict, 'PASS', t.reason);
     const tapped = driver.called('tap').map((c) => Object.keys(byTab).find((name) => hits(launch, name, c.args[0] as { x: number; y: number })));

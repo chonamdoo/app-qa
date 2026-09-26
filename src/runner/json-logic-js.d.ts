@@ -2,8 +2,6 @@
 declare module 'json-logic-js' {
   const jsonLogic: {
     apply(rule: unknown, data?: unknown): unknown;
-    truthy(value: unknown): boolean;
-    is_logic(value: unknown): boolean;
   };
   export default jsonLogic;
 }

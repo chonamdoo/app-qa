@@ -4,10 +4,10 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { adb, adbShell, childEnv, run, shq, xcrun } from '../appium/exec.ts';
 import { adbPath } from '../core/config.ts';
 import { ensureDir } from '../core/fsx.ts';
 import type { Platform } from '../core/types.ts';
-import { adb, childEnv, run, xcrun } from './common.ts';
 
 /** PNG of the current screen. Android: `adb exec-out screencap -p`; iOS: `simctl io screenshot` (pixels, @3x). */
 export async function grabScreen(platform: Platform, deviceId: string): Promise<Uint8Array> {
@@ -30,11 +30,25 @@ export async function grabScreen(platform: Platform, deviceId: string): Promise<
 interface Recording {
   child: ChildProcess;
   file: string;
+  /** Android: the mp4 on the device and the device pid of the `screenrecord` this process started. */
   remote: string | null;
+  devicePid: string | null;
   exited: Promise<number | null>;
 }
 
 const recordings = new Map<string, Recording>();
+
+/** Resolves with the first stdout line of `child` (null when it exits or `timeoutMs` passes first). */
+async function firstLine(child: ChildProcess, exited: Promise<number | null>, timeoutMs: number): Promise<string | null> {
+  const { promise, resolve } = Promise.withResolvers<string | null>();
+  let buf = '';
+  child.stdout?.on('data', (d: Buffer) => {
+    buf += d.toString('utf8');
+    const nl = buf.indexOf('\n');
+    if (nl >= 0) resolve(buf.slice(0, nl).trim());
+  });
+  return Promise.race([promise, exited.then(() => null), delay(timeoutMs, null, { ref: false })]);
+}
 
 /** Android: `adb shell screenrecord` (device limit 180 s per file); iOS: `simctl io recordVideo`. */
 export async function startRecording(platform: Platform, deviceId: string, file: string): Promise<void> {
@@ -42,14 +56,17 @@ export async function startRecording(platform: Platform, deviceId: string, file:
   if (recordings.has(key)) throw new Error(`${deviceId}에서 이미 녹화 중입니다.`);
   ensureDir(dirname(file));
   const remote = platform === 'android' ? `/sdcard/qa-rec-${Date.now()}.mp4` : null;
+  // Android: the device shell prints its own pid and then becomes screenrecord (exec keeps the pid), so stop can
+  // signal exactly this recording and never another tool's screenrecord.
   const child =
     platform === 'android'
-      ? spawn(adbPath(), ['-s', deviceId, 'shell', 'screenrecord', '--bit-rate', '6000000', remote!], { env: childEnv(), stdio: 'ignore' })
+      ? spawn(adbPath(), ['-s', deviceId, 'shell', `echo $$; exec screenrecord --bit-rate 6000000 ${shq(remote!)}`], { env: childEnv(), stdio: ['ignore', 'pipe', 'ignore'] })
       : spawn('xcrun', ['simctl', 'io', deviceId, 'recordVideo', '--codec=h264', '--force', file], { env: childEnv(), stdio: ['ignore', 'ignore', 'pipe'] });
   const exit = Promise.withResolvers<number | null>();
   child.once('exit', (code) => exit.resolve(code));
   const exited = exit.promise;
-  recordings.set(key, { child, file, remote, exited });
+  const rec: Recording = { child, file, remote, devicePid: null, exited };
+  recordings.set(key, rec);
   if (platform === 'ios') {
     // recordVideo prints "Recording started" once frames flow; wait for it so stop never races start.
     const { promise, resolve } = Promise.withResolvers<void>();
@@ -58,11 +75,14 @@ export async function startRecording(platform: Platform, deviceId: string, file:
     });
     await Promise.race([promise, exited, delay(5000, undefined, { ref: false })]);
   } else {
+    const pid = await firstLine(child, exited, 5000);
+    if (pid !== null && /^\d+$/.test(pid)) rec.devicePid = pid;
+    else if (child.exitCode === null) child.kill('SIGKILL');
     await delay(500);
   }
-  if (child.exitCode !== null) {
+  if (child.exitCode !== null || child.signalCode !== null || (platform === 'android' && rec.devicePid === null)) {
     recordings.delete(key);
-    throw new Error(`녹화를 시작하지 못했습니다 (exit ${child.exitCode}).`);
+    throw new Error(`녹화를 시작하지 못했습니다 (exit ${child.exitCode ?? child.signalCode}).`);
   }
 }
 
@@ -74,12 +94,13 @@ export async function stopRecording(platform: Platform, deviceId: string, file: 
   recordings.delete(key);
   if (rec.file !== file) throw new Error(`녹화 파일 경로가 시작 시(${rec.file})와 다릅니다: ${file}`);
   if (platform === 'android') {
-    // SIGINT on the device process finalizes the mp4 (killing the local adb client would truncate it).
-    await adb(deviceId, ['shell', 'pkill', '-INT', 'screenrecord'], { allowFail: true });
+    // SIGINT on our device process finalizes the mp4 (killing the local adb client would truncate it). While the
+    // adb session is alive the pid is still our screenrecord; once it has exited there is nothing to stop.
+    if (rec.child.exitCode === null) await adbShell(deviceId, ['kill', '-INT', rec.devicePid!], { allowFail: true });
     await Promise.race([rec.exited, delay(10_000, undefined, { ref: false })]);
     await delay(300);
     await adb(deviceId, ['pull', rec.remote!, file], { timeoutMs: 120_000 });
-    await adb(deviceId, ['shell', 'rm', '-f', rec.remote!], { allowFail: true });
+    await adbShell(deviceId, ['rm', '-f', rec.remote!], { allowFail: true });
   } else {
     rec.child.kill('SIGINT');
     await Promise.race([rec.exited, delay(15_000, undefined, { ref: false })]);

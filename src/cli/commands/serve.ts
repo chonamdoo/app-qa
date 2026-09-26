@@ -1,12 +1,12 @@
 // `qa serve`: engine server for the macOS app. Runner/planner/drivers are imported lazily at use time, so the server
 // starts even while those modules are missing and the affected job/route fails with a clear message instead.
-import { chmodSync, existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { loadEnv, PATHS } from '../../core/config.ts';
 import type { EventSink } from '../../core/events.ts';
-import { writeJson } from '../../core/fsx.ts';
+import { writeJsonAtomic } from '../../core/fsx.ts';
 import type { DeviceInfo, Platform, Verdict } from '../../core/types.ts';
 import type { JobOutcome } from '../../server/jobs.ts';
 import { createServer, HttpError, type ServerHandlers } from '../../server/server.ts';
@@ -133,6 +133,28 @@ function realHandlers(): ServerHandlers {
   };
 }
 
+/**
+ * Starts the engine server and publishes its connection info (port, token): the 0600 temp file is renamed into place,
+ * so the token is never readable by others nor torn. `close()` stops the server and removes the file while it is ours.
+ */
+export async function startEngine(opts: { port: number; infoFile: string; handlers: ServerHandlers }): Promise<{ port: number; close(): Promise<void> }> {
+  const server = createServer({ handlers: opts.handlers });
+  const port = await server.listen(opts.port);
+  writeJsonAtomic(opts.infoFile, { port, token: server.token, pid: process.pid, startedAt: new Date().toISOString() });
+  return {
+    port,
+    async close() {
+      await server.close();
+      try {
+        const info: unknown = JSON.parse(readFileSync(opts.infoFile, 'utf8'));
+        if (typeof info === 'object' && info !== null && 'pid' in info && info.pid === process.pid) rmSync(opts.infoFile);
+      } catch {
+        // Already removed or replaced by another instance.
+      }
+    },
+  };
+}
+
 export async function cmdServe(argv: string[]): Promise<number> {
   const { values } = parseArgs({
     args: argv,
@@ -149,12 +171,9 @@ export async function cmdServe(argv: string[]): Promise<number> {
     return 2;
   }
   loadEnv();
-  const server = createServer({ handlers: realHandlers() });
-  const bound = await server.listen(port);
   const infoFile = join(PATHS.state, 'server.json');
-  writeJson(infoFile, { port: bound, token: server.token, pid: process.pid, startedAt: new Date().toISOString() });
-  chmodSync(infoFile, 0o600);
-  console.log(`qa serve: http://127.0.0.1:${bound} (접속 정보 ${relative(PATHS.root, infoFile)})`);
+  const engine = await startEngine({ port, infoFile, handlers: realHandlers() });
+  console.log(`qa serve: http://127.0.0.1:${engine.port} (접속 정보 ${relative(PATHS.root, infoFile)})`);
 
   const { promise: stopped, resolve: stop } = Promise.withResolvers<string>();
   process.once('SIGINT', () => stop('SIGINT'));
@@ -167,11 +186,6 @@ export async function cmdServe(argv: string[]): Promise<number> {
   const reason = await stopped;
   console.log(`qa serve: 종료 (${reason})`);
   process.stdin.pause();
-  await server.close();
-  try {
-    if ((JSON.parse(readFileSync(infoFile, 'utf8')) as { pid?: number }).pid === process.pid) rmSync(infoFile);
-  } catch {
-    // Already removed or replaced by another instance.
-  }
+  await engine.close();
   return 0;
 }

@@ -2,10 +2,10 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { closeSync, openSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { childEnv } from '../appium/exec.ts';
 import { adbPath, PATHS } from '../core/config.ts';
 import { ensureDir } from '../core/fsx.ts';
 import type { Platform } from '../core/types.ts';
-import { childEnv } from './common.ts';
 
 /** `logcat -v threadtime -v UTC -v year` → "2026-09-25 23:45:43.620 +0000  518  518 I tag: msg". */
 const ANDROID_TS = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3}) \+0000\b/;

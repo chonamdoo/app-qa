@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
@@ -128,6 +128,21 @@ test('record stores the response under the request digest and replay serves it w
 test('replay without a recording for the request is an error (a changed question version misses)', async () => {
   const replay = new JevClient(testConfig('replay', tmp));
   await assert.rejects(replay.systemOne(state, questions, 'q-v2'), (e: unknown) => e instanceof JevCallError && e.kind === 'replay_miss');
+});
+
+test('a corrupt or shapeless recording is an invalid_response with a receipt, never a raw SyntaxError', async () => {
+  const dir = join(tmp, 'corrupt');
+  mkdirSync(dir);
+  const file = join(dir, `${requestKey('jev-1.13.0', 'q-v1', state, questions)}.json`);
+  const replay = new JevClient(testConfig('replay', dir));
+  for (const content of ['{"key": "trunc', 'null', '{"requestId": "req-9"}']) {
+    writeFileSync(file, content);
+    const e = await callError(replay);
+    assert.equal(e.kind, 'invalid_response', content);
+    assert.equal(e.receipt.questionVersion, 'q-v1');
+    assert.match(e.receipt.error ?? '', /^invalid_response: /);
+    assert.equal(e.receipt.answers, null);
+  }
 });
 
 test('canonical JSON sorts keys at every depth but keeps array order', () => {

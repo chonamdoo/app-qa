@@ -130,17 +130,19 @@ test('commit: at or above the calibrated bar is risky (pass), below is not', asy
   const cal = testCalibration();
   cal.commit.gate = { risky: 0.47 };
   const at = await judgeCommit(clientFor({ commits: { type: 'noul', noul: 0.47 } }).client, cands, cands[2]!, { texts, calibration: cal });
-  assert.deepEqual([at.verdict, at.pYes, at.advisory], ['pass', 0.47, false]);
+  assert.deepEqual([at.verdict, at.pYes], ['pass', 0.47]);
   const below = await judgeCommit(clientFor({ commits: { type: 'noul', noul: 0.46 } }).client, cands, cands[0]!, { texts, calibration: cal });
   assert.equal(below.verdict, 'fail');
 });
 
-test('commit: an advisory record still judges but marks the decision advisory so callers never block on it alone', async () => {
+test('commit: a section that missed its criteria is an error without calling Jev (the check is unavailable)', async () => {
   const cal = testCalibration();
-  cal.commit = { ...cal.commit, status: 'advisory', gate: { risky: 0.5 } };
-  const d = await judgeCommit(clientFor({ commits: { type: 'noul', noul: 0.9 } }).client, cands, cands[2]!, { texts, calibration: cal });
-  assert.deepEqual([d.verdict, d.advisory], ['pass', true]);
-  assert.match(d.reason, /참고용/);
+  cal.commit.status = 'failed';
+  const { client, calls } = clientFor({ commits: { type: 'noul', noul: 0.9 } });
+  const d = await judgeCommit(client, cands, cands[2]!, { texts, calibration: cal });
+  assert.deepEqual([d.verdict, d.pYes, d.receipt], ['error', null, null]);
+  assert.match(d.reason, /uncalibrated: commit/);
+  assert.equal(calls.length, 0);
 });
 
 test('review: a failed review calibration keeps every test out of approvable without calling Jev', async () => {

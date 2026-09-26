@@ -1,12 +1,13 @@
 // Read-only copies of installed app binaries: the precondition for iOS `clear` and any `reinstall` reset.
 import { createHash } from 'node:crypto';
 import { createReadStream, cpSync, existsSync, lstatSync, mkdtempSync, readdirSync, readlinkSync, renameSync, rmSync, statSync, utimesSync } from 'node:fs';
-import { basename, join, relative } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { adb, adbShell, xcrun } from '../appium/exec.ts';
 import { PATHS } from '../core/config.ts';
 import { ensureDir } from '../core/fsx.ts';
 import type { Platform } from '../core/types.ts';
-import { adb, xcrun } from './common.ts';
+import { appIdProblem } from './appid.ts';
 
 export interface BackupResult {
   platform: Platform;
@@ -57,9 +58,18 @@ export async function hashTree(root: string): Promise<{ sha256: string; bytes: n
 
 const EXT: Record<Platform, string[]> = { android: ['.apk', '.apks'], ios: ['.app'] };
 
+/** `.qa/apps/<appId>` for a validated app id; never a path outside `.qa/apps`. */
+function backupDir(platform: Platform, appId: string): string {
+  const problem = appIdProblem(platform, appId);
+  if (problem) throw new Error(problem);
+  const dir = resolve(PATHS.appBackups, appId);
+  if (dirname(dir) !== resolve(PATHS.appBackups)) throw new Error(`백업 경로가 .qa/apps 밖입니다: ${appId}`);
+  return dir;
+}
+
 /** Newest backup of the app for the platform, or null. */
 export function findBackup(platform: Platform, appId: string): string | null {
-  const dir = join(PATHS.appBackups, appId);
+  const dir = backupDir(platform, appId);
   if (!existsSync(dir)) return null;
   const hits = readdirSync(dir)
     .filter((n) => /^[0-9a-f]{64}\./.test(n) && EXT[platform].some((e) => n.endsWith(e)))
@@ -83,11 +93,11 @@ function commit(staged: string, target: string): boolean {
  * Android: `pm path` → `adb pull` every APK (base + splits). iOS simulator: `simctl get_app_container … app` copy.
  */
 export async function backupApp(platform: Platform, deviceId: string, appId: string): Promise<BackupResult> {
-  const dir = ensureDir(join(PATHS.appBackups, appId));
+  const dir = ensureDir(backupDir(platform, appId));
   const tmp = mkdtempSync(join(dir, '.tmp-'));
   try {
     if (platform === 'android') {
-      const remote = parsePmPath(await adb(deviceId, ['shell', 'pm', 'path', appId], { timeoutMs: 30_000, allowFail: true }));
+      const remote = parsePmPath(await adbShell(deviceId, ['pm', 'path', appId], { timeoutMs: 30_000, allowFail: true }));
       if (remote.length === 0) throw new Error(`${deviceId}에 ${appId}가 설치되어 있지 않습니다.`);
       for (const r of remote) await adb(deviceId, ['pull', r, join(tmp, basename(r))], { timeoutMs: 600_000 });
       const tree = await hashTree(tmp);

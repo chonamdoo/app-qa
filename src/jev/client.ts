@@ -136,10 +136,20 @@ export class JevClient {
     }
   }
 
-  private readRecording(key: string): JevRecording {
+  private readRecording(key: string): { requestId: string | null; response: unknown } {
     const file = join(this.config.recordingsDir, `${key}.json`);
     if (!existsSync(file)) throw new JevError('replay_miss', `재생할 Jev 응답 녹화가 없습니다 (${key.slice(0, 12)})`);
-    return JSON.parse(readFileSync(file, 'utf8')) as JevRecording;
+    let rec: unknown;
+    try {
+      rec = JSON.parse(readFileSync(file, 'utf8'));
+    } catch {
+      throw new JevError('invalid_response', `Jev 응답 녹화를 읽을 수 없습니다 (${key.slice(0, 12)})`);
+    }
+    // `response` goes through the same strict validation as a live body; only the envelope is checked here.
+    if (typeof rec !== 'object' || rec === null || !('response' in rec)) {
+      throw new JevError('invalid_response', `Jev 응답 녹화 형식이 올바르지 않습니다 (${key.slice(0, 12)})`);
+    }
+    return { requestId: 'requestId' in rec && typeof rec.requestId === 'string' ? rec.requestId : null, response: rec.response };
   }
 
   private async send(body: { model: string; state: unknown; questions: Questions }, signal?: AbortSignal): Promise<{ raw: unknown; requestId: string | null }> {

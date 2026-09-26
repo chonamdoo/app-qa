@@ -47,7 +47,7 @@ export const Calibration = z.strictObject({
   model: z.string(),
   questionVersion: z.string(),
   createdAt: z.string(),
-  /** calibrated only when every section is calibrated (commit may be advisory). */
+  /** calibrated only when every section is calibrated. */
   status: Status,
   golden: z.array(z.strictObject({ file: z.string(), sha256: z.string(), items: z.number().int() })),
   /** How the thresholds were searched (audit trail). */
@@ -55,9 +55,9 @@ export const Calibration = z.strictObject({
   grounding: section(GroundingGate),
   claim: section(ClaimGate),
   which: section(WhichGate),
-  /** advisory = no threshold met the criteria: gate is the architecture default 0.5, logged but never blocking alone. */
+  /** failed = no threshold met the criteria: the commit check is unavailable and every target it guards is refused. */
   commit: z.strictObject({
-    status: z.enum(['calibrated', 'advisory']),
+    status: Status,
     criteria: z.strictObject({ maxConfidentWrong: Count, maxFalseAlarmRate: P }),
     gate: CommitGate,
     evidence: Evidence,
@@ -92,8 +92,7 @@ export function loadCalibration(model = JEV_MODEL, questionVersion = QUESTION_VE
 
 /**
  * The gate for one primitive, or a reason why Jev must not decide: no record, a record for another model /
- * question version, or a primitive whose pre-registered criteria were not met. An advisory commit gate is usable
- * (callers must not block on it alone).
+ * question version, or a primitive whose pre-registered criteria were not met.
  */
 export function usableGate<K extends CalibratedPrimitive>(
   calibration: Calibration | null | undefined,

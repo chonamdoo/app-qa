@@ -1,12 +1,18 @@
 // Thin W3C WebDriver / Appium HTTP client. No retries: a lost response means the outcome is unknown.
+// Every 2xx body is decoded as a W3C envelope and every typed command checks the value shape it promises;
+// anything else is transport-class (`uncertain`), never a silent success.
+import { z } from 'zod';
 import type { ActionStatus, Point, Rect } from '../core/types.ts';
 
 export const W3C_ELEMENT_KEY = 'element-6066-11e4-a52e-4f735466cecf';
 
-/** The request may or may not have reached the device (connection dropped, no response in time). */
+/**
+ * The request may or may not have reached the device: connection dropped, no response in time, or an answer
+ * that is not a valid W3C response for the command (`malformed`).
+ */
 export class AppiumTransportError extends Error {
-  readonly kind: 'transport' | 'timeout';
-  constructor(kind: 'transport' | 'timeout', message: string, options?: { cause?: unknown }) {
+  readonly kind: 'transport' | 'timeout' | 'malformed';
+  constructor(kind: 'transport' | 'timeout' | 'malformed', message: string, options?: { cause?: unknown }) {
     super(message, options);
     this.name = 'AppiumTransportError';
     this.kind = kind;
@@ -65,13 +71,63 @@ export function parseW3CError(httpStatus: number, body: string): AppiumProtocolE
     const v = parsed.value;
     if (v && typeof v === 'object') {
       if (typeof v.error === 'string' && v.error) code = v.error;
-      if (typeof v.message === 'string') message = v.message.split('\n')[0]!.slice(0, 500);
+      message = typeof v.message === 'string' ? v.message.split('\n')[0]!.slice(0, 500) : `HTTP ${httpStatus}`;
     }
   } catch {
     // keep raw text
   }
   return new AppiumProtocolError(httpStatus, code, message);
 }
+
+/**
+ * A 2xx answer that is not what the command promises. The command may still have run, so this is transport-class
+ * (`uncertain`). Only the value's type is quoted: responses can carry screen text.
+ */
+export function unexpectedResponse(what: string, value: unknown): AppiumTransportError {
+  const shape = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
+  return new AppiumTransportError('malformed', `${what}: unexpected response (${shape})`);
+}
+
+/**
+ * Decodes a 2xx body: it must be a JSON object with a `value`; a `value.error` string (with or without `message`)
+ * is a W3C error; a non-string `error` or a missing/garbled envelope is `malformed`.
+ */
+function decodeW3CResponse(httpStatus: number, body: string, what: string): unknown {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    throw new AppiumTransportError('malformed', `${what}: response is not JSON`);
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || !Object.hasOwn(parsed, 'value')) {
+    throw new AppiumTransportError('malformed', `${what}: response has no W3C value`);
+  }
+  const value = (parsed as { value: unknown }).value;
+  if (typeof value === 'object' && value !== null && Object.hasOwn(value, 'error')) {
+    const code = (value as { error: unknown }).error;
+    if (typeof code === 'string' && code) throw parseW3CError(httpStatus, body);
+    throw new AppiumTransportError('malformed', `${what}: response has an invalid W3C error`);
+  }
+  return value;
+}
+
+/** Command-specific value check; a mismatch is `malformed` (see `unexpectedResponse`). */
+function decode<T>(schema: z.ZodType<T>, value: unknown, what: string): T {
+  const r = schema.safeParse(value);
+  if (!r.success) throw unexpectedResponse(what, value);
+  return r.data;
+}
+
+const RectValue = z.looseObject({ x: z.number(), y: z.number(), width: z.number(), height: z.number() });
+const StatusValue = z.looseObject({ ready: z.boolean(), build: z.looseObject({ version: z.string().optional() }).optional() });
+const NewSessionValue = z.looseObject({ sessionId: z.string().min(1), capabilities: z.record(z.string(), z.unknown()) });
+/** W3C element reference (or the legacy JSONWP `ELEMENT` key) → element id. */
+const ElementRef = z.union([
+  z.looseObject({ [W3C_ELEMENT_KEY]: z.string().min(1) }).transform((r) => r[W3C_ELEMENT_KEY]),
+  z.looseObject({ ELEMENT: z.string().min(1) }).transform((r) => r.ELEMENT),
+]);
+const Base64 = z.string().regex(/^[A-Za-z0-9+/\r\n]+={0,2}\s*$/);
+const PNG_MAGIC = 0x89504e47;
 
 export interface W3CPointerAction {
   type: 'pointer';
@@ -133,14 +189,18 @@ export class AppiumClient {
     this.timeoutMs = opts.timeoutMs ?? 30_000;
   }
 
-  /** Raw request relative to the server root. Returns the W3C `value`. */
-  async request<T = unknown>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown, timeoutMs = this.timeoutMs): Promise<T> {
+  /**
+   * Raw request relative to the server root. Returns the decoded W3C `value` (see `decodeW3CResponse`).
+   * `x-appium-is-sensitive` makes Appium mask every request/response body it would log, even on a reused server
+   * started with a verbose log level.
+   */
+  async request(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown, timeoutMs = this.timeoutMs): Promise<unknown> {
     const url = `${this.baseUrl}${path}`;
     let res: Response;
     try {
       res = await fetch(url, {
         method,
-        headers: body === undefined ? undefined : { 'content-type': 'application/json; charset=utf-8' },
+        headers: { 'x-appium-is-sensitive': 'true', ...(body === undefined ? {} : { 'content-type': 'application/json; charset=utf-8' }) },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: AbortSignal.timeout(timeoutMs),
       });
@@ -158,16 +218,7 @@ export class AppiumClient {
       throw new AppiumTransportError(name === 'TimeoutError' || name === 'AbortError' ? 'timeout' : 'transport', `${method} ${path}: response body lost`, { cause: err });
     }
     if (!res.ok) throw parseW3CError(res.status, text);
-    let parsed: { value?: unknown };
-    try {
-      parsed = JSON.parse(text) as { value?: unknown };
-    } catch {
-      throw new AppiumProtocolError(res.status, 'unknown error', `non-JSON response for ${method} ${path}`);
-    }
-    // Some drivers return HTTP 200 with a W3C error object.
-    const v = parsed.value as { error?: unknown } | null | undefined;
-    if (v && typeof v === 'object' && typeof v.error === 'string' && 'message' in v) throw parseW3CError(res.status, text);
-    return parsed.value as T;
+    return decodeW3CResponse(res.status, text, `${method} ${path}`);
   }
 
   private sid(): string {
@@ -176,23 +227,19 @@ export class AppiumClient {
   }
 
   /** Session-scoped request: `path` is appended to /session/:id. */
-  cmd<T = unknown>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown, timeoutMs?: number): Promise<T> {
-    return this.request<T>(method, `/session/${this.sid()}${path}`, body, timeoutMs);
+  cmd(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown, timeoutMs?: number): Promise<unknown> {
+    return this.request(method, `/session/${this.sid()}${path}`, body, timeoutMs);
   }
 
   async status(timeoutMs = 3000): Promise<{ ready: boolean; build?: { version?: string } }> {
-    return this.request('GET', '/status', undefined, timeoutMs);
+    return decode(StatusValue, await this.request('GET', '/status', undefined, timeoutMs), 'GET /status');
   }
 
   async createSession(capabilities: Record<string, unknown>, timeoutMs = 240_000): Promise<Record<string, unknown>> {
-    const value = await this.request<{ sessionId: string; capabilities: Record<string, unknown> }>(
-      'POST',
-      '/session',
-      { capabilities: { alwaysMatch: capabilities, firstMatch: [{}] } },
-      timeoutMs,
-    );
-    this.sessionId = value.sessionId;
-    return value.capabilities;
+    const value = await this.request('POST', '/session', { capabilities: { alwaysMatch: capabilities, firstMatch: [{}] } }, timeoutMs);
+    const session = decode(NewSessionValue, value, 'POST /session');
+    this.sessionId = session.sessionId;
+    return session.capabilities;
   }
 
   async deleteSession(timeoutMs = 30_000): Promise<void> {
@@ -202,38 +249,44 @@ export class AppiumClient {
     await this.request('DELETE', `/session/${id}`, undefined, timeoutMs);
   }
 
-  source(): Promise<string> {
-    return this.cmd<string>('GET', '/source');
+  async source(): Promise<string> {
+    return decode(z.string().min(1), await this.cmd('GET', '/source'), 'GET /source');
   }
 
+  /** PNG bytes; a value that is not base64 of a PNG is `malformed`. */
   async screenshot(): Promise<Uint8Array> {
-    return Buffer.from(await this.cmd<string>('GET', '/screenshot'), 'base64');
+    const value = await this.cmd('GET', '/screenshot');
+    const png = Buffer.from(decode(Base64, value, 'GET /screenshot'), 'base64');
+    if (png.length < 8 || png.readUInt32BE(0) !== PNG_MAGIC) throw unexpectedResponse('GET /screenshot', value);
+    return png;
   }
 
-  windowRect(): Promise<Rect> {
-    return this.cmd<Rect>('GET', '/window/rect');
+  async windowRect(): Promise<Rect> {
+    const { x, y, width, height } = decode(RectValue, await this.cmd('GET', '/window/rect'), 'GET /window/rect');
+    return { x, y, width, height };
   }
 
   async performActions(actions: W3CPointerAction[], timeoutMs?: number): Promise<void> {
     await this.cmd('POST', '/actions', { actions }, timeoutMs);
   }
 
-  execute<T = unknown>(script: string, args: Record<string, unknown> = {}, timeoutMs?: number): Promise<T> {
-    return this.cmd<T>('POST', '/execute/sync', { script, args: [args] }, timeoutMs);
+  /** `mobile:` extension result, undecoded: callers check the shape they use. */
+  execute(script: string, args: Record<string, unknown> = {}, timeoutMs?: number): Promise<unknown> {
+    return this.cmd('POST', '/execute/sync', { script, args: [args] }, timeoutMs);
   }
 
   async updateSettings(settings: Record<string, unknown>): Promise<void> {
     await this.cmd('POST', '/appium/settings', { settings });
   }
 
-  getSettings(): Promise<Record<string, unknown>> {
-    return this.cmd('GET', '/appium/settings');
+  async getSettings(): Promise<Record<string, unknown>> {
+    return decode(z.record(z.string(), z.unknown()), await this.cmd('GET', '/appium/settings'), 'GET /appium/settings');
   }
 
   /** Element id, or null when nothing matches. */
   async findElement(loc: Locator): Promise<string | null> {
     try {
-      return elementId(await this.cmd('POST', '/element', loc));
+      return decode(ElementRef, await this.cmd('POST', '/element', loc), 'POST /element');
     } catch (err) {
       if (err instanceof AppiumProtocolError && err.code === 'no such element') return null;
       throw err;
@@ -241,14 +294,14 @@ export class AppiumClient {
   }
 
   async findElements(loc: Locator): Promise<string[]> {
-    const list = await this.cmd<unknown[]>('POST', '/elements', loc);
-    return list.map(elementId);
+    const list = decode(z.array(z.unknown()), await this.cmd('POST', '/elements', loc), 'POST /elements');
+    return list.map((v) => decode(ElementRef, v, 'POST /elements'));
   }
 
   /** Focused element, or null when nothing has focus. */
   async activeElement(): Promise<string | null> {
     try {
-      return elementId(await this.cmd('GET', '/element/active'));
+      return decode(ElementRef, await this.cmd('GET', '/element/active'), 'GET /element/active');
     } catch (err) {
       if (err instanceof AppiumProtocolError && (err.code === 'no such element' || err.httpStatus === 404)) return null;
       throw err;
@@ -267,27 +320,21 @@ export class AppiumClient {
     await this.cmd('POST', `/element/${id}/value`, { text, value: [...text] });
   }
 
-  elementText(id: string): Promise<string> {
-    return this.cmd<string>('GET', `/element/${id}/text`);
+  async elementText(id: string): Promise<string> {
+    return decode(z.string(), await this.cmd('GET', `/element/${id}/text`), 'GET /element/:id/text');
   }
 
-  elementAttribute(id: string, name: string): Promise<string | null> {
-    return this.cmd<string | null>('GET', `/element/${id}/attribute/${encodeURIComponent(name)}`);
+  async elementAttribute(id: string, name: string): Promise<string | null> {
+    return decode(z.string().nullable(), await this.cmd('GET', `/element/${id}/attribute/${encodeURIComponent(name)}`), `GET /element/:id/attribute/${name}`);
   }
 
-  elementRect(id: string): Promise<Rect> {
-    return this.cmd<Rect>('GET', `/element/${id}/rect`);
+  async elementRect(id: string): Promise<Rect> {
+    const { x, y, width, height } = decode(RectValue, await this.cmd('GET', `/element/${id}/rect`), 'GET /element/:id/rect');
+    return { x, y, width, height };
   }
 
   /** XCUITest only: XCTest typeText at the caret via WDA `/wda/keys` (Appium route `/keys`; Unicode-safe, no clipboard). */
   async wdaKeys(text: string): Promise<void> {
     await this.cmd('POST', '/keys', { value: [text] });
   }
-}
-
-function elementId(value: unknown): string {
-  const v = value as Record<string, unknown> | null;
-  const id = v?.[W3C_ELEMENT_KEY] ?? v?.ELEMENT;
-  if (typeof id !== 'string') throw new AppiumProtocolError(200, 'unknown error', 'response is not an element reference');
-  return id;
 }

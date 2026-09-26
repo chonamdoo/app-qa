@@ -89,6 +89,19 @@ describe('navigation and device steps', () => {
     assert.equal(tapAt.result.tests[0]!.code, 'blocked_by_policy', 'coordinates have no label: risk unknown');
   });
 
+  it('action events name the DSL action exactly (hideKeyboard, press, location — not back/type/launch)', async () => {
+    const driver = new FakeDriver(screen('search-empty-keyboard', { keyboardShown: true }));
+    const steps = '  - hideKeyboard: true\n  - press: back\n    expectNoChange: true\n  - location: { lat: 37.46, lon: 126.44 }\n';
+    const { result, events } = await runYaml({ 'tests/k.e2e.yaml': spec(steps) }, driver);
+    assert.equal(result.tests[0]!.verdict, 'PASS', result.tests[0]!.reason);
+    const actions = events.flatMap((e) => (e.type === 'action' ? [[e.kind, e.text]] : []));
+    assert.deepEqual(actions, [
+      ['hideKeyboard', null],
+      ['press', 'back'],
+      ['location', '37.46,126.44'],
+    ]);
+  });
+
   it('which runs the branch Jev picks for the current screen', async () => {
     const jev = jevStub((_id, q) => choice(q, 's1', 0.9));
     const steps = '  - which:\n      "주차 화면": [ { assertText: 빈자리 } ]\n      "출국장 화면": [ { assertText: 빨리 빠지는 순서 } ]\n';

@@ -1,10 +1,12 @@
-// Android (UiAutomator2) driver. Host-side work (launch, logs, permissions, reset) goes through adb directly.
+// Android (UiAutomator2) driver. Host-side work (launch, logs, permissions, reset) goes through adb directly;
+// every device-shell argument is single-quoted and every app id is validated first.
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { unexpectedResponse } from '../appium/client.ts';
+import { adb, adbShell, shq } from '../appium/exec.ts';
 import type { ActionOutcome, AppTarget, RawNode, Rect, TypeOutcome } from '../core/types.ts';
 import { parseAndroidSource } from '../observe/android.ts';
-import { AppiumDriver, PERMISSION_GROUPS, RefusedError, shq, type FieldValue, type Key, type LaunchOptions } from './base.ts';
-import { adb } from './common.ts';
+import { AppiumDriver, PERMISSION_GROUPS, RefusedError, type FieldValue, type Key, type LaunchOptions } from './base.ts';
 import { androidLogArgs, LogCapture } from './logs.ts';
 
 const KEYCODES: Record<Key, number> = { enter: 66, back: 4, tab: 61, escape: 111, delete: 67 };
@@ -14,6 +16,9 @@ const KEYCODE_PASTE = 279;
 function assertAmStarted(out: string): void {
   if (/^Error|Exception|Error type \d|unable to resolve|does not exist/im.test(out)) throw new RefusedError(`am start 실패: ${out.trim().split('\n').slice(-2).join(' ')}`);
 }
+
+/** Permissions the app never requested (or unknown on this API level) cannot be changed: those are skipped. */
+const UNCHANGEABLE_PERMISSION = /has not requested|Unknown permission|not a changeable permission type/i;
 
 /** Soft keyboard visibility from `dumpsys window InputMethod` (the IME window's `isVisible` / surface state). */
 export function imeVisible(dump: string): boolean {
@@ -67,7 +72,7 @@ export class AndroidDriver extends AppiumDriver {
 
   /** Host-side `dumpsys window InputMethod` (~30 ms, runs beside /source instead of queueing behind it in the session). */
   protected async keyboardShown(): Promise<boolean> {
-    return imeVisible(await adb(this.deviceId, ['shell', 'dumpsys', 'window', 'InputMethod'], { timeoutMs: 10_000 }));
+    return imeVisible(await adbShell(this.deviceId, ['dumpsys', 'window', 'InputMethod'], { timeoutMs: 10_000 }));
   }
 
   protected async focusedElement(): Promise<string | null> {
@@ -88,7 +93,9 @@ export class AndroidDriver extends AppiumDriver {
   }
 
   press(key: Key): Promise<ActionOutcome> {
-    return this.act(() => this.api.execute('mobile: pressKey', { keycode: KEYCODES[key] }));
+    return this.act(async () => {
+      await this.api.execute('mobile: pressKey', { keycode: KEYCODES[key] });
+    });
   }
 
   back(): Promise<ActionOutcome> {
@@ -110,11 +117,22 @@ export class AndroidDriver extends AppiumDriver {
   }
 
   private async launchActivity(app: AppTarget): Promise<string> {
-    if (app.activity) return app.activity.startsWith('.') ? `${app.appId}/${app.activity}` : app.activity.includes('/') ? app.activity : `${app.appId}/${app.activity}`;
-    const out = await adb(this.deviceId, ['shell', 'cmd', 'package', 'resolve-activity', '--brief', '-c', 'android.intent.category.LAUNCHER', app.appId]);
+    const appId = this.appId(app);
+    if (app.activity) return app.activity.startsWith('.') ? `${appId}/${app.activity}` : app.activity.includes('/') ? app.activity : `${appId}/${app.activity}`;
+    const out = await adbShell(this.deviceId, ['cmd', 'package', 'resolve-activity', '--brief', '-c', 'android.intent.category.LAUNCHER', appId]);
     const component = out.trim().split('\n').pop()?.trim() ?? '';
-    if (!component.includes('/')) throw new RefusedError(`${app.appId}의 실행 액티비티를 찾을 수 없습니다 (설치 여부 확인)`);
+    if (!component.includes('/')) throw new RefusedError(`${appId}의 실행 액티비티를 찾을 수 없습니다 (설치 여부 확인)`);
     return component;
+  }
+
+  /**
+   * Runs a permission-changing device command and fails unless it exited 0 (or, when `skippable`, reported an
+   * unchangeable permission). A requested permission state that was not applied is never ignored.
+   */
+  private async permissionCommand(argv: string[], skippable: boolean): Promise<void> {
+    const out = await adb(this.deviceId, ['shell', `${argv.map(shq).join(' ')} 2>&1; echo "exit=$?"`]);
+    if (/^exit=0$/m.test(out) || (skippable && UNCHANGEABLE_PERMISSION.test(out))) return;
+    throw new RefusedError(`${argv.slice(0, 3).join(' ')} 실패: ${out.trim().split('\n').slice(-2).join(' ')}`);
   }
 
   private async applyPermissions(appId: string, permissions: Record<string, 'allow' | 'deny' | 'unset'>): Promise<void> {
@@ -123,42 +141,38 @@ export class AndroidDriver extends AppiumDriver {
       const perms = group?.android ?? (name.includes('.') ? [name] : null);
       if (!perms) throw new RefusedError(`알 수 없는 권한 이름: ${name}`);
       for (const perm of new Set(perms)) {
-        const verb = state === 'allow' ? 'grant' : 'revoke';
-        const r = await adb(this.deviceId, ['shell', `pm ${verb} ${shq(appId)} ${shq(perm)} 2>&1; echo "exit=$?"`]);
-        // Permissions the app never requested (or unknown on this API level) cannot be granted: skip them.
-        if (!/exit=0/.test(r) && !/has not requested|Unknown permission|not a changeable permission type/i.test(r)) throw new RefusedError(`pm ${verb} ${perm}: ${r.trim()}`);
-        if (state === 'unset') await adb(this.deviceId, ['shell', 'pm', 'clear-permission-flags', appId, perm, 'user-set', 'user-fixed'], { allowFail: true });
+        await this.permissionCommand(['pm', state === 'allow' ? 'grant' : 'revoke', appId, perm], true);
+        if (state === 'unset') await this.permissionCommand(['pm', 'clear-permission-flags', appId, perm, 'user-set', 'user-fixed'], true);
       }
       for (const op of group?.appops ?? []) {
-        const mode = state === 'allow' ? 'allow' : state === 'deny' ? 'ignore' : 'default';
-        await adb(this.deviceId, ['shell', 'cmd', 'appops', 'set', appId, op, mode], { allowFail: true });
+        await this.permissionCommand(['cmd', 'appops', 'set', appId, op, state === 'allow' ? 'allow' : state === 'deny' ? 'ignore' : 'default'], false);
       }
     }
   }
 
   launch(app: AppTarget, opts: LaunchOptions = {}): Promise<ActionOutcome> {
     return this.act(async () => {
-      if (opts.permissions) await this.applyPermissions(app.appId, opts.permissions);
+      const appId = this.appId(app);
+      if (opts.permissions) await this.applyPermissions(appId, opts.permissions);
       const component = await this.launchActivity(app);
-      const args = ['am', 'start', '-W', '-n', component, ...(opts.arguments ?? [])].map(shq).join(' ');
-      assertAmStarted(await adb(this.deviceId, ['shell', args], { timeoutMs: 60_000 }));
-      if (this.logApp?.appId === app.appId) await this.startLogs(app);
+      assertAmStarted(await adbShell(this.deviceId, ['am', 'start', '-W', '-n', component, ...(opts.arguments ?? [])], { timeoutMs: 60_000 }));
+      if (this.logApp?.appId === appId) await this.startLogs(app);
     });
   }
 
   terminate(app: AppTarget): Promise<ActionOutcome> {
     return this.act(async () => {
-      await adb(this.deviceId, ['shell', 'am', 'force-stop', app.appId]);
+      await adbShell(this.deviceId, ['am', 'force-stop', this.appId(app)]);
     });
   }
 
   protected async clearData(app: AppTarget): Promise<void> {
-    const out = await adb(this.deviceId, ['shell', 'pm', 'clear', app.appId]);
+    const out = await adbShell(this.deviceId, ['pm', 'clear', this.appId(app)]);
     if (!/Success/.test(out)) throw new Error(`pm clear 실패: ${out.trim()}`);
   }
 
   protected async reinstall(app: AppTarget, binary: string): Promise<void> {
-    await adb(this.deviceId, ['uninstall', app.appId], { timeoutMs: 120_000, allowFail: true });
+    await adb(this.deviceId, ['uninstall', this.appId(app)], { timeoutMs: 120_000, allowFail: true });
     if (binary.endsWith('.apks')) {
       const parts = readdirSync(binary).filter((f) => f.endsWith('.apk')).map((f) => join(binary, f));
       await adb(this.deviceId, ['install-multiple', '-r', '-d', ...parts], { timeoutMs: 600_000 });
@@ -169,8 +183,8 @@ export class AndroidDriver extends AppiumDriver {
 
   openUrl(app: AppTarget, url: string): Promise<ActionOutcome> {
     return this.act(async () => {
-      const cmd = ['am', 'start', '-W', '-a', 'android.intent.action.VIEW', '-d', url, app.appId].map(shq).join(' ');
-      assertAmStarted(await adb(this.deviceId, ['shell', cmd], { timeoutMs: 60_000 }));
+      const appId = this.appId(app);
+      assertAmStarted(await adbShell(this.deviceId, ['am', 'start', '-W', '-a', 'android.intent.action.VIEW', '-d', url, appId], { timeoutMs: 60_000 }));
     });
   }
 
@@ -184,36 +198,40 @@ export class AndroidDriver extends AppiumDriver {
   }
 
   async foregroundApp(): Promise<string | null> {
-    return (await this.api.execute<string | null>('mobile: getCurrentPackage')) || null;
+    const pkg = await this.api.execute('mobile: getCurrentPackage');
+    if (pkg !== null && typeof pkg !== 'string') throw unexpectedResponse('mobile: getCurrentPackage', pkg);
+    return pkg || null;
   }
 
   /** logcat for the app's current pid (re-armed after every launch); falls back to the app uid when it is not running. */
   async startLogs(app: AppTarget): Promise<void> {
+    const appId = this.appId(app);
     this.logApp = app;
     this.logs ??= new LogCapture('android', this.deviceId);
-    const pid = (await adb(this.deviceId, ['shell', 'pidof', app.appId], { allowFail: true })).trim().split(/\s+/)[0] ?? '';
+    const pid = (await adbShell(this.deviceId, ['pidof', appId], { allowFail: true })).trim().split(/\s+/)[0] ?? '';
     const since = Date.now() - 30_000;
     if (/^\d+$/.test(pid)) {
       this.logs.arm(`pid:${pid}`, 'adb', androidLogArgs(this.deviceId, { pid }, since));
       return;
     }
-    const uid = /uid:(\d+)/.exec(await adb(this.deviceId, ['shell', 'pm', 'list', 'packages', '-U', app.appId]))?.[1];
-    if (!uid) throw new Error(`${app.appId}가 설치되어 있지 않습니다.`);
+    const uid = /uid:(\d+)/.exec(await adbShell(this.deviceId, ['pm', 'list', 'packages', '-U', appId]))?.[1];
+    if (!uid) throw new Error(`${appId}가 설치되어 있지 않습니다.`);
     this.logs.arm(`uid:${uid}`, 'adb', androidLogArgs(this.deviceId, { uid }, since));
   }
 
   async crashArtifacts(app: AppTarget, sinceIso: string): Promise<{ name: string; content: string }[]> {
+    const appId = this.appId(app);
     const since = Date.parse(sinceIso);
     const out: { name: string; content: string }[] = [];
     const crash = await adb(this.deviceId, ['logcat', '-b', 'crash', '-d', '-v', 'threadtime', '-v', 'UTC', '-v', 'year'], { allowFail: true, timeoutMs: 30_000 });
-    const blocks = crashBlocks(crash, app.appId, since);
+    const blocks = crashBlocks(crash, appId, since);
     if (blocks) out.push({ name: 'logcat-crash.txt', content: blocks });
     // /data/anr is readable on emulator/userdebug images only.
     const listing = await adb(this.deviceId, ['shell', 'for f in /data/anr/*; do [ -r "$f" ] && echo "$(stat -c %Y "$f") $f"; done 2>/dev/null'], { allowFail: true });
     for (const m of listing.matchAll(/^(\d+) (\/data\/anr\/\S+)$/gm)) {
       if (Number(m[1]) * 1000 < since) continue;
-      const content = await adb(this.deviceId, ['shell', 'cat', m[2]!], { allowFail: true, timeoutMs: 30_000 });
-      if (content.includes(`Cmd line: ${app.appId}`)) out.push({ name: m[2]!.split('/').pop()!, content });
+      const content = await adbShell(this.deviceId, ['cat', m[2]!], { allowFail: true, timeoutMs: 30_000 });
+      if (content.includes(`Cmd line: ${appId}`)) out.push({ name: m[2]!.split('/').pop()!, content });
     }
     return out;
   }

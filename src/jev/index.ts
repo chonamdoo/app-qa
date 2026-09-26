@@ -9,7 +9,6 @@ export {
   judgeCommit,
   judgeWhich,
   reviewGenerated,
-  type CommitDecision,
   type JudgeOptions,
   type ReviewDecision,
 } from './decide.ts';

@@ -1,6 +1,6 @@
 // Device discovery: `adb devices -l` + getprop, `xcrun simctl list -j devices`.
+import { adb, adbShell, CommandError, xcrun } from '../appium/exec.ts';
 import type { DeviceInfo, Platform } from '../core/types.ts';
-import { adb, CommandError, xcrun } from './common.ts';
 
 export interface AdbDeviceLine {
   serial: string;
@@ -82,7 +82,7 @@ async function androidDevices(): Promise<DeviceInfo[]> {
   const lines = parseAdbDevices(await adb(null, ['devices', '-l'], { timeoutMs: 15_000 }));
   return Promise.all(
     lines.map(async (line) => {
-      const props = line.state === 'device' ? parseGetprop(await adb(line.serial, ['shell', 'getprop'], { timeoutMs: 15_000 })) : {};
+      const props = line.state === 'device' ? parseGetprop(await adbShell(line.serial, ['getprop'], { timeoutMs: 15_000 })) : {};
       return androidDeviceInfo(line, props);
     }),
   );

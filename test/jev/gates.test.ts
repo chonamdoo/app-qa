@@ -87,3 +87,14 @@ test('loadCalibration: null when absent, parsed when valid, error when corrupt o
   writeFileSync(file, '{not json');
   assert.throws(() => loadCalibration('jev-1.13.0', 'q-v1', dir), (e: unknown) => e instanceof JevError && e.kind === 'config');
 });
+
+test('loadCalibration: a record whose commit section is advisory is refused; a failed commit section is fail-closed', () => {
+  mkdirSync(join(dir, 'jev-1.13.0'), { recursive: true });
+  const file = join(dir, 'jev-1.13.0', 'q-v1.json');
+  const cal = testCalibration();
+  writeFileSync(file, JSON.stringify({ ...cal, commit: { ...cal.commit, status: 'advisory' } }));
+  assert.throws(() => loadCalibration('jev-1.13.0', 'q-v1', dir), (e: unknown) => e instanceof JevError && e.kind === 'config' && e.message.includes('commit.status'));
+  writeFileSync(file, JSON.stringify({ ...cal, status: 'failed', commit: { ...cal.commit, status: 'failed' } }));
+  const loaded = loadCalibration('jev-1.13.0', 'q-v1', dir);
+  assert.match(usableGate(loaded, 'jev-1.13.0', 'commit').reason ?? '', /^uncalibrated: commit/);
+});

@@ -56,5 +56,13 @@ export function jevStub(answer: Answerer): { setup: JevSetup; requests: JevReque
   return { setup: { client, calibration: testCalibration(), problem: null }, requests };
 }
 
+/**
+ * Calibrated Jev with nothing to object to: commit (and claim) Nouls 0.02, Choices `none`. Target-based mutations of
+ * safe targets need a commit check, so tests that tap without `allowRisky` run with this.
+ */
+export function commitSafe(): { setup: JevSetup; requests: JevRequestLog[] } {
+  return jevStub((_id, q) => (q.type === 'noul' ? noul(0.02) : choice(q, 'none', 0.9)));
+}
+
 /** No calibration record and no client: every Jev decision must come out as ERROR `uncalibrated`. */
 export const UNCALIBRATED: JevSetup = { client: null, calibration: null, problem: null };

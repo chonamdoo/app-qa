@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { createServer, type Server } from 'node:http';
+import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { after, before, describe, it } from 'node:test';
 import { actionStatusOf, AppiumClient, AppiumProtocolError, AppiumTransportError, parseW3CError } from '../../src/appium/client.ts';
+import { CommandError, shq } from '../../src/appium/exec.ts';
 import { crashBlocks, imeVisible } from '../../src/drivers/android.ts';
-import { failureStatus, RefusedError, shq, StepError, typeVerdict, xmlMaxDepth } from '../../src/drivers/base.ts';
-import { CommandError } from '../../src/drivers/common.ts';
+import { failureStatus, RefusedError, StepError, typeVerdict, xmlMaxDepth } from '../../src/drivers/base.ts';
 import { ipsNamesApp } from '../../src/drivers/ios.ts';
 import { sliceLog } from '../../src/drivers/logs.ts';
 
@@ -39,14 +39,32 @@ describe('W3C error classification', () => {
 describe('AppiumClient over HTTP', () => {
   let server: Server;
   let url: string;
+  let lastHeaders: IncomingHttpHeaders = {};
+  // 2xx bodies that are not a usable W3C answer for the command.
+  const OK_BODIES: Record<string, string> = {
+    '/ok-but-error': '{"value":{"error":"unknown error","message":"boom"}}',
+    '/error-no-message': '{"value":{"error":"no such element"}}',
+    '/bad-error': '{"value":{"error":42,"message":"x"}}',
+    '/empty': '{}',
+    '/array': '[1,2]',
+    '/garbage': '<html>oops',
+    '/null-value': '{"value":null}',
+    '/session': '{"value":{"capabilities":{}}}',
+    '/session/s2/source': '{"value":{"not":"xml"}}',
+    '/session/s2/screenshot': '{"value":"aGVsbG8="}',
+    '/session/s2/window/rect': '{"value":{"x":0,"y":0,"width":"390","height":844}}',
+    '/session/s2/elements': '{"value":[{"element-6066-11e4-a52e-4f735466cecf":"E1"},{"id":"E2"}]}',
+  };
   before(async () => {
     server = createServer((req, res) => {
+      lastHeaders = req.headers;
       if (req.url === '/slow') return; // never answers: the client's own AbortSignal timeout must fire
       if (req.url === '/session/s1/element') {
         res.writeHead(404, { 'content-type': 'application/json' });
         return void res.end('{"value":{"error":"no such element","message":"An element could not be located","stacktrace":""}}');
       }
-      if (req.url === '/ok-but-error') return void res.end('{"value":{"error":"unknown error","message":"boom"}}');
+      const canned = OK_BODIES[req.url ?? ''];
+      if (canned) return void res.end(canned);
       if (req.url === '/session/s1/element/active') return void res.end('{"value":{"element-6066-11e4-a52e-4f735466cecf":"E1"}}');
       res.end('{"value":{"ready":true}}');
     });
@@ -76,6 +94,41 @@ describe('AppiumClient over HTTP', () => {
     const err = await new AppiumClient(url).request('GET', '/ok-but-error').catch((e: unknown) => e);
     assert.ok(err instanceof AppiumProtocolError);
     assert.equal(err.code, 'unknown error');
+  });
+
+  it('a 200 W3C error without a message is still that error (a refusal code stays rejected)', async () => {
+    const err = await new AppiumClient(url).request('GET', '/error-no-message').catch((e: unknown) => e);
+    assert.ok(err instanceof AppiumProtocolError);
+    assert.equal(err.code, 'no such element');
+    assert.equal(actionStatusOf(err), 'rejected');
+  });
+
+  it('a 200 body without a W3C value envelope, or with a non-string error, is malformed → uncertain', async () => {
+    for (const path of ['/empty', '/array', '/garbage', '/bad-error']) {
+      const err = await new AppiumClient(url).request('GET', path).catch((e: unknown) => e);
+      assert.ok(err instanceof AppiumTransportError, path);
+      assert.equal(err.kind, 'malformed', path);
+      assert.equal(actionStatusOf(err), 'uncertain', path);
+    }
+    assert.equal(await new AppiumClient(url).request('GET', '/null-value'), null);
+  });
+
+  it('command results the drivers use are shape-checked (session id, XML source, PNG screenshot, rect, element refs)', async () => {
+    const c = new AppiumClient(url);
+    const noSession = await c.createSession({}).catch((e: unknown) => e);
+    assert.ok(noSession instanceof AppiumTransportError && noSession.kind === 'malformed');
+    assert.equal(c.sessionId, null);
+    c.sessionId = 's2';
+    for (const call of [() => c.source(), () => c.screenshot(), () => c.windowRect(), () => c.findElements({ using: 'xpath', value: '//*' })]) {
+      const err = await call().catch((e: unknown) => e);
+      assert.ok(err instanceof AppiumTransportError && err.kind === 'malformed', String(err));
+      assert.equal(failureStatus(err), 'uncertain');
+    }
+  });
+
+  it('marks every request sensitive so Appium masks bodies in its log', async () => {
+    await new AppiumClient(url).status(500);
+    assert.equal(lastHeaders['x-appium-is-sensitive'], 'true');
   });
 
   it('findElement maps "no such element" to null and reads W3C element ids', async () => {

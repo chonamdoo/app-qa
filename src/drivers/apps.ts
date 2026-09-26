@@ -1,10 +1,10 @@
 // Installed user apps: Android `pm list packages -3` (+ label via host aapt2, cached), iOS `simctl listapps` User apps.
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { adb, adbShell, run, xcrun } from '../appium/exec.ts';
 import { androidHome, PATHS } from '../core/config.ts';
-import { ensureDir, writeJson } from '../core/fsx.ts';
+import { ensureDir, writeJsonAtomic } from '../core/fsx.ts';
 import type { Platform } from '../core/types.ts';
-import { adb, run, xcrun } from './common.ts';
 
 export interface AppInfo {
   platform: Platform;
@@ -78,7 +78,7 @@ async function androidLabels(deviceId: string, pkgs: AndroidPackageLine[]): Prom
   const tool = aapt2();
   const todo = pkgs.filter((p) => !(p.apkPath in cache));
   if (!tool || todo.length === 0) return cache;
-  const locale = (await adb(deviceId, ['shell', 'getprop', 'persist.sys.locale'])).trim() || 'en-US';
+  const locale = (await adbShell(deviceId, ['getprop', 'persist.sys.locale'])).trim() || 'en-US';
   ensureDir(PATHS.appBackups);
   const tmp = mkdtempSync(join(PATHS.appBackups, '.labels-'));
   try {
@@ -95,7 +95,7 @@ async function androidLabels(deviceId: string, pkgs: AndroidPackageLine[]): Prom
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
-  writeJson(LABEL_CACHE, cache);
+  writeJsonAtomic(LABEL_CACHE, cache);
   return cache;
 }
 
@@ -103,7 +103,7 @@ async function androidLabels(deviceId: string, pkgs: AndroidPackageLine[]): Prom
 export async function listApps(platform: Platform, deviceId: string): Promise<AppInfo[]> {
   let apps: AppInfo[];
   if (platform === 'android') {
-    const pkgs = parsePmPackages(await adb(deviceId, ['shell', 'pm', 'list', 'packages', '-3', '-f', '--show-versioncode'])).filter(
+    const pkgs = parsePmPackages(await adbShell(deviceId, ['pm', 'list', 'packages', '-3', '-f', '--show-versioncode'])).filter(
       (p) => !INFRA_PREFIXES.some((x) => p.appId.startsWith(x)),
     );
     const labels = await androidLabels(deviceId, pkgs);
