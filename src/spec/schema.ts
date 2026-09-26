@@ -57,10 +57,19 @@ const Common = {
   near: Intent.optional().describe('Prefer the match closest to this element'),
   note: z.string().optional(),
 };
+const CommonFields = z.strictObject(Common);
+type CommonSpec = z.infer<typeof CommonFields>;
 
 const Permission = z.enum(['allow', 'deny', 'unset']);
 
-const Step = z.union([
+/** A JSONLogic rule is exactly one operator; `{}` or several operators would evaluate to a truthy object, not a condition. */
+const JsonLogicRule = z
+  .record(z.string(), z.unknown())
+  .refine((r) => Object.keys(r).length === 1, 'rule must be a single JSONLogic operator')
+  .describe('JSONLogic rule over the named groups; numbers are parsed from digit groups');
+
+/** Every step kind except the recursive ones (`which`, `repeat`). */
+const LeafStep = z.union([
   z.strictObject({
     launch: z.union([
       z.literal(true),
@@ -94,7 +103,7 @@ const Step = z.union([
   z.strictObject({
     checkEach: z.strictObject({
       pattern: z.string().min(1).describe('JS regex with named groups, applied to every visible text line'),
-      rule: z.record(z.string(), z.unknown()).describe('JSONLogic rule over the named groups; numbers are parsed from digit groups'),
+      rule: JsonLogicRule,
       min: z.number().int().min(0).default(1).describe('Minimum number of matching lines'),
     }),
     ...Common,
@@ -105,20 +114,6 @@ const Step = z.union([
       name: z.string().regex(/^[A-Za-z_]\w*$/),
       from: z.union([Target, z.strictObject({ regex: z.string().min(1).describe('Applied to visible texts; group `value` or group 1 is stored') })]),
     }),
-    ...Common,
-  }),
-  z.strictObject({
-    which: z.record(Intent, z.array(z.lazy((): z.ZodType => Step))).refine((o) => Object.keys(o).length >= 2, 'which needs ≥2 branches'),
-    ...Common,
-  }),
-  z.strictObject({
-    repeat: z
-      .strictObject({
-        times: z.number().int().min(1).max(10).optional(),
-        while: Condition.optional(),
-        steps: z.array(z.lazy((): z.ZodType => Step)).min(1),
-      })
-      .refine((r) => r.times !== undefined || r.while !== undefined, 'repeat needs times or while (max 10 iterations)'),
     ...Common,
   }),
   z.strictObject({ use: z.string().min(1).describe('Path to a *.flow.yaml subflow, relative to this file'), with: z.record(z.string(), z.string()).optional(), ...Common }),
@@ -137,7 +132,45 @@ const Step = z.union([
   z.strictObject({ capture: z.string().min(1), ...Common }),
 ]);
 
-export type StepSpec = z.infer<typeof Step>;
+export interface WhichStepSpec extends CommonSpec {
+  which: Record<string, StepSpec[]>;
+}
+export interface RepeatStepSpec extends CommonSpec {
+  repeat: { times?: number; while?: z.infer<typeof Condition>; steps: StepSpec[] };
+}
+export type StepSpec = z.infer<typeof LeafStep> | WhichStepSpec | RepeatStepSpec;
+
+const WhichStep = z.strictObject({
+  which: z.record(Intent, z.array(z.lazy(() => Step))).refine((o) => Object.keys(o).length >= 2, 'which needs ≥2 branches'),
+  ...Common,
+});
+const RepeatStep = z.strictObject({
+  repeat: z
+    .strictObject({
+      times: z.number().int().min(1).max(10).optional(),
+      while: Condition.optional(),
+      steps: z.array(z.lazy(() => Step)).min(1),
+    })
+    .refine((r) => r.times !== undefined || r.while !== undefined, 'repeat needs times or while (max 10 iterations)'),
+  ...Common,
+});
+
+const Step: z.ZodType<StepSpec> = z.union([LeafStep, WhichStep, RepeatStep]);
+
+/** Every step kind; a step's kind is its one key from this list. Single source for loaders, runner, planner and server. */
+export const STEP_KINDS = [
+  'launch', 'open', 'tap', 'longPress', 'tapAt', 'type', 'clear', 'press', 'hideKeyboard', 'see', 'seeNot', 'assertText', 'assertNoText',
+  'checkEach', 'claim', 'remember', 'which', 'repeat', 'use', 'scroll', 'swipe', 'back', 'location', 'wait', 'capture',
+] as const;
+export type StepKind = (typeof STEP_KINDS)[number];
+
+/** The union member that validates each kind (used for per-kind error messages). Fails at load if the kind list drifts. */
+export const STEP_BRANCHES: Record<StepKind, z.ZodType> = (() => {
+  const byKey = new Map<string, z.ZodType>([...LeafStep.options, WhichStep, RepeatStep].map((option) => [Object.keys(option.shape)[0]!, option]));
+  const missing = STEP_KINDS.filter((kind) => !byKey.has(kind));
+  if (missing.length > 0 || byKey.size !== STEP_KINDS.length) throw new Error(`STEP_KINDS and the Step union disagree: ${[...byKey.keys()].join(', ')}`);
+  return Object.fromEntries(STEP_KINDS.map((kind) => [kind, byKey.get(kind)!])) as Record<StepKind, z.ZodType>;
+})();
 
 const Interrupt = z.strictObject({
   see: Target,
@@ -181,20 +214,24 @@ export const TestSpec = z.strictObject({
 });
 export type TestSpec = z.infer<typeof TestSpec>;
 
+/** App ids reach device shells and backup paths, so only real package/bundle id shapes are accepted. */
+const AndroidPackage = z.string().regex(/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/, 'Android package id (e.g. kr.tteonam.app)');
+const IosBundleId = z.string().regex(/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/, 'iOS bundle id (e.g. kr.tteonam.app)');
+
 export const AppProfile = z.strictObject({
   id: z.string().regex(/^[\w.-]+$/),
   name: z.string().min(1),
   build: z.enum(['dev', 'release']).default('release').describe('dev builds may show RN LogBox warnings (WARN) — errors are FAIL either way'),
   android: z
     .strictObject({
-      package: z.string().min(1),
+      package: AndroidPackage,
       activity: z.string().optional(),
       apk: z.string().optional(),
     })
     .optional(),
   ios: z
     .strictObject({
-      bundleId: z.string().min(1),
+      bundleId: IosBundleId,
       app: z.string().optional().describe('Simulator .app path for install/reinstall'),
     })
     .optional(),
@@ -249,4 +286,4 @@ export const PlanFile = z.strictObject({
 });
 export type PlanFile = z.infer<typeof PlanFile>;
 
-export { Step, Target, Selector, TextMatch, StateFilter, Condition, Expectation, Interrupt, NormPoint };
+export { Step, Target, Selector, TextMatch, StateFilter, Condition, Expectation, Interrupt, NormPoint, AndroidPackage, IosBundleId };

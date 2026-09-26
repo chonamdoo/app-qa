@@ -2,19 +2,13 @@
 import type { Candidate, ScreenModel } from '../core/types.ts';
 import { isActionable, ownLabel, roleOf } from './normalize.ts';
 import { normLabel } from './text.ts';
+import { candidateRow } from '../core/candidate-row.ts';
+
+export { candidateRow };
 
 const NO_NAME = '(이름 없음)';
 const NAME_WIDTH = 40;
 const CELL_WIDTH = 24;
-
-/**
- * One Jev row: "e3 | button | 항공편 찾기 | disabled | bottom". Always five columns; state is comma-joined, prefixed
- * by value="…" when the value differs from the name, "-" when empty. `|` inside text is replaced by `¦`.
- */
-export function candidateRow(c: Candidate): string {
-  const state = [...(c.value !== null && c.value !== c.name ? [`value="${c.value}"`] : []), ...c.state].join(', ');
-  return `${c.key} | ${c.role} | ${c.name.replaceAll('|', '¦') || NO_NAME} | ${state.replaceAll('|', '¦') || '-'} | ${c.region}`;
-}
 
 export function candidateRows(model: ScreenModel): string[] {
   return model.candidates.map(candidateRow);

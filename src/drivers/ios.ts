@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { swipeGesture } from '../appium/client.ts';
 import type { ActionOutcome, AppTarget, Point, RawNode, Rect, TypeOutcome } from '../core/types.ts';
-import { parseIosSource } from '../observe/index.ts';
+import { parseIosSource } from '../observe/ios.ts';
 import { iosAppExecutable } from './apps.ts';
 import { AppiumDriver, IOS_PRIVACY_SERVICES, PERMISSION_GROUPS, RefusedError, type FieldValue, type Key, type LaunchOptions } from './base.ts';
 import { xcrun } from './common.ts';

@@ -40,7 +40,7 @@ export type QaEventBody =
   | ({ type: 'policy'; risky: boolean; blocked: boolean; reasons: string[] } & StepRef)
   | ({
       type: 'action';
-      kind: 'tap' | 'type' | 'swipe' | 'back' | 'launch' | 'terminate' | 'reset' | 'scroll';
+      kind: ActionKind;
       point: Point | null;
       to: Point | null;
       /** Masked for secure fields. */
@@ -57,6 +57,23 @@ export type QaEventBody =
   | { type: 'plan.progress'; planId: string; phase: 'ingest' | 'segment' | 'generate' | 'validate' | 'review' | 'write'; message: string }
   | { type: 'plan.finished'; planId: string; planPath: string; requirements: number; tests: number; untestable: number; ok: boolean; message: string }
   | { type: 'log'; level: 'info' | 'warn' | 'error'; source: string; message: string };
+
+/** Exactly the DSL action performed; never substituted by a neighbouring kind. */
+export type ActionKind =
+  | 'tap'
+  | 'longPress'
+  | 'type'
+  | 'clear'
+  | 'press'
+  | 'hideKeyboard'
+  | 'swipe'
+  | 'scroll'
+  | 'back'
+  | 'open'
+  | 'location'
+  | 'launch'
+  | 'terminate'
+  | 'reset';
 
 export type JobKind = 'run' | 'smoke' | 'plan' | 'calibrate' | 'capture';
 

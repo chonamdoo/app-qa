@@ -2,8 +2,9 @@
 // unlabeled actions, no `allowRisky`, compilable regexes, declared `${VAR}`s, known `covers`, and full coverage
 // (every requirement is covered by a valid test or listed as untestable with a reason).
 import type { z } from 'zod';
-import { labelRisk } from '../runner/risk.ts';
-import { Step, TestSpec, type AppProfile } from '../spec/schema.ts';
+import { labelRisk } from '../policy/risk.ts';
+import { STEP_BRANCHES, TestSpec, type AppProfile } from '../spec/schema.ts';
+import { findStepKind } from '../spec/steps.ts';
 import type { ScreenInfo } from './context.ts';
 import { isPlainObject, visitJson } from './json.ts';
 
@@ -32,8 +33,6 @@ export const ALLOWED_STEP_KINDS: Record<string, true> = {
   capture: true,
 };
 
-/** Step union branch per kind; every branch in schema.ts declares its kind key first. */
-const STEP_BRANCHES = new Map<string, z.ZodType>(Step.options.map((option) => [Object.keys((option as unknown as z.ZodObject).shape)[0]!, option as unknown as z.ZodType]));
 
 export interface CheckContext {
   app: string;
@@ -141,7 +140,7 @@ export function checkTest(raw: unknown, index: number, ctx: CheckContext): Check
       errors.push(`${path}: 스텝은 객체여야 합니다`);
       return;
     }
-    const kind = Object.keys(step).find((k) => STEP_BRANCHES.has(k));
+    const kind = findStepKind(step);
     if (!kind) {
       errors.push(`${path}: 알 수 없는 스텝 종류 (${Object.keys(step).join(', ') || '빈 객체'}) — 허용: ${Object.keys(ALLOWED_STEP_KINDS).join(', ')}`);
       return;
@@ -150,7 +149,7 @@ export function checkTest(raw: unknown, index: number, ctx: CheckContext): Check
       errors.push(`${path}: 자동 생성 테스트에 허용되지 않는 스텝 "${kind}" — 허용: ${Object.keys(ALLOWED_STEP_KINDS).join(', ')}`);
       return;
     }
-    const parsed = STEP_BRANCHES.get(kind)!.safeParse(step);
+    const parsed = STEP_BRANCHES[kind].safeParse(step);
     if (!parsed.success) for (const issue of parsed.error.issues.slice(0, 4)) errors.push(`${path}${issuePath(issue.path)}: ${issue.message}`);
     const value = step[kind];
     if (kind === 'launch' && isPlainObject(value)) {

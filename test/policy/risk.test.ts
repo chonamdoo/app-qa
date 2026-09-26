@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { labelRisk } from '../../src/runner/risk.ts';
+import { labelRisk } from '../../src/policy/risk.ts';
 
 describe('labelRisk', () => {
   it('flags Korean keywords as substrings and English keywords on word boundaries', () => {

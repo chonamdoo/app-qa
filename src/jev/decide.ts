@@ -1,7 +1,7 @@
 // Jev-backed decisions for the runner and planner. Every function fails closed: no calibration, a failed call or an
 // invalid response yields verdict 'error' (with the receipt when Jev was reached) and never a guessed answer.
 import type { Candidate, ClaimDecision, GroundingDecision, JevReceipt, WhichDecision } from '../core/types.ts';
-import { candidateRow } from '../observe/index.ts';
+import { candidateRow } from '../core/candidate-row.ts';
 import { JevCallError, type JevClient } from './client.ts';
 import { gateClaim, gateGrounding, gateWhich, usableGate, type Calibration } from './gates.ts';
 import {

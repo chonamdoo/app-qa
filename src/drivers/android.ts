@@ -2,7 +2,7 @@
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ActionOutcome, AppTarget, RawNode, Rect, TypeOutcome } from '../core/types.ts';
-import { parseAndroidSource } from '../observe/index.ts';
+import { parseAndroidSource } from '../observe/android.ts';
 import { AppiumDriver, PERMISSION_GROUPS, RefusedError, shq, type FieldValue, type Key, type LaunchOptions } from './base.ts';
 import { adb } from './common.ts';
 import { androidLogArgs, LogCapture } from './logs.ts';

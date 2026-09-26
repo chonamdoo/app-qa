@@ -1,7 +1,7 @@
 // Risk policy (architecture §5): deterministic keyword + context rules decide whether a target may be acted on
 // without `allowRisky`. Jev commit judgement can only add a refusal (applied by the runner), never remove one.
 import type { Candidate, ScreenModel } from '../core/types.ts';
-import { normLabel } from '../observe/index.ts';
+import { normLabel } from '../observe/text.ts';
 import type { AppProfile } from '../spec/schema.ts';
 
 /** Korean has no word boundaries: matched as substrings of the normalized label. */

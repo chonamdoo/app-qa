@@ -33,7 +33,7 @@ import { checkHealth } from './health.ts';
 import { dHash, decodePng, hammingHex, type Raster } from './image.ts';
 import { asSelector, nodeOf, notFoundDiagnostics, resolveDeterministic, stateMatches, targetText, type TargetQuery, type TargetSpec } from './resolve.ts';
 import { findTabs, screenSlug, writeInventory } from './inventory.ts';
-import { assessRisk, labelRisk, type RiskAssessment } from './risk.ts';
+import { assessRisk, labelRisk, type RiskAssessment } from '../policy/risk.ts';
 import { expandStep, stepKind, stepLabel, UnsetVariableError, type StepKind } from './steps.ts';
 import type { RunStore } from './store.ts';
 import { worstVerdict } from './verdict.ts';

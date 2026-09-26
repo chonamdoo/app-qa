@@ -18,7 +18,7 @@ import { loadAppProfile, loadTests, type LoadedTest } from '../spec/load.ts';
 import type { AppProfile } from '../spec/schema.ts';
 import { appTarget, TestSession, type Clock, type JevSetup, type OcrFn } from './engine.ts';
 import { writeInventory } from './inventory.ts';
-import { assessRisk } from './risk.ts';
+import { assessRisk } from '../policy/risk.ts';
 import { RunStore } from './store.ts';
 import { countVerdicts } from './verdict.ts';
 

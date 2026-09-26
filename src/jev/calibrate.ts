@@ -10,7 +10,7 @@ import { PATHS } from '../core/config.ts';
 import { sha256, writeJson } from '../core/fsx.ts';
 import type { Candidate, Platform, ScreenModel, Snapshot } from '../core/types.ts';
 import { buildScreenModel, normLabel, parseAndroidSource, parseIosSource } from '../observe/index.ts';
-import { labelRisk } from '../runner/risk.ts';
+import { labelRisk } from '../policy/risk.ts';
 import { TestSpec } from '../spec/schema.ts';
 import { JevCallError, type JevClient } from './client.ts';
 import { BUILTIN_REDACTOR, claimRequest, commitRequest, groundingRequest, reviewRequest, whichRequest, type JevRequest } from './decide.ts';
