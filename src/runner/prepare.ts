@@ -1,7 +1,8 @@
 // Action preparation (architecture §5 위험 정책, §11, invariants 4–5): a mutation is approved only on the final fresh
 // observation — refind + hit-test (after scroll/swipe/back: the target must hold still) → deterministic policy on the
-// fresh target and screen → mandatory Jev commit check for deterministically safe targets without `allowRisky` → one
-// explicit approval result. Nothing here dispatches; the session acts only on `approved`.
+// fresh target and screen → mandatory Jev commit check for deterministically safe targets without `allowRisky` → after
+// that wait, a new observation must show the same screen and target → one explicit approval result. Nothing here
+// dispatches; the session acts only on `approved`.
 import type { Candidate, ClaimDecision, Platform, Point, ScreenModel } from '../core/types.ts';
 import { isUnoccludedAt, refind } from '../observe/index.ts';
 import { assessRisk, DESTRUCTIVE_CONTEXT, type RiskAssessment } from '../policy/risk.ts';
@@ -55,6 +56,8 @@ export interface PrepareHost<Ctx> {
 
 const STABILIZE_POLL_MS = 100;
 const STABILIZE_CAP_MS = 3000;
+/** Rect drift (tap coordinates) still counted as the same place across two observations: sub-pixel rounding only. */
+const SAME_RECT_TOLERANCE = 2;
 
 const JEV_RISKY = '위험 요소는 Jev로 선택할 수 없습니다 — selector 또는 정확한 라벨을 쓰세요';
 
@@ -73,6 +76,19 @@ function submitRisk(field: Candidate | null, model: ScreenModel, profile: AppPro
 function isEditable(c: Candidate, model: ScreenModel): boolean {
   if (c.role === 'input' || c.role === 'secure-input') return true;
   return c.source === 'tree' && nodeOf(model, c.nodeId)?.flags.editable === true;
+}
+
+/**
+ * How `now` differs from `judged` for `target`, or null: another screen (identity fingerprint), another node, a moved
+ * rect (beyond sub-pixel rounding) or another state (e.g. focus moved away from the field Enter submits).
+ */
+function targetChange(target: Candidate, judged: ScreenModel, now: ScreenModel): string | null {
+  if (now.fingerprints.identity !== judged.fingerprints.identity) return '화면이 바뀜';
+  const cur = refind(target, now);
+  if (!cur || cur.nodeId !== target.nodeId) return `"${target.name}"이(가) 같은 요소로 남아 있지 않음`;
+  if ((['x', 'y', 'width', 'height'] as const).some((k) => Math.abs(cur.rect[k] - target.rect[k]) > SAME_RECT_TOLERANCE)) return `"${target.name}" 위치가 바뀜`;
+  if (cur.state.join() !== target.state.join()) return `"${target.name}" 상태가 바뀜 (${target.state.join(',') || '없음'} → ${cur.state.join(',') || '없음'})`;
+  return null;
 }
 
 export class ActionPreparer<Ctx> {
@@ -108,16 +124,18 @@ export class ActionPreparer<Ctx> {
     if (mutation === 'edit' && !isEditable(fresh.candidate, fresh.obs.model)) {
       return { status: 'not_editable', reason: `"${fresh.candidate.name}"(${fresh.candidate.role})은(는) 입력 필드가 아님 — 입력·지우기 대상은 편집 가능한 필드여야 합니다` };
     }
-    const verdict = await this.judge(ctx, fresh.candidate, source === 'jev', fresh.obs.model, mutation, allowRisky);
-    return verdict.status === 'approved' ? { status: 'approved', candidate: fresh.candidate, obs: fresh.obs } : verdict;
+    const verdict = await this.judge(ctx, fresh.candidate, source === 'jev', fresh.obs, mutation, allowRisky);
+    return verdict.status === 'approved' ? { status: 'approved', candidate: fresh.candidate, obs: verdict.obs } : verdict;
   }
 
-  /** Enter (`press: enter`, `type.submit` after typing): the focused field (none = risk unknown) on a fresh observation. */
+  /**
+   * Enter (`press: enter`, `type.submit` after typing): the focused field (none = risk unknown) on a fresh observation.
+   * The approved `obs` is the last observation before Enter.
+   */
   async focused(ctx: Ctx, allowRisky: boolean): Promise<Approval<{ obs: Obs }>> {
     const obs = await this.host.observe('never');
     const field = obs.model.candidates.find((c) => c.state.includes('focused')) ?? null;
-    const verdict = await this.judge(ctx, field, false, obs.model, 'submit', allowRisky);
-    return verdict.status === 'approved' ? { status: 'approved', obs } : verdict;
+    return this.judge(ctx, field, false, obs, 'submit', allowRisky);
   }
 
   /** A target without a fresh screen element (`open` URL, `tapAt` coordinates): deterministic label policy only. */
@@ -127,7 +145,9 @@ export class ActionPreparer<Ctx> {
     return { status: 'approved' };
   }
 
-  private async judge(ctx: Ctx, target: Candidate | null, viaJev: boolean, model: ScreenModel, mutation: Mutation, allowRisky: boolean): Promise<Approval<object>> {
+  /** Policy, then the commit check; an approval carries the observation to act on (after a commit check, a newer one). */
+  private async judge(ctx: Ctx, target: Candidate | null, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean): Promise<Approval<{ obs: Obs }>> {
+    const { model } = obs;
     const risk = mutation === 'submit' ? submitRisk(target, model, this.host.profile) : assessRisk(target, model, this.host.profile);
     // Risky elements act only through selector/fast path: allowRisky never unlocks a Jev-grounded risky target.
     if (risk.risky && viaJev) return this.block(ctx, [...risk.reasons, JEV_RISKY], allowRisky);
@@ -135,21 +155,27 @@ export class ActionPreparer<Ctx> {
     // Every target-based mutation of a deterministically safe target needs the commit check — an edit included: typing
     // into or clearing a field can still auto-save or search, and only Jev can add that refusal.
     if (!risk.risky && !allowRisky) {
-      const commit = target ? await this.commit(ctx, model, target) : { verdict: 'error', reason: '대상 없음' };
+      const commit: Pick<ClaimDecision, 'verdict' | 'reason'> = target ? await this.commit(ctx, model, target) : { verdict: 'error', reason: '대상 없음' };
       // Refusal-add only: 'pass' (commits) blocks, 'fail' lets the deterministic verdict stand, anything else is no answer.
       if (commit.verdict === 'pass') return this.block(ctx, [commit.reason], false);
-      if (commit.verdict !== 'fail') {
+      if (commit.verdict !== 'fail' || !target) {
         const reason = `Jev commit 확인 불가(${commit.reason}) — 확인 없이 실행하지 않음 (allowRisky로 사람이 승인 가능)`;
         this.host.policy(ctx, false, true, [reason]);
         return { status: 'commit_check_unavailable', reason };
       }
+      // The screen may change while Jev answers: the approval holds only for what a new observation still shows.
+      const now = await this.host.observe(target.source === 'ocr' ? 'force' : 'never');
+      const changed = targetChange(target, model, now.model);
+      if (changed) return { status: 'stale_target', reason: `Jev commit 확인 중 ${changed} — 실행하지 않음` };
+      this.host.policy(ctx, risk.risky, false, risk.reasons);
+      return { status: 'approved', obs: now };
     }
     this.host.policy(ctx, risk.risky, false, risk.reasons);
-    return { status: 'approved' };
+    return { status: 'approved', obs };
   }
 
   /** The Jev commit judgement, recorded as a `commit` decision; an unusable Jev is verdict 'error' (never asked). */
-  private async commit(ctx: Ctx, model: ScreenModel, target: Candidate): Promise<{ verdict: string; reason: string }> {
+  private async commit(ctx: Ctx, model: ScreenModel, target: Candidate): Promise<Pick<ClaimDecision, 'verdict' | 'reason'>> {
     const problem = this.host.commitProblem();
     if (problem) return { verdict: 'error', reason: problem };
     const d = await this.host.judgeCommit(ctx, model, target);

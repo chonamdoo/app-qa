@@ -1,14 +1,17 @@
 // Atomic plan generations (architecture invariant 9). One generation per app at a time: the whole generate → commit →
 // prune sequence holds `<planDir>/.qa/plan.lock` (an owner lock, `src/core/lock.ts`), and so does recovery. A new
 // generation (test files + plan.json) is written and fsynced into `<planDir>/.qa/staging-<pid>-<start>-<planId>/new/`
-// (pid + process start time name the owner; `.qa` is skipped by test discovery); a manifest written last marks the
-// staging as complete. The swap first hard-links every existing target into `old/` — the target itself stays in
-// place — and then renames each staged file over its target: rename(2) replaces the path atomically, so a reader always
-// finds a previous-generation file (old or new version) and never a gap. plan.json goes last; that rename is the commit
-// point. Only after it are the previous generation's files that the new plan no longer references pruned. Any failure
-// before the commit runs the exact inverse of the swap, so the previous generation stays byte-identical (the very same
-// inodes). A staging directory left by a dead process is rolled back (or, when it had already committed, its prune is
-// finished) by the next plan of the same app — but only while plan.json is still the generation the staging recorded:
+// (pid + process start time name the owner; `.qa` is skipped by test discovery). The staging's `state` file, replaced
+// atomically, records its phase: `staged` before the manifest (written last, it marks the staging as complete),
+// `committed` once the plan.json rename below is durable, `rolling-back` before the first undo step. The swap first
+// hard-links every existing target into `old/` — the target itself stays in place — and then renames each staged file
+// over its target: rename(2) replaces the path atomically, so a reader always finds a previous-generation file (old or
+// new version) and never a gap. plan.json goes last; the durable `committed` state after its rename is the commit point.
+// Only after it are the previous generation's files that the new plan no longer references pruned. Any failure before
+// the commit runs the exact inverse of the swap, so the previous generation stays byte-identical (the very same
+// inodes). A staging directory left by a dead process is finished by the next plan of the same app, decided by its
+// state alone: `committed` → its prune is finished (never rolled back), `staged`/`rolling-back` → rolled back, missing
+// or unreadable → left for manual cleanup. Either only while plan.json is still a generation the staging recorded:
 // plan.json `createdAt` strictly increases per app, so a staging older than the committed plan is discarded untouched.
 import { closeSync, existsSync, fsyncSync, linkSync, openSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, normalize, sep } from 'node:path';
@@ -21,6 +24,10 @@ const PLAN_FILE = 'plan.json';
 const STAGING_ROOT = '.qa';
 const LOCK_FILE = 'plan.lock';
 const MANIFEST = 'manifest.json';
+const STATE_FILE = 'state';
+/** A staging's phase (its `state` file); recovery decides by it, never by which staged files happen to exist. */
+const Phase = z.enum(['staged', 'committed', 'rolling-back']);
+type Phase = z.infer<typeof Phase>;
 
 export interface Generation {
   /** Test files: path relative to the plan directory → YAML text. */
@@ -81,8 +88,8 @@ export function nextCreatedAt(committed: string | undefined, now = Date.now()): 
 }
 
 /**
- * Stages `gen`, calls `beforeSwap` (its throw aborts with nothing changed), swaps it in and prunes stale files.
- * Throws after restoring the previous generation when anything before the commit fails.
+ * Stages `gen`, calls `beforeSwap` (its throw aborts with nothing changed), swaps it in, commits and prunes stale files.
+ * Throws after restoring the previous generation when anything before the commit (the durable `committed` state) fails.
  */
 export function commitGeneration(lock: PlanLock, planId: string, gen: Generation, beforeSwap: () => void): void {
   const { planDir } = lock;
@@ -97,8 +104,9 @@ export function commitGeneration(lock: PlanLock, planId: string, gen: Generation
     const manifest: Manifest = { base, createdAt: gen.plan.createdAt, files, stale: [...gen.stale] };
     for (const [rel, text] of gen.tests) writeAtomic(join(stage, 'new', rel), text);
     writeJsonAtomic(join(stage, 'new', PLAN_FILE), gen.plan);
-    // Directory entries up to the plan directory must be durable before the manifest says "staged".
+    // Directory entries up to the plan directory must be durable before the staging is marked staged.
     for (let dir = join(stage, 'new'); dir !== dirname(planDir); dir = dirname(dir)) fsyncDir(dir);
+    writeAtomic(join(stage, STATE_FILE), 'staged');
     writeJsonAtomic(join(stage, MANIFEST), manifest);
     phase = 'ready';
     beforeSwap();
@@ -106,6 +114,7 @@ export function commitGeneration(lock: PlanLock, planId: string, gen: Generation
     backUp(planDir, stage, files);
     fsyncDirs(files.slice(0, -1).flatMap((rel) => swapIn(planDir, stage, rel)));
     fsyncDirs(swapIn(planDir, stage, PLAN_FILE));
+    writeAtomic(join(stage, STATE_FILE), 'committed');
   } catch (err) {
     try {
       if (phase === 'stage') discard(planDir, stage);
@@ -123,10 +132,12 @@ export function commitGeneration(lock: PlanLock, planId: string, gen: Generation
 
 /**
  * Finishes the staging directories of dead owners (dead pid, or a pid reused by a process with another start time; a
- * staging of this very process is abandoned too, since the caller holds the plan lock). While plan.json is still the
- * generation the staging recorded: uncommitted (staged plan.json still present) → rolled back, committed → stale files
- * pruned. Once a newer plan is committed the staging is discarded without touching any plan file; incomplete staging
- * (no manifest) is deleted. Returns one Korean note per directory.
+ * staging of this very process is abandoned too, since the caller holds the plan lock), decided by the staging's state:
+ * `committed` → stale files pruned while plan.json is still the staged one; `staged`/`rolling-back` → rolled back while
+ * plan.json is the one it replaced or the staged one (the swap may have stopped either side of the plan.json rename).
+ * Once a newer plan is committed the staging is discarded without touching any plan file; incomplete staging (no
+ * manifest) is deleted; a complete one without a readable state is left for manual cleanup (throws). Returns one Korean
+ * note per directory.
  */
 export function recoverStaging(lock: PlanLock, probe: ProcessProbe = systemProbe): string[] {
   const { planDir } = lock;
@@ -145,18 +156,18 @@ export function recoverStaging(lock: PlanLock, probe: ProcessProbe = systemProbe
       continue;
     }
     const manifest = readManifest(manifestFile);
-    const committed = !existsSync(join(stage, 'new', PLAN_FILE));
-    const recorded = committed ? manifest.createdAt : manifest.base;
+    const state = readPhase(join(stage, STATE_FILE));
+    const recorded = state === 'committed' ? [manifest.createdAt] : [manifest.base, manifest.createdAt];
     const current = committedCreatedAt(planDir);
-    if (current === recorded) {
-      if (committed) {
+    if (recorded.includes(current)) {
+      if (state === 'committed') {
         prune(planDir, stage, manifest.stale);
         notes.push(`중단된 계획 교체(커밋 완료)의 정리를 마쳤습니다: ${name}`);
       } else {
         rollback(planDir, stage, manifest.files);
         notes.push(`중단된 계획 교체를 되돌려 이전 계획을 복구했습니다: ${name}`);
       }
-    } else if (current !== null && (recorded === null || Date.parse(current) > Date.parse(recorded))) {
+    } else if (current !== null && Date.parse(current) > Date.parse(manifest.createdAt)) {
       discard(planDir, stage);
       notes.push(`중단된 계획 교체 기록을 지웠습니다 — 그 뒤에 더 새 계획이 커밋되어 파일은 그대로 둡니다: ${name}`);
     } else {
@@ -195,10 +206,13 @@ function swapIn(planDir: string, stage: string, rel: string): string[] {
 /**
  * Exact inverse of the swap, in reverse order: first every swapped-in file returns to `new/` — as a second link while
  * a backup is about to replace it, so no previous file ever disappears; a file without backup did not exist before and
- * is moved out — then each backup is renamed over its target. Idempotent at every intermediate state, so a crash during
- * the rollback itself is recovered by running it again.
+ * is moved out — then each backup is renamed over its target. The staging is marked `rolling-back` before the first
+ * step (replacing even a `committed` whose directory fsync failed), so recovery finishes the undo instead of taking a
+ * half-undone swap for a commit. Idempotent at every intermediate state, so a crash during the rollback itself is
+ * recovered by running it again.
  */
 function rollback(planDir: string, stage: string, files: readonly string[]): void {
+  writeAtomic(join(stage, STATE_FILE), 'rolling-back');
   const paths = [...files].reverse().map((rel) => ({ target: join(planDir, rel), staged: join(stage, 'new', rel), backup: join(stage, 'old', rel) }));
   for (const { target, staged, backup } of paths) {
     if (existsSync(staged) || !existsSync(target)) continue;
@@ -247,6 +261,19 @@ function readManifest(file: string): Manifest {
   }
   const parsed = Manifest.safeParse(json);
   if (!parsed.success) throw new Error(`계획 교체 기록이 손상되었습니다: ${file} — 파일을 확인한 뒤 staging 디렉터리를 직접 정리하세요`);
+  return parsed.data;
+}
+
+/** The staging's phase. Throws when it is missing or unreadable: without it recovery cannot tell the commit point. */
+function readPhase(file: string): Phase {
+  let text = '';
+  try {
+    text = readFileSync(file, 'utf8');
+  } catch {
+    // reported below
+  }
+  const parsed = Phase.safeParse(text.trim());
+  if (!parsed.success) throw new Error(`계획 교체 단계 기록이 없거나 손상되어 커밋 여부를 알 수 없습니다: ${file} — 파일을 확인한 뒤 staging 디렉터리를 직접 정리하세요`);
   return parsed.data;
 }
 

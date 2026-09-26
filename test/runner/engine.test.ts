@@ -175,6 +175,17 @@ describe('deterministic assertions', () => {
       'multi-operator object': '{ "!": [ { "<": [ 1, 2 ], ">": [ 1, 2 ] } ] }',
       'unknown operator': '{ between: [ { var: wait }, 0, 100 ] }',
       'non-boolean result': '{ var: wait }',
+      // Missing operands compare `undefined`: json-logic-js calls `{"==":[]}` true.
+      'comparison without operands': '{ "==": [] }',
+      'comparison with one operand': '{ "<": [ { var: wait } ] }',
+      'empty or': '{ or: [] }',
+      'negation without operand': '{ "!": [] }',
+      'in with one operand': '{ in: [ { var: wait } ] }',
+      'empty comparison behind a true branch': '{ or: [ { "<": [ { var: wait }, 100 ] }, { "===": [] } ] }',
+      'constant comparison reading no group': '{ "==": [ 1, 1 ] }',
+      'var naming no group of the pattern': '{ "<": [ { var: minutes }, 100 ] }',
+      'empty var name': '{ "<": [ { var: "" }, 100 ] }',
+      'var with a default': '{ "<": [ { var: [ wait, 0 ] }, 100 ] }',
     };
     for (const [name, rule] of Object.entries(cases)) {
       const { result } = await runYaml({ 'tests/check.e2e.yaml': spec(check(rule)) }, new FakeDriver(screen('tab-departures')));
@@ -184,6 +195,9 @@ describe('deterministic assertions', () => {
     }
     const empty = await runYaml({ 'tests/check.e2e.yaml': spec(check('{}')) }, new FakeDriver(screen('tab-departures')));
     assert.equal(empty.result.tests[0]!.verdict, 'ERROR', 'a top-level {} is rejected when the test loads');
+    // `<` with three operands is a between check, not a malformed comparison.
+    const between = await runYaml({ 'tests/check.e2e.yaml': spec(check('{ "<": [ -1, { var: wait }, 100 ] }')) }, new FakeDriver(screen('tab-departures')));
+    assert.equal(between.result.tests[0]!.verdict, 'PASS', between.result.tests[0]!.reason);
   });
 
   it('assertNoText passes when absent for 500 ms and fails when present', async () => {
