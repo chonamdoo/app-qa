@@ -195,6 +195,27 @@ describe('Safari input needs its window in front', () => {
     }, undefined, SAFARI);
   });
 
+  it('the keys of type/clear pass the same guard: a window lost after the click gets no keys, and the action is uncertain', async () => {
+    for (const act of ['type', 'clear'] as const) {
+      let clicked = false;
+      const override = (req: StubRequest): Reply | undefined => {
+        const body = req.body as { actions?: { type: string }[]; script?: string } | null;
+        if (req.path === '/session/s1/actions' && body?.actions?.[0]?.type === 'pointer') clicked = true;
+        // Another app takes the front between the click and the keys; raising the window does not win it back.
+        else if (clicked && req.path === '/session/s1/execute/sync' && body?.script === DESKTOP_SCRIPTS.focused) return { body: { value: false } };
+        return undefined;
+      };
+      await withDriver({ field: { value: '이전 값', password: false } }, async (d, stub) => {
+        const o = act === 'type' ? await d.typeText(AT, 'qa') : await d.clearText(AT);
+        assert.equal(o.status, 'uncertain', act);
+        assert.match(o.error ?? '', /필드 클릭은 전달됐지만 Safari 창이 앞으로 오지 않아 키를 보내지 않았습니다/, act);
+        assert.equal(stub.sources().length, 1, `${act}: the click only`);
+        assert.deepEqual(keysDown(stub), [], act);
+        assert.equal(stub.page.field?.value, '이전 값', act);
+      }, override, SAFARI);
+    }
+  });
+
   it('Chrome takes input in a background window without being raised', async () => {
     await withDriver({ front: false, raises: false }, async (d, stub) => {
       assert.equal((await d.tap(AT)).status, 'completed');

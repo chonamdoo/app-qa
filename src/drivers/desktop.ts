@@ -280,16 +280,20 @@ export class DesktopWebDriver implements Driver {
 
   /**
    * Real input (`fn` dispatches it). Safari drops WebDriver input while another app is in front (measured, Safari
-   * 26.6: the click reached nothing), so on Safari an unfocused page gets its window raised first and must gain focus
-   * within RAISE_MS, else the input is refused unsent. Chrome dispatches input to a background window.
+   * 26.6: the click reached nothing), so on Safari an unfocused page gets its window raised before every input and must
+   * gain focus within RAISE_MS, else nothing more is sent: refused before the action's first input, `uncertain` once
+   * its click was sent (`clickSent`: the keys of type/clear).
    */
-  #input(fn: () => Promise<void>): Promise<ActionOutcome> {
+  #input(fn: () => Promise<void>, opts: { clickSent?: boolean } = {}): Promise<ActionOutcome> {
     return this.#act(async () => {
       if (this.platform === 'desktop-safari' && !(await this.#focused())) {
         await this.#api.raiseWindow();
         const deadline = performance.now() + RAISE_MS;
         while (!(await this.#focused())) {
-          if (performance.now() >= deadline) throw new RefusedError('Safari 창이 앞으로 오지 않아 입력을 보내지 않았습니다 (다른 앱이 앞에 있음 — 실행 중에는 Safari 창을 가리지 마세요)');
+          if (performance.now() >= deadline) {
+            if (opts.clickSent) throw new StepError({ status: 'uncertain', ms: 0, error: '필드 클릭은 전달됐지만 Safari 창이 앞으로 오지 않아 키를 보내지 않았습니다 (다른 앱이 앞에 있음)' });
+            throw new RefusedError('Safari 창이 앞으로 오지 않아 입력을 보내지 않았습니다 (다른 앱이 앞에 있음 — 실행 중에는 Safari 창을 가리지 마세요)');
+          }
           await delay(100);
         }
       }
@@ -410,8 +414,9 @@ export class DesktopWebDriver implements Driver {
 
   /**
    * Tap `at`, require a focused text field, clear it with ⌘A + Backspace (or move the caret to the end when appending),
-   * type `text` as key actions in the same dispatch, then read the value back. Mismatch → `INPUT_UNVERIFIED`. A click
-   * that focused no text field is `uncertain`: it was sent, and what it did is unknown.
+   * type `text` as key actions in the same dispatch (through the same foreground guard as the click), then read the value
+   * back. Mismatch → `INPUT_UNVERIFIED`. A click that focused no text field is `uncertain`: it was sent, and what it did
+   * is unknown.
    */
   async #fill(at: Point, text: string, opts: { secure?: boolean; append?: boolean }): Promise<TypeOutcome> {
     const t0 = performance.now();
@@ -432,7 +437,7 @@ export class DesktopWebDriver implements Driver {
     const expected = opts.append ? target.value + text : text;
     const chars = [...text];
     const strokes = [...(opts.append ? [END_STROKE] : CLEAR_STROKES), ...chars.map((c) => [c])];
-    const typed = await this.#act(() => this.#api.performActions(keyStrokes(strokes), 30_000 + 20 * chars.length));
+    const typed = await this.#input(() => this.#api.performActions(keyStrokes(strokes), 30_000 + 20 * chars.length), { clickSent: true });
     if (typed.status !== 'completed') return done(typed);
     let after: Field | null;
     try {

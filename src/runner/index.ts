@@ -655,7 +655,10 @@ export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): 
           );
         }
       } catch (err) {
-        result = unrunResult(base, opts.platform, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`, slot.device, clean);
+        // After the browser opened, a throw is the smoke's own failure, not a session that could not be opened.
+        result = opened
+          ? unrunResult(base, opts.platform, 'ERROR', 'internal', `실행 오류: ${message(err)}`, slot.device, clean)
+          : unrunResult(base, opts.platform, 'ERROR', 'session_failed', `자동화 세션을 열 수 없음: ${message(err)}`, slot.device, clean);
         // A refused start opened no window; any other failure may have left one.
         if (desktop && !opened && failureStatus(err) === 'rejected') display.unconfirmed--;
         else if (desktop && !opened) lost = `세션 시작이 확인되지 않은 채 실패해 창이 남았을 수 있음 (${message(err)})`;

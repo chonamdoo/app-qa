@@ -612,6 +612,19 @@ describe('smoke, capture and inspect on a desktop browser', () => {
     }
   });
 
+  it('a smoke that fails after its session opened says so; it is not a session that could not be opened', async () => {
+    for (const [platform, driver] of [['android', phone()], ['desktop-chrome', new FakeDriver(index())]] as const) {
+      const broken = await smoke(driver, platform, {
+        jev: () => {
+          throw new Error('Jev 설정을 읽지 못함');
+        },
+      });
+      assert.deepEqual([broken.t.verdict, broken.t.code, broken.t.reason], ['ERROR', 'internal', '실행 오류: Jev 설정을 읽지 못함'], platform);
+      assert.equal(driver.called('open').length, 1, platform);
+      assert.equal(driver.called('close').length, 1, platform);
+    }
+  });
+
   it('the smoke’s one test.finished carries the final verdict, after the session end: the event stream agrees with summary.json', async () => {
     const chrome = new FakeDriver(index());
     chrome.closeError = uncertainClose();
