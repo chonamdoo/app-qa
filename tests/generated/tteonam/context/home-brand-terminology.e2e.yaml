@@ -1,0 +1,31 @@
+# qa plan으로 생성됨 · 상태 draft · 계획 tests/generated/tteonam/plan.json
+id: home-brand-terminology
+name: 홈 화면에 떠남 제목, 기준 시각, 대기시간 요약이 나오고 금지 용어는 나오지 않음
+app: tteonam
+covers:
+  - context#떠남
+  - context#기준-시각
+  - context#터미널
+  - context#대기시간
+source:
+  plan: tests/generated/tteonam/plan.json
+  status: draft
+steps:
+  - see: 떠남
+  - see:
+      intent: 홈
+      state:
+        selected: true
+  - wait:
+      until:
+        text:
+          regex: ^\d{1,2}:\d{2} 기준$
+    timeout: 15000
+  - assertText:
+      regex: ^\d{1,2}:\d{2} 기준$
+  - assertText: 제1여객터미널 출국장
+  - assertNoText: 갱신 시각
+  - assertNoText: 업데이트 시각
+  - assertNoText: 청사
+  - assertNoText: 혼잡도
+  - assertNoText: 탑승권

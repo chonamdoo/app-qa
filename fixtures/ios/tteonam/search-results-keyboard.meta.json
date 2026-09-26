@@ -1,0 +1,15 @@
+{
+  "platform": "ios",
+  "app": "tteonam",
+  "name": "search-results-keyboard",
+  "windowRect": {
+    "y": 0,
+    "x": 0,
+    "width": 402,
+    "height": 874
+  },
+  "capturedAt": "2026-09-26T08:22:33+09:00",
+  "device": "iPhone 17 Pro sim D04BBA4D (iOS 27, 402x874pt @3x)",
+  "source": "Appium XCUITest 12.13.2 /source (pageSourceExcludedAttributes=visible,accessible,index; waitForIdleTimeout=0)",
+  "notes": "Typed '대한항공'; result rows are Buttons with labels '… · 대한항공 · …'. Korean keyboard Key nodes present. Background home content still in tree behind popup ('dismiss popup' Other)."
+}

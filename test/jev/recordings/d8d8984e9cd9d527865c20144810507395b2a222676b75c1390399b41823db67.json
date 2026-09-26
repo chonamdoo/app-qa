@@ -1,0 +1,75 @@
+{
+  "key": "d8d8984e9cd9d527865c20144810507395b2a222676b75c1390399b41823db67",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db1754597b3080293c8b6c015884",
+  "latencyMs": 188,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "context#떠나는-순서",
+        "text": "[context#떠나는-순서] 안내 탭의 떠나는 순서는 내 항공편 출발 시각에서 거꾸로 셈한 여섯 단계 — 집에서 출발, 주차하거나 내리기, 체크인·짐 맡기기, 출국장 보안검색, 면세·식사, 탑승 시작 — 를 보여 준다."
+      },
+      "test": {
+        "id": "departure-steps",
+        "name": "떠나는 순서 여섯 단계가 보인다",
+        "app": "tteonam",
+        "covers": [
+          "context#떠나는-순서"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "tap": "안내 탭"
+          },
+          {
+            "see": "떠나는 순서"
+          },
+          {
+            "assertText": "집에서 출발"
+          },
+          {
+            "assertText": "주차하거나 내리기"
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.4
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.18
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.2
+      }
+    },
+    "usage": {
+      "input_tokens": 607,
+      "output_tokens": 62
+    }
+  }
+}

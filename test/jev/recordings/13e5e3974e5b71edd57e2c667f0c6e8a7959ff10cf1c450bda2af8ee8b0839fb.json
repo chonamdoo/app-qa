@@ -1,0 +1,110 @@
+{
+  "key": "13e5e3974e5b71edd57e2c667f0c6e8a7959ff10cf1c450bda2af8ee8b0839fb",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db032ce178f0a6c18f85b09c0399",
+  "latencyMs": 222,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | 닫기 | - | middle",
+          "e2 | heading | 내 항공편 | - | middle",
+          "e3 | text | 에티하드 항공 · EY827 | - | middle",
+          "e4 | text | 출발 | - | middle",
+          "e5 | other | ICN에서 아부다비 AUH로 | - | middle",
+          "e6 | text | 아부다비 | - | middle",
+          "e7 | other | 출발 01:25, 원래 01:35 | - | bottom",
+          "e8 | other | 게이트 12 | - | bottom",
+          "e9 | other | 터미널 T1 | - | bottom",
+          "e10 | other | 카운터 J27-J35 | - | bottom",
+          "e11 | text | 출발했어요 | - | bottom",
+          "e12 | text | 마지막 확인 06:10 | - | bottom",
+          "e13 | button | 항공편 바꾸기 | - | bottom",
+          "e14 | button | 내 항공편 지우기 | - | bottom"
+        ],
+        "texts": [
+          "닫기",
+          "내 항공편",
+          "에티하드 항공 · EY827",
+          "출발",
+          "ICN",
+          "AUH",
+          "아부다비",
+          "출발",
+          "게이트",
+          "터미널",
+          "카운터",
+          "01:35",
+          "12",
+          "T1",
+          "J27-J35",
+          "01:25",
+          "출발했어요",
+          "마지막 확인 06:10",
+          "항공편 바꾸기",
+          "지우기"
+        ]
+      },
+      "intent": "시트 닫기 버튼"
+    },
+    "questions": {
+      "target": {
+        "type": "choice",
+        "instructions": {
+          "question": "Which row of `screen.rows` is the on-screen element that `intent` refers to?",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "none": "Answer `none` when no row is the element that `intent` refers to (for example, it is not on this screen)."
+        },
+        "criteria": {
+          "e1": "button | 닫기 | - | middle",
+          "e2": "heading | 내 항공편 | - | middle",
+          "e3": "text | 에티하드 항공 · EY827 | - | middle",
+          "e4": "text | 출발 | - | middle",
+          "e5": "other | ICN에서 아부다비 AUH로 | - | middle",
+          "e6": "text | 아부다비 | - | middle",
+          "e7": "other | 출발 01:25, 원래 01:35 | - | bottom",
+          "e8": "other | 게이트 12 | - | bottom",
+          "e9": "other | 터미널 T1 | - | bottom",
+          "e10": "other | 카운터 J27-J35 | - | bottom",
+          "e11": "text | 출발했어요 | - | bottom",
+          "e12": "text | 마지막 확인 06:10 | - | bottom",
+          "e13": "button | 항공편 바꾸기 | - | bottom",
+          "e14": "button | 내 항공편 지우기 | - | bottom",
+          "none": "No row is the element that `intent` refers to."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "e1",
+        "confidence": 1,
+        "probabilities": {
+          "e10": 0,
+          "e5": 0,
+          "e4": 0,
+          "e9": 0,
+          "e14": 0,
+          "e12": 0,
+          "e6": 0,
+          "e1": 1,
+          "e3": 0,
+          "e13": 0,
+          "e8": 0,
+          "e7": 0,
+          "e2": 0,
+          "e11": 0,
+          "none": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 1193,
+      "output_tokens": 142
+    }
+  }
+}

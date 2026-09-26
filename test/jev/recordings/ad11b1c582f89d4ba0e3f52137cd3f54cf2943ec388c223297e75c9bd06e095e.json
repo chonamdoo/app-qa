@@ -1,0 +1,87 @@
+{
+  "key": "ad11b1c582f89d4ba0e3f52137cd3f54cf2943ec388c223297e75c9bd06e095e",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db1755d17375b6fa59bd5bc78356",
+  "latencyMs": 185,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "context#항공편-검색",
+        "text": "[context#항공편-검색] 편명·도시·항공사로 항공편을 검색하면 오늘 인천 출발편 가운데 검색어와 일치하는 편이 목록에 보인다."
+      },
+      "test": {
+        "id": "flight-search",
+        "name": "항공사 이름으로 오늘 출발편을 찾는다",
+        "app": "tteonam",
+        "covers": [
+          "context#항공편-검색"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "tap": "항공편 찾기"
+          },
+          {
+            "type": "대한항공",
+            "into": "편명·도시·항공사"
+          },
+          {
+            "see": {
+              "intent": "오늘",
+              "state": {
+                "selected": true
+              }
+            }
+          },
+          {
+            "assertText": "인천 출발"
+          },
+          {
+            "assertText": "· 대한항공 ·"
+          },
+          {
+            "assertNoText": "아시아나"
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.83
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.3
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.34
+      }
+    },
+    "usage": {
+      "input_tokens": 628,
+      "output_tokens": 62
+    }
+  }
+}

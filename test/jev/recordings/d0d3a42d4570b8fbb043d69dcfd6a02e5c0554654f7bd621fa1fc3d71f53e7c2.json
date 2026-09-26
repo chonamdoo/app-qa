@@ -1,0 +1,123 @@
+{
+  "key": "d0d3a42d4570b8fbb043d69dcfd6a02e5c0554654f7bd621fa1fc3d71f53e7c2",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db0336517952b88591c6d7795ff0",
+  "latencyMs": 206,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | Sheet Grabber | value=\"Expanded\" | top",
+          "e2 | button | 닫기 | - | top",
+          "e3 | heading | 내 항공편 찾기 | - | top",
+          "e4 | text | 편명·도시·항공사 | - | top",
+          "e5 | input | 편명·도시·항공사 | - | top",
+          "e6 | button | 오늘 | value=\"1\", selected | middle",
+          "e7 | button | 내일 | - | middle",
+          "e8 | button | 9월 28일 (월) | - | middle",
+          "e9 | button | 9월 29일 (화) | - | middle",
+          "e10 | heading | 9월 26일 (토) 인천 출발 | - | middle",
+          "e11 | text | 08:22 기준 | - | middle",
+          "e12 | button | 호찌민 SGN, 9G401 · 썬푸꾸옥항공 · 탑승동, 00:02 출발, 원래 00:10, 출발 | - | middle",
+          "e13 | button | 쿠알라룸푸르 KUL, MH039 · 말레이시아 항공 · T1, 00:05 출발, 원래 00:10, 출발 | - | middle",
+          "e14 | button | 하노이 HAN, 9G411 · 썬푸꾸옥항공 · 탑승동, 00:01 출발, 원래 00:15, 출발 | - | middle",
+          "e15 | button | 아디스아바바/볼레 ADD, ET673 · 에티오피아항공 · T1, 00:40 출발, 원래 00:20, 출발 | - | bottom",
+          "e16 | button | 다낭 DAD, VN433 · 베트남항공 · 탑승동, 00:15 출발, 원래 00:30, 출발 | - | bottom",
+          "e17 | button | 타이베이 TPE, IT603 · 타이거에어 타이완 · 탑승동, 00:28 출발, 원래 00:30, 출발 | - | bottom",
+          "e18 | button | 도하 DOH, QR859 · 카타르항공 · T1, 01:31 출발, 원래 01:20, 출발 | - | bottom",
+          "e19 | button | 아부다비 AUH, EY827 · 에티하드 항공 · T1, 01:25 출발, 원래 01:35, 출발 | - | bottom"
+        ],
+        "texts": [
+          "Sheet Grabber",
+          "닫기",
+          "내 항공편 찾기",
+          "편명·도시·항공사",
+          "오늘",
+          "내일",
+          "9월 28일 (월)",
+          "9월 29일 (화)",
+          "9월 26일 (토) 인천 출발",
+          "08:22 기준",
+          "호찌민 SGN, 9G401 · 썬푸꾸옥항공 · 탑승동, 00:02 출발, 원래 00:10, 출발",
+          "쿠알라룸푸르 KUL, MH039 · 말레이시아 항공 · T1, 00:05 출발, 원래 00:10, 출발",
+          "하노이 HAN, 9G411 · 썬푸꾸옥항공 · 탑승동, 00:01 출발, 원래 00:15, 출발",
+          "아디스아바바/볼레 ADD, ET673 · 에티오피아항공 · T1, 00:40 출발, 원래 00:20, 출발",
+          "다낭 DAD, VN433 · 베트남항공 · 탑승동, 00:15 출발, 원래 00:30, 출발",
+          "타이베이 TPE, IT603 · 타이거에어 타이완 · 탑승동, 00:28 출발, 원래 00:30, 출발",
+          "도하 DOH, QR859 · 카타르항공 · T1, 01:31 출발, 원래 01:20, 출발",
+          "아부다비 AUH, EY827 · 에티하드 항공 · T1, 01:25 출발, 원래 01:35, 출발"
+        ]
+      },
+      "intent": "하단 홈 탭"
+    },
+    "questions": {
+      "target": {
+        "type": "choice",
+        "instructions": {
+          "question": "Which row of `screen.rows` is the on-screen element that `intent` refers to?",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "none": "Answer `none` when no row is the element that `intent` refers to (for example, it is not on this screen)."
+        },
+        "criteria": {
+          "e1": "button | Sheet Grabber | value=\"Expanded\" | top",
+          "e2": "button | 닫기 | - | top",
+          "e3": "heading | 내 항공편 찾기 | - | top",
+          "e4": "text | 편명·도시·항공사 | - | top",
+          "e5": "input | 편명·도시·항공사 | - | top",
+          "e6": "button | 오늘 | value=\"1\", selected | middle",
+          "e7": "button | 내일 | - | middle",
+          "e8": "button | 9월 28일 (월) | - | middle",
+          "e9": "button | 9월 29일 (화) | - | middle",
+          "e10": "heading | 9월 26일 (토) 인천 출발 | - | middle",
+          "e11": "text | 08:22 기준 | - | middle",
+          "e12": "button | 호찌민 SGN, 9G401 · 썬푸꾸옥항공 · 탑승동, 00:02 출발, 원래 00:10, 출발 | - | middle",
+          "e13": "button | 쿠알라룸푸르 KUL, MH039 · 말레이시아 항공 · T1, 00:05 출발, 원래 00:10, 출발 | - | middle",
+          "e14": "button | 하노이 HAN, 9G411 · 썬푸꾸옥항공 · 탑승동, 00:01 출발, 원래 00:15, 출발 | - | middle",
+          "e15": "button | 아디스아바바/볼레 ADD, ET673 · 에티오피아항공 · T1, 00:40 출발, 원래 00:20, 출발 | - | bottom",
+          "e16": "button | 다낭 DAD, VN433 · 베트남항공 · 탑승동, 00:15 출발, 원래 00:30, 출발 | - | bottom",
+          "e17": "button | 타이베이 TPE, IT603 · 타이거에어 타이완 · 탑승동, 00:28 출발, 원래 00:30, 출발 | - | bottom",
+          "e18": "button | 도하 DOH, QR859 · 카타르항공 · T1, 01:31 출발, 원래 01:20, 출발 | - | bottom",
+          "e19": "button | 아부다비 AUH, EY827 · 에티하드 항공 · T1, 01:25 출발, 원래 01:35, 출발 | - | bottom",
+          "none": "No row is the element that `intent` refers to."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "none",
+        "confidence": 0.93,
+        "probabilities": {
+          "none": 0.9400000000000001,
+          "e2": 0,
+          "e13": 0,
+          "e8": 0,
+          "e11": 0,
+          "e14": 0,
+          "e17": 0,
+          "e19": 0.01,
+          "e5": 0,
+          "e7": 0,
+          "e12": 0,
+          "e9": 0,
+          "e6": 0.03,
+          "e18": 0,
+          "e10": 0,
+          "e3": 0,
+          "e4": 0,
+          "e15": 0.01,
+          "e16": 0,
+          "e1": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 2355,
+      "output_tokens": 186
+    }
+  }
+}

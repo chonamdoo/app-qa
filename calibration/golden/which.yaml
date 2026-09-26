@@ -1,0 +1,32 @@
+# Jev which(화면 분기 Choice) 골든셋 (q-v1, jev-1.13.0) — 선택지 s0..sN + none("still loading / none of these").
+#
+# ── 사전등록 기준 (2026-09-26, 첫 실호출 전에 작성·고정) ──────────────────────────────
+# 1. 확신 오답 = 0 건: 다른 선택지로 pass, 정답이 선택지인데 none, 정답이 none인데 pass.
+# 2. 수용률 ≥ 80%: 정답 선택지로 pass 또는 정답 none에 none. ambiguous는 rejected(안전한 비수용).
+# 3. 임계값 탐색: minTop·noneMin ∈ [0.30, 0.99] 0.01 격자, minGap ∈ [0.05, 0.90] 0.05 격자,
+#    (확신 오답 최소 → 수용 최대 → 경계 여백 leximin 최대). grounding·claim 임계값과 공유하지 않는다.
+# 4. none 정답 = 로딩 화면 또는 어떤 선택지에도 맞지 않는 화면(오류 화면 등). 기준 미달이면 status: failed.
+# ── 정정 기록 (2026-09-26, 1차 실호출 직후; 위 기준·정답·항목은 그대로) ──
+# 3번의 3순위(동률 처리) 구현만 정정: 한쪽에만 항목이 있는 임계값이 느슨한 격자 끝(noneMin 0.30)으로 가던 결함.
+# 이제 결과가 같은 구간 안에서, 양쪽이 항목으로 막히면 중점, 한쪽이 격자 끝이면 보수적 끝을 고른다.
+# 1차 녹화 응답(test/jev/recordings)을 그대로 재사용해 다시 산출했다(재질의 없음).
+primitive: which
+criteria: { maxConfidentWrong: 0, minAcceptance: 0.8 }
+items:
+  - { id: w-01, screen: android/tteonam/launch, options: [홈 화면, 출국장 대기 현황 화면, 주차 현황 화면, 항공편 검색 화면], expect: 0, tags: [tab] }
+  - { id: w-02, screen: android/tteonam/tab-departures, options: [홈 화면, 출국장 대기 현황 화면, 주차 현황 화면, 항공편 검색 화면], expect: 1, tags: [tab] }
+  - { id: w-03, screen: android/tteonam/tab-parking, options: [홈 화면, 출국장 대기 현황 화면, 주차 현황 화면, 항공편 검색 화면], expect: 2, tags: [tab] }
+  - { id: w-04, screen: android/tteonam/search-results, options: [홈 화면, 출국장 대기 현황 화면, 주차 현황 화면, 항공편 검색 화면], expect: 3, tags: [sheet] }
+  - { id: w-05, screen: ios/tteonam/search-popup, options: [홈 화면, 출국장 대기 현황 화면, 주차 현황 화면, 항공편 검색 화면], expect: 3, tags: [sheet] }
+  - { id: w-06, screen: android/tteonam/my-flight-sheet, options: [내 항공편 상세 시트, 항공편 검색 화면, 홈 화면], expect: 0, tags: [sheet] }
+  - { id: w-07, screen: android/easyway/launch, options: [홈 화면, 지도 화면, 설정 화면], expect: none, tags: [loading] }
+  - { id: w-08, screen: android/ticketestimate/launch, options: [홈 화면, 로그인 화면], expect: none, tags: [error] }
+  - { id: w-09, screen: ios/tteonam/launch, options: [내 항공편이 등록된 홈 화면, 내 항공편이 없는 홈 화면], expect: 1, tags: [state] }
+  - { id: w-10, screen: android/tteonam/launch, options: [내 항공편이 등록된 홈 화면, 내 항공편이 없는 홈 화면], expect: 0, tags: [state] }
+  - { id: w-11, screen: android/settings/launch, options: [배터리 설정 검색 결과, Wi-Fi 설정, 디스플레이 설정], expect: 0, tags: [other-app] }
+  - { id: w-12, screen: android/example-tickets/launch, options: [Ticket estimate screen, Checkout screen, Login screen], expect: 0, tags: [other-app] }
+  - { id: w-13, screen: ios/expo-go/launch, options: [Expo Go home screen, Expo Go settings screen, Project loading screen], expect: 0, tags: [other-app] }
+  - { id: w-14, screen: android/tteonam/search-empty-keyboard, options: [홈 화면, 검색어를 입력하기 전의 항공편 검색 화면, 검색어를 입력한 뒤의 항공편 검색 결과 화면], expect: 1, tags: [state] }
+  - { id: w-15, screen: android/tteonam/search-results, options: [홈 화면, 검색어를 입력하기 전의 항공편 검색 화면, 검색어를 입력한 뒤의 항공편 검색 결과 화면], expect: 2, tags: [state] }
+  - { id: w-16, screen: ios/tteonam/search-results-keyboard, options: [홈 화면, 검색어를 입력하기 전의 항공편 검색 화면, 검색어를 입력한 뒤의 항공편 검색 결과 화면], expect: 2, tags: [state] }
+  - { id: w-17, screen: ios/kroute/launch, options: [지도 화면, 경로 검색 화면, 로그인 화면], expect: none, tags: [sparse] }

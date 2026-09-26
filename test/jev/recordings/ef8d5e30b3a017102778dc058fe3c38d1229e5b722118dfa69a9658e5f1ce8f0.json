@@ -1,0 +1,134 @@
+{
+  "key": "ef8d5e30b3a017102778dc058fe3c38d1229e5b722118dfa69a9658e5f1ce8f0",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db0346967f06a05854ca4984f0ee",
+  "latencyMs": 211,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | 설정 | - | top",
+          "e2 | button | 내 항공편 EY827, 01:25 출발, 출발. 탑승권 열기 | - | top",
+          "e3 | other | 떠남 로고 | - | top",
+          "e4 | heading | 주차 | - | top",
+          "e5 | button | 빈자리 | selected | top",
+          "e6 | button | 요금 미리 보기 | - | top",
+          "e7 | button | T1 | selected | top",
+          "e8 | button | T2 | - | top",
+          "e9 | scroll | 주차장 종류 | - | top",
+          "e10 | button | 전체 | selected | top",
+          "e11 | button | 단기 | - | top",
+          "e12 | button | 장기 | - | top",
+          "e13 | button | 예약 | - | top",
+          "e14 | other | T1 전체 남은 자리 408자리, 혼잡 | - | top",
+          "e15 | button | 단기 지하 1층, 1자리 남음, 혼잡 | - | middle",
+          "e16 | button | 단기 지하 2층, 29자리 남음, 혼잡 | - | middle",
+          "e17 | button | 단기 지하 3층, 206자리 남음, 여유 | - | middle",
+          "e18 | button | 단기 지상층, 0자리 남음, 혼잡 | - | middle",
+          "e19 | button | 장기 P1, 0자리 남음, 혼잡 | - | bottom",
+          "e20 | button | 장기 P1 타워, 28자리 남음, 혼잡 | - | bottom",
+          "e21 | button | 장기 P2, 0자리 남음, 혼잡 | - | bottom",
+          "e22 | button | 장기 P2 타워, 36자리 남음, 혼잡 | - | bottom",
+          "e23 | button | 장기 P3, 11자리 남음, 혼잡 | - | bottom",
+          "e24 | button | 예약 P5, 97자리 남음, 혼잡 | - | bottom",
+          "e25 | tab | 홈 | - | bottom",
+          "e26 | tab | 출국장 | - | bottom",
+          "e27 | tab | 주차 | selected | bottom",
+          "e28 | tab | 안내 | - | bottom"
+        ],
+        "texts": [
+          "설정",
+          "떠남 로고",
+          "주차",
+          "EY827",
+          "01:25",
+          "빈자리",
+          "요금 미리 보기",
+          "T1",
+          "T2",
+          "전체",
+          "단기",
+          "장기",
+          "예약",
+          "T1 전체 남은 자리",
+          "혼잡",
+          "408자리",
+          "1",
+          "29",
+          "206",
+          "0",
+          "혼잡",
+          "혼잡",
+          "여유",
+          "혼잡",
+          "단기 지하 1층",
+          "단기 지하 2층",
+          "단기 지하 3층",
+          "단기 지상층",
+          "0",
+          "28",
+          "0",
+          "36",
+          "혼잡",
+          "혼잡",
+          "혼잡",
+          "혼잡",
+          "장기 P1",
+          "장기 P1 타워",
+          "장기 P2",
+          "장기 P2 타워",
+          "11",
+          "97",
+          "홈",
+          "출국장",
+          "주차",
+          "안내"
+        ]
+      },
+      "options": [
+        "홈 화면",
+        "출국장 대기 현황 화면",
+        "주차 현황 화면",
+        "항공편 검색 화면"
+      ]
+    },
+    "questions": {
+      "screen": {
+        "type": "choice",
+        "instructions": {
+          "question": "Which option describes the current screen `screen`?",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        },
+        "criteria": {
+          "s0": "홈 화면",
+          "s1": "출국장 대기 현황 화면",
+          "s2": "주차 현황 화면",
+          "s3": "항공편 검색 화면",
+          "none": "still loading / none of these"
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "screen": {
+        "type": "choice",
+        "choice": "s2",
+        "confidence": 1,
+        "probabilities": {
+          "s0": 0,
+          "s1": 0,
+          "s3": 0,
+          "s2": 1,
+          "none": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 1327,
+      "output_tokens": 57
+    }
+  }
+}

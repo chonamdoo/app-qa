@@ -1,0 +1,84 @@
+{
+  "key": "e8faf07670f05b9f7ac5a657101885a52b76db89e477bdc206e8ee65b787e9d0",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db0338b479808bdaac637d08e3dc",
+  "latencyMs": 207,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | heading | Ticket Estimate | - | top",
+          "e2 | text | Estimate your ticket total, entirely offline. | - | top",
+          "e3 | text | Bundled offer | - | top",
+          "e4 | text | US$12.50 per ticket | - | top",
+          "e5 | text | Tickets: 0 of 5 | - | top",
+          "e6 | text | Total: US$0.00 | - | middle",
+          "e7 | button | Remove | disabled | middle",
+          "e8 | button | Add | - | middle",
+          "e9 | text | Estimate only. Nothing is purchased or reserved. Your quantity is not saved after this screen session ends. | - | middle"
+        ],
+        "texts": [
+          "Ticket Estimate",
+          "Estimate your ticket total, entirely offline.",
+          "Bundled offer",
+          "US$12.50 per ticket",
+          "Tickets: 0 of 5",
+          "Total: US$0.00",
+          "Remove",
+          "Add",
+          "Estimate only. Nothing is purchased or reserved. Your quantity is not saved after this screen session ends."
+        ]
+      },
+      "intent": "Decrease the ticket quantity"
+    },
+    "questions": {
+      "target": {
+        "type": "choice",
+        "instructions": {
+          "question": "Which row of `screen.rows` is the on-screen element that `intent` refers to?",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "none": "Answer `none` when no row is the element that `intent` refers to (for example, it is not on this screen)."
+        },
+        "criteria": {
+          "e1": "heading | Ticket Estimate | - | top",
+          "e2": "text | Estimate your ticket total, entirely offline. | - | top",
+          "e3": "text | Bundled offer | - | top",
+          "e4": "text | US$12.50 per ticket | - | top",
+          "e5": "text | Tickets: 0 of 5 | - | top",
+          "e6": "text | Total: US$0.00 | - | middle",
+          "e7": "button | Remove | disabled | middle",
+          "e8": "button | Add | - | middle",
+          "e9": "text | Estimate only. Nothing is purchased or reserved. Your quantity is not saved after this screen session ends. | - | middle",
+          "none": "No row is the element that `intent` refers to."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "e7",
+        "confidence": 0.91,
+        "probabilities": {
+          "e6": 0,
+          "e8": 0,
+          "none": 0.08,
+          "e3": 0,
+          "e1": 0,
+          "e5": 0,
+          "e9": 0,
+          "e4": 0,
+          "e7": 0.92,
+          "e2": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 904,
+      "output_tokens": 97
+    }
+  }
+}

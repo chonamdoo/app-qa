@@ -1,0 +1,73 @@
+{
+  "key": "97ddab15a060c11decfcce4d5aeeeb38b1a5c38700db87385de95790b5757d5a",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db17575b7154acb3df9b1758215a",
+  "latencyMs": 203,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "memo#항공편",
+        "text": "[memo#항공편] 항공편 관련 기능이 문제없이 잘 동작해야 한다."
+      },
+      "test": {
+        "id": "flight-features",
+        "name": "항공편 기능이 잘 동작한다",
+        "app": "tteonam",
+        "covers": [
+          "memo#항공편"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "tap": "항공편 찾기"
+          },
+          {
+            "type": "대한항공",
+            "into": "편명·도시·항공사"
+          },
+          {
+            "see": "김해 PUS KE1401 항공편"
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.67
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.18
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.73
+      }
+    },
+    "usage": {
+      "input_tokens": 535,
+      "output_tokens": 62
+    }
+  }
+}

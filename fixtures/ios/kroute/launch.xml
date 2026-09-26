@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AppiumAUT>
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="K-Route" label="K-Route" enabled="true" x="0" y="0" width="402" height="874" traits="" processId="83436" bundleId="com.kroute.app">
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" x="0" y="0" width="402" height="874" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Local URI identity smoke" name="Local URI identity smoke" label="Local URI identity smoke" enabled="true" x="116" y="427" width="170" height="20" traits="StaticText"/>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" x="0" y="0" width="402" height="874" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+  </XCUIElementTypeApplication>
+</AppiumAUT>

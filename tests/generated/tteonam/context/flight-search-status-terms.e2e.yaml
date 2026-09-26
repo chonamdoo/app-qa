@@ -1,0 +1,79 @@
+# qa plan으로 생성됨 · 상태 draft · 계획 tests/generated/tteonam/plan.json
+id: flight-search-status-terms
+name: 항공편 찾기 목록의 운항 상태·지연 규칙과 항공편·터미널 용어 확인
+app: tteonam
+covers:
+  - context#운항편
+  - context#공동운항-편명
+  - context#운항-상태
+  - context#지연
+  - context#탑승동
+  - context#터미널
+source:
+  plan: tests/generated/tteonam/plan.json
+  status: draft
+steps:
+  - which:
+      다른 편 검색:
+        - tap: 다른 편 검색
+      항공편 찾기:
+        - tap: 항공편 찾기
+  - see: 내 항공편 찾기
+  - wait:
+      until:
+        text:
+          regex: ^\d{1,2}:\d{2} 기준$
+    timeout: 15000
+  - assertNoText: 콘코스
+  - assertNoText: P02
+  - assertNoText: 청사
+  - assertNoText: 비고
+  - assertNoText: remark
+  - type: 대한항공
+    into: 편명·도시·항공사
+  - wait:
+      until:
+        text:
+          regex: " · 대한항공 · "
+    timeout: 15000
+  - checkEach:
+      pattern: ^.+, \S+ · .+, (?<nh>\d{2}):(?<nm>\d{2}) 출발, 원래 (?<oh>\d{2}):(?<om>\d{2}), (?<s>[^,]+)$
+      rule:
+        and:
+          - in:
+              - var: s
+              - - 예정
+                - 탑승 준비
+                - 탑승 중
+                - 탑승 마감
+                - 출발
+                - 지연
+                - 결항
+                - 회항
+          - or:
+              - "!=":
+                  - var: s
+                  - 지연
+              - ">":
+                  - +:
+                      - "*":
+                          - var: nh
+                          - 60
+                      - var: nm
+                  - +:
+                      - "*":
+                          - var: oh
+                          - 60
+                      - var: om
+      min: 1
+    platforms:
+      - ios
+  - claim: 목록의 각 항공편 상태 표시는 예정, 탑승 준비, 탑승 중, 탑승 마감, 출발, 지연, 결항, 회항 중 하나다
+    platforms:
+      - android
+  - assertNoText: Master
+  - assertNoText: 대표편
+  - assertNoText: Slave
+  - assertNoText: 코드셰어
+  - assertNoText: 비고
+  - assertNoText: remark

@@ -1,0 +1,106 @@
+{
+  "key": "c22df761ae6c3060ad8d02ad631f2f351b8e746e31c8c71c179472c71c122782",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db033e497b53a4e3d2248c8b4c49",
+  "latencyMs": 201,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | 설정 | - | top",
+          "e2 | button | 내 항공편 EY827, 01:25 출발, 출발. 탑승권 열기 | - | top",
+          "e3 | other | 떠남 로고 | - | top",
+          "e4 | heading | 출국장 | - | top",
+          "e5 | button | 제1터미널 | selected | top",
+          "e6 | button | 제2터미널 | - | top",
+          "e7 | text | 내 항공편 EY827은 T1에서 떠나요. 주황 테두리가 지금 가장 빠른 곳이에요. | - | top",
+          "e8 | button | 출국장 4, 대기 8분, 원활 | - | middle",
+          "e9 | button | 출국장 3, 대기 15분, 원활 | - | middle",
+          "e10 | button | 출국장 5, 대기 5분, 원활 | - | middle",
+          "e11 | button | 출국장 2, 대기 5분, 원활, 가장 빠름 | - | middle",
+          "e12 | button | 출국장 6, 대기 6분, 원활 | - | middle",
+          "e13 | button | 출국장 1, 대기 6분, 원활 | - | middle",
+          "e14 | heading | 빨리 빠지는 순서 | - | middle",
+          "e15 | text | 08:20 기준 | - | middle",
+          "e16 | button | 출국장 2, 서편, 대기 5분, 원활, 추천 | - | middle",
+          "e17 | button | 출국장 5, 동편, 대기 5분, 원활 | - | bottom",
+          "e18 | button | 출국장 1, 동편, 대기 6분, 원활 | - | bottom",
+          "e19 | button | 출국장 6, 동편, 대기 6분, 원활 | - | bottom",
+          "e20 | button | 출국장 4, 동편, 대기 8분, 원활 | - | bottom",
+          "e21 | tab | 홈 | - | bottom",
+          "e22 | tab | 출국장 | selected | bottom",
+          "e23 | tab | 주차 | - | bottom",
+          "e24 | tab | 안내 | - | bottom"
+        ],
+        "texts": [
+          "설정",
+          "떠남 로고",
+          "출국장",
+          "EY827",
+          "01:25",
+          "제1터미널",
+          "제2터미널",
+          "내 항공편 EY827은 T1에서 떠나요. 주황 테두리가 지금 가장 빠른 곳이에요.",
+          "8분",
+          "15분",
+          "5분",
+          "5분",
+          "4번",
+          "3번",
+          "6분",
+          "6분",
+          "5번",
+          "2번",
+          "6번",
+          "1번",
+          "빨리 빠지는 순서",
+          "08:20 기준",
+          "출국장 2",
+          "추천",
+          "5분",
+          "서편 · 원활",
+          "출국장 5",
+          "5분",
+          "동편 · 원활",
+          "출국장 1",
+          "6분",
+          "동편 · 원활",
+          "출국장 6",
+          "6분",
+          "동편 · 원활",
+          "출국장 4, 동편, 대기 8분, 원활",
+          "홈",
+          "출국장",
+          "주차",
+          "안내"
+        ]
+      },
+      "claim": "지금 가장 빠른 출국장은 출국장 2이다"
+    },
+    "questions": {
+      "claim": {
+        "type": "noul",
+        "instructions": {
+          "question": "Does the visible evidence on this current screen support this specific claim?",
+          "claim": "The claim is `claim`. The current screen is `screen`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "absence": "A claim that something is absent or not shown is supported when nothing in `screen` shows it."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "claim": {
+        "type": "noul",
+        "noul": 0.97
+      }
+    },
+    "usage": {
+      "input_tokens": 1290,
+      "output_tokens": 20
+    }
+  }
+}

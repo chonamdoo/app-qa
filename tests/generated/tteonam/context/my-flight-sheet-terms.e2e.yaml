@@ -1,0 +1,32 @@
+# qa plan으로 생성됨 · 상태 draft · 계획 tests/generated/tteonam/plan.json
+id: my-flight-sheet-terms
+name: 내 항공편 상세에서 게이트 번호 표시와 내 항공편 용어 확인
+app: tteonam
+covers:
+  - context#내-항공편
+  - context#게이트
+source:
+  plan: tests/generated/tteonam/plan.json
+  status: draft
+steps:
+  - which:
+      자세히:
+        - tap: 자세히
+          expect:
+            see: 내 항공편
+        - see:
+            text:
+              regex: ^게이트 [A-Z]?\d+$
+        - see:
+            text:
+              regex: ^터미널 (T1|T2|탑승동)$
+        - see: 항공편 바꾸기
+        - assertNoText: 탑승권
+        - assertNoText: 내 비행기
+        - assertNoText: 예약
+        - assertNoText: 탑승 게이트
+        - assertNoText: 출국 게이트
+      항공편 찾기:
+        - assertText: 내 항공편을 추가하세요
+        - assertNoText: 탑승권
+        - assertNoText: 내 비행기

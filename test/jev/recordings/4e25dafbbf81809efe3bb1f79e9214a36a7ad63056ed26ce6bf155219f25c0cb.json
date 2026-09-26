@@ -1,0 +1,88 @@
+{
+  "key": "4e25dafbbf81809efe3bb1f79e9214a36a7ad63056ed26ce6bf155219f25c0cb",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db0341587266b1b7fc21b7b465ce",
+  "latencyMs": 228,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | 닫기 | - | top",
+          "e2 | heading | 내 항공편 찾기 | - | top",
+          "e3 | text | 편명·도시·항공사 | - | top",
+          "e4 | input | 편명·도시·항공사 | value=\"대한항공\", focused | top",
+          "e5 | button | 오늘 | selected | top",
+          "e6 | button | 내일 | - | top",
+          "e7 | button | 9월 28일 (월) | - | top",
+          "e8 | button | 9월 29일 (화) | - | top",
+          "e9 | button | 9월 30일 (수) | - | top",
+          "e10 | heading | 9월 26일 (토) 인천 출발 | - | top",
+          "e11 | text | 08:21 기준 | - | top",
+          "e12 | button | 김해 PUS, KE1401 · 대한항공 · T2, 06:30 출발, 원래 06:35, 출발 | - | middle",
+          "e13 | button | 고마쓰 KMQ, KE2189 · 대한항공 · T2, 07:29 출발, 원래 07:30, 출발 | - | middle",
+          "e14 | button | 칭다오 TAO, KE841 · 대한항공 · T2, 07:46 출발, 원래 07:50, 출발 | - | middle",
+          "e15 | button | 마닐라 MNL, KE621 · 대한항공 · T2, 07:48 출발, 원래 07:50, 출발 | - | middle"
+        ],
+        "texts": [
+          "닫기",
+          "내 항공편 찾기",
+          "편명·도시·항공사",
+          "대한항공",
+          "9월 30일 (수)",
+          "오늘",
+          "내일",
+          "9월 28일 (월)",
+          "9월 29일 (화)",
+          "9월 26일 (토) 인천 출발",
+          "08:21 기준",
+          "김해 PUS",
+          "출발",
+          "06:35",
+          "06:30",
+          "KE1401 · 대한항공 · T2",
+          "고마쓰 KMQ",
+          "출발",
+          "07:30",
+          "07:29",
+          "KE2189 · 대한항공 · T2",
+          "칭다오 TAO",
+          "출발",
+          "07:50",
+          "07:46",
+          "KE841 · 대한항공 · T2",
+          "마닐라 MNL",
+          "출발",
+          "07:50",
+          "07:48",
+          "KE621 · 대한항공 · T2"
+        ]
+      },
+      "claim": "목록의 모든 항공편이 T2에서 출발한다"
+    },
+    "questions": {
+      "claim": {
+        "type": "noul",
+        "instructions": {
+          "question": "Does the visible evidence on this current screen support this specific claim?",
+          "claim": "The claim is `claim`. The current screen is `screen`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "absence": "A claim that something is absent or not shown is supported when nothing in `screen` shows it."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "claim": {
+        "type": "noul",
+        "noul": 0.96
+      }
+    },
+    "usage": {
+      "input_tokens": 1130,
+      "output_tokens": 20
+    }
+  }
+}

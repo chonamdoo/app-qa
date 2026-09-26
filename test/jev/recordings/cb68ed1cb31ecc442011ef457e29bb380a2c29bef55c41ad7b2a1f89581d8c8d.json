@@ -1,0 +1,86 @@
+{
+  "key": "cb68ed1cb31ecc442011ef457e29bb380a2c29bef55c41ad7b2a1f89581d8c8d",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db1754fc74ec87e1e652f018e7c8",
+  "latencyMs": 184,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "context#탑승-시작",
+        "text": "[context#탑승-시작] 탑승 시작은 게이트에서 탑승을 시작하는 예상 시각이며, 내 항공편 출발 시각 40분 전으로 셈해 보여 준다."
+      },
+      "test": {
+        "id": "boarding-start",
+        "name": "탑승 시작은 출발 40분 전이다",
+        "app": "tteonam",
+        "covers": [
+          "context#탑승-시작"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "tap": "안내 탭"
+          },
+          {
+            "remember": {
+              "name": "departure",
+              "from": {
+                "regex": "(?<value>\\d{1,2}:\\d{2}) 출발 기준"
+              }
+            }
+          },
+          {
+            "scroll": {
+              "direction": "down",
+              "until": {
+                "text": "탑승 시작"
+              },
+              "max": 5
+            }
+          },
+          {
+            "claim": "탑승 시작 시각이 내 항공편 출발 시각보다 정확히 40분 이르다"
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.65
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.34
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.22
+      }
+    },
+    "usage": {
+      "input_tokens": 648,
+      "output_tokens": 62
+    }
+  }
+}

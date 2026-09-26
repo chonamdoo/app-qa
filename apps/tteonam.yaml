@@ -1,0 +1,20 @@
+id: tteonam
+name: 떠남
+# DEBUGGABLE Expo dev build that loads JS from Metro (10.0.2.2:8081 / localhost:8081): LogBox warnings are WARN, errors FAIL.
+build: dev
+android:
+  package: kr.tteonam.app
+  activity: .MainActivity
+ios:
+  bundleId: kr.tteonam.app
+risk:
+  deny: []
+  allow: []
+redact: []
+volatile:
+  - '^\d{1,2}:\d{2} 기준$'
+  - '기준$'
+  - '^마지막 확인 \d{1,2}:\d{2}$'
+docs:
+  - ~/.agent-flow/worktrees/IncheonAirport-2a25dd406249/feat-tteonam-app/CONTEXT.md
+  - ~/.agent-flow/worktrees/IncheonAirport-2a25dd406249/feat-tteonam-app/docs/adr/0003-t2-departure-shows-forecast-only.md

@@ -1,0 +1,72 @@
+{
+  "key": "53d75537fd26bb7b9330d0cebe4c5020f078eccccc2ef5fe5b2c3faea3e1e47a",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db1752b97ff68384cec7e05fc39b",
+  "latencyMs": 216,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "context#추천-출국장",
+        "text": "[context#추천-출국장] 출국장 탭은 내 항공편 터미널에서 운영 중인 출국장 가운데 지금 대기시간이 가장 짧은 곳을 추천 출국장으로 표시한다."
+      },
+      "test": {
+        "id": "recommended-departure",
+        "name": "대기시간이 가장 짧은 출국장에 추천이 붙는다",
+        "app": "tteonam",
+        "covers": [
+          "context#추천-출국장"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "tap": "주차 탭"
+          },
+          {
+            "see": "단기 지하 3층 주차 구역"
+          },
+          {
+            "assertText": "여유"
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.03
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.42
+      }
+    },
+    "usage": {
+      "input_tokens": 565,
+      "output_tokens": 62
+    }
+  }
+}

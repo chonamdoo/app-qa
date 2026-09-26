@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AppiumAUT>
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="떠남" label="떠남" enabled="true" x="0" y="0" width="402" height="874" traits="" processId="83135" bundleId="kr.tteonam.app">
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" x="0" y="0" width="402" height="874" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="123" traits="">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="123" traits=""/>
+                                                <XCUIElementTypeImage type="XCUIElementTypeImage" name="떠남 로고" label="떠남 로고" enabled="true" x="20" y="76" width="32" height="32" traits="Image"/>
+                                                <XCUIElementTypeButton type="XCUIElementTypeButton" name="설정" label="설정" enabled="true" x="350" y="70" width="44" height="44" traits="Button"/>
+                                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="떠남" name="떠남" label="떠남" enabled="true" x="60" y="78" width="282" height="28" traits="Header, StaticText">
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="떠남" name="떠남" label="떠남" enabled="true" x="60" y="78" width="282" height="28" traits="Header, StaticText"/>
+                                                </XCUIElementTypeStaticText>
+                                              </XCUIElementTypeOther>
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="123" width="402" height="636" traits="">
+                                                <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" x="0" y="123" width="402" height="636" traits="">
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="123" width="402" height="939" traits="">
+                                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="123" width="402" height="939" traits="">
+                                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="16" y="139" width="370" height="239" traits=""/>
+                                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="173" y="164" width="56" height="57" traits=""/>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="내 항공편을 추가하세요" name="내 항공편을 추가하세요" label="내 항공편을 추가하세요" enabled="true" x="120" y="232" width="162" height="25" traits="Header, StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="내 항공편을 추가하세요" name="내 항공편을 추가하세요" label="내 항공편을 추가하세요" enabled="true" x="120" y="232" width="162" height="25" traits="Header, StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요." name="게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요." label="게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요." enabled="true" x="62" y="268" width="278" height="21" traits="StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요." name="게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요." label="게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요." enabled="true" x="62" y="268" width="278" height="21" traits="StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="항공편 찾기" label="항공편 찾기" enabled="true" x="41" y="300" width="320" height="53" traits="Button"/>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="8분" name="8분" label="8분" enabled="true" x="20" y="394" width="69" height="72" traits="StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="8분" name="8분" label="8분" enabled="true" x="20" y="394" width="69" height="72" traits="StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="100" y="402" width="63" height="28" traits=""/>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="원활" name="원활" label="원활" enabled="true" x="128" y="406" width="25" height="20" traits="StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="원활" name="원활" label="원활" enabled="true" x="128" y="406" width="25" height="20" traits="StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="T1 출국장 평균 대기 · 가장 빠른 곳 5분" name="T1 출국장 평균 대기 · 가장 빠른 곳 5분" label="T1 출국장 평균 대기 · 가장 빠른 곳 5분" enabled="true" x="100" y="438" width="283" height="20" traits="StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="T1 출국장 평균 대기 · 가장 빠른 곳 5분" name="T1 출국장 평균 대기 · 가장 빠른 곳 5분" label="T1 출국장 평균 대기 · 가장 빠른 곳 5분" enabled="true" x="100" y="438" width="283" height="20" traits="StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="16" y="482" width="370" height="289" traits=""/>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="제1여객터미널 출국장" name="제1여객터미널 출국장" label="제1여객터미널 출국장" enabled="true" x="36" y="508" width="267" height="24" traits="Header, StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="제1여객터미널 출국장" name="제1여객터미널 출국장" label="제1여객터미널 출국장" enabled="true" x="36" y="508" width="267" height="24" traits="Header, StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="08:21 기준" name="08:21 기준" label="08:21 기준" enabled="true" x="311" y="512" width="55" height="16" traits="StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="08:21 기준" name="08:21 기준" label="08:21 기준" enabled="true" x="311" y="512" width="55" height="16" traits="StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="출국장 5, 대기 5분, 원활, 가장 빠름" label="출국장 5, 대기 5분, 원활, 가장 빠름" enabled="true" x="98" y="609" width="57" height="72" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="출국장 4, 대기 8분, 원활" label="출국장 4, 대기 8분, 원활" enabled="true" x="148" y="602" width="56" height="73" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="출국장 3, 대기 14분, 원활" label="출국장 3, 대기 14분, 원활" enabled="true" x="198" y="602" width="56" height="73" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="출국장 2, 대기 6분, 원활" label="출국장 2, 대기 6분, 원활" enabled="true" x="247" y="609" width="57" height="72" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="출국장 6, 대기 6분, 원활" label="출국장 6, 대기 6분, 원활" enabled="true" x="48" y="622" width="57" height="73" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="출국장 1, 대기 6분, 원활" label="출국장 1, 대기 6분, 원활" enabled="true" x="297" y="622" width="57" height="73" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="주차 보기" label="주차 보기" enabled="true" x="314" y="795" width="68" height="44" traits="Button"/>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="주차 빈자리" name="주차 빈자리" label="주차 빈자리" enabled="true" x="20" y="805" width="287" height="24" traits="Header, StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="주차 빈자리" name="주차 빈자리" label="주차 빈자리" enabled="true" x="20" y="805" width="287" height="24" traits="Header, StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="T1 단기주차장 236자리 남음, 혼잡, T1 장기주차장 75자리 남음, 혼잡. 주차 보기" label="T1 단기주차장 236자리 남음, 혼잡, T1 장기주차장 75자리 남음, 혼잡. 주차 보기" enabled="true" x="16" y="847" width="370" height="123" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="새로고침" label="새로고침" enabled="true" x="295" y="978" width="87" height="44" traits="Button"/>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="9월 26일 (토) 08:21 기준" name="9월 26일 (토) 08:21 기준" label="9월 26일 (토) 08:21 기준" enabled="true" x="20" y="992" width="268" height="16" traits="StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="9월 26일 (토) 08:21 기준" name="9월 26일 (토) 08:21 기준" label="9월 26일 (토) 08:21 기준" enabled="true" x="20" y="992" width="268" height="16" traits="StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                    </XCUIElementTypeOther>
+                                                  </XCUIElementTypeOther>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 2 pages" label="Vertical scroll bar, 2 pages" enabled="true" x="369" y="123" width="30" height="636" traits="Adjustable">
+                                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="396" y="255" width="3" height="501" traits=""/>
+                                                  </XCUIElementTypeOther>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" x="0" y="726" width="402" height="30" traits="Adjustable">
+                                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="3" y="753" width="396" height="3" traits=""/>
+                                                  </XCUIElementTypeOther>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 2 pages" label="Vertical scroll bar, 2 pages" enabled="true" x="369" y="123" width="30" height="636" traits="Adjustable">
+                                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="396" y="255" width="3" height="501" traits=""/>
+                                                  </XCUIElementTypeOther>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" x="0" y="726" width="402" height="30" traits="Adjustable">
+                                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="3" y="753" width="396" height="3" traits=""/>
+                                                  </XCUIElementTypeOther>
+                                                </XCUIElementTypeScrollView>
+                                              </XCUIElementTypeOther>
+                                            </XCUIElementTypeOther>
+                                          </XCUIElementTypeOther>
+                                        </XCUIElementTypeOther>
+                                      </XCUIElementTypeOther>
+                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits=""/>
+                                      </XCUIElementTypeOther>
+                                    </XCUIElementTypeOther>
+                                  </XCUIElementTypeOther>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="759" width="402" height="115" traits="TabBar"/>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="홈" label="홈" enabled="true" x="8" y="772" width="97" height="56" traits="Selected"/>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="출국장" label="출국장" enabled="true" x="104" y="772" width="97" height="56" traits=""/>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="주차" label="주차" enabled="true" x="201" y="772" width="97" height="56" traits=""/>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="안내" label="안내" enabled="true" x="297" y="772" width="97" height="56" traits=""/>
+                                </XCUIElementTypeOther>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeOther>
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+                        </XCUIElementTypeOther>
+                      </XCUIElementTypeOther>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+  </XCUIElementTypeApplication>
+</AppiumAUT>

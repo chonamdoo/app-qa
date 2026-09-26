@@ -1,0 +1,82 @@
+{
+  "key": "e66685fe2027e9bd68fa731db3fabd6b87f349f4c81c904a62c5d159f5bde706",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db15cb117b1ab15903bc40f5a0fc",
+  "latencyMs": 306,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | Enter URL | - | top",
+          "e2 | button | Account | - | top",
+          "e3 | image | Icon | - | top",
+          "e4 | text | Expo Go | - | top",
+          "e5 | text | DEVELOPMENT SERVERS | - | top",
+          "e6 | button | HELP | - | top",
+          "e7 | text | Start a local development server with: | - | top",
+          "e8 | text | npx expo start | - | top",
+          "e9 | text | Select the local server when it appears here. | - | top",
+          "e10 | text | • • • | - | middle",
+          "e11 | button | Open a new playground, Your own space to explore and learn | - | middle",
+          "e12 | text | RECENTLY OPENED | - | middle",
+          "e13 | button | Empty trash | - | middle",
+          "e14 | button | standalone | - | middle",
+          "e15 | button | standalone | - | middle",
+          "e16 | button | standalone | - | bottom",
+          "e17 | button | standalone | - | bottom",
+          "e18 | button | standalone | - | bottom",
+          "e19 | other | Tab Bar | - | bottom",
+          "e20 | tab | Home | value=\"1\", selected | bottom",
+          "e21 | tab | Learn | - | bottom",
+          "e22 | tab | Diagnostics | - | bottom",
+          "e23 | tab | Settings | - | bottom"
+        ],
+        "texts": [
+          "Enter URL",
+          "Account",
+          "Expo Go",
+          "DEVELOPMENT SERVERS",
+          "HELP",
+          "Start a local development server with:",
+          "npx expo start",
+          "Select the local server when it appears here.",
+          "• • •",
+          "Open a new playground",
+          "Your own space to explore and learn",
+          "RECENTLY OPENED",
+          "Empty trash",
+          "standalone",
+          "standalone",
+          "standalone",
+          "standalone",
+          "standalone"
+        ]
+      },
+      "target": "e13 | button | Empty trash | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.82
+      }
+    },
+    "usage": {
+      "input_tokens": 866,
+      "output_tokens": 21
+    }
+  }
+}

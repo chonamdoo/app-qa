@@ -1,0 +1,82 @@
+{
+  "key": "e275bca46bd4e18f724db609a77ccbbc1440b2b3189e0679ee8c04b724dfaca8",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db1753777c708228d59c62ee77d3",
+  "latencyMs": 192,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "context#빈자리",
+        "text": "[context#빈자리] 주차 탭의 빈자리 화면은 주차 구역마다 빈자리 수와 주차 혼잡 단계(여유·보통·혼잡)를 보여 준다."
+      },
+      "test": {
+        "id": "parking-free-spaces",
+        "name": "주차 구역마다 빈자리 수와 혼잡 단계가 보인다",
+        "app": "tteonam",
+        "covers": [
+          "context#빈자리"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "tap": "주차 탭"
+          },
+          {
+            "see": "단기 지하 1층 주차 구역"
+          },
+          {
+            "claim": "보이는 주차 구역마다 남은 자리 수와 여유·보통·혼잡 가운데 하나의 상태가 함께 표시되어 있다"
+          },
+          {
+            "tap": "항공편 찾기"
+          },
+          {
+            "type": "칭다오",
+            "into": "편명·도시·항공사"
+          },
+          {
+            "assertText": "TAO"
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.82
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.21
+      }
+    },
+    "usage": {
+      "input_tokens": 639,
+      "output_tokens": 62
+    }
+  }
+}

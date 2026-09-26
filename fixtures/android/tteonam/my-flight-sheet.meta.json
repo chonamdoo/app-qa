@@ -1,0 +1,15 @@
+{
+  "platform": "android",
+  "app": "tteonam",
+  "name": "my-flight-sheet",
+  "windowRect": {
+    "width": 1080,
+    "height": 2400,
+    "x": 0,
+    "y": 0
+  },
+  "capturedAt": "2026-09-26T08:20:50+09:00",
+  "device": "emulator-5554 (Android 17, 1080x2400 @420dpi)",
+  "source": "Appium UiAutomator2 8.7.0 /source (enableMultiWindows=false)",
+  "notes": "RN bottom sheet '내 항공편' open over 안내 page. Truth: visible clickables = 닫기, 항공편 바꾸기, 내 항공편 지우기 (destructive); 13 background timeline/header buttons occluded by sheet backdrop."
+}

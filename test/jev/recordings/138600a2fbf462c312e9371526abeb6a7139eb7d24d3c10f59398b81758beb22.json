@@ -1,0 +1,75 @@
+{
+  "key": "138600a2fbf462c312e9371526abeb6a7139eb7d24d3c10f59398b81758beb22",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db1751b97938994a951f2dccb81e",
+  "latencyMs": 257,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "context#추천-출국장",
+        "text": "[context#추천-출국장] 출국장 탭은 내 항공편 터미널에서 운영 중인 출국장 가운데 지금 대기시간이 가장 짧은 곳을 추천 출국장으로 표시한다."
+      },
+      "test": {
+        "id": "recommended-departure",
+        "name": "대기시간이 가장 짧은 출국장에 추천이 붙는다",
+        "app": "tteonam",
+        "covers": [
+          "context#추천-출국장"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "tap": "출국장 탭"
+          },
+          {
+            "see": "제1터미널 탭"
+          },
+          {
+            "see": "추천 표시가 붙은 출국장 목록 항목"
+          },
+          {
+            "claim": "추천 표시가 붙은 출국장의 대기시간이 목록의 다른 출국장보다 짧거나 같다"
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.72
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.28
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.34
+      }
+    },
+    "usage": {
+      "input_tokens": 613,
+      "output_tokens": 62
+    }
+  }
+}

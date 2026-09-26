@@ -1,0 +1,60 @@
+{
+  "key": "526bb230d61abd5e55e07bc72b63d35b5c3eabcd30cb30b643d6ec3d3d89baed",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db03383274818a18d03d0b35379c",
+  "latencyMs": 206,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | text | 현재 위치를 확인하고 있어요 | - | middle",
+          "e2 | text | 서진이가 지금 계신 곳을 찾고 있어요. | - | middle",
+          "e3 | button | 그만두기 | - | middle"
+        ],
+        "texts": [
+          "현재 위치를 확인하고 있어요",
+          "서진이가 지금 계신 곳을 찾고 있어요.",
+          "그만두기"
+        ]
+      },
+      "intent": "위치 확인 취소 버튼"
+    },
+    "questions": {
+      "target": {
+        "type": "choice",
+        "instructions": {
+          "question": "Which row of `screen.rows` is the on-screen element that `intent` refers to?",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "none": "Answer `none` when no row is the element that `intent` refers to (for example, it is not on this screen)."
+        },
+        "criteria": {
+          "e1": "text | 현재 위치를 확인하고 있어요 | - | middle",
+          "e2": "text | 서진이가 지금 계신 곳을 찾고 있어요. | - | middle",
+          "e3": "button | 그만두기 | - | middle",
+          "none": "No row is the element that `intent` refers to."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "e3",
+        "confidence": 1,
+        "probabilities": {
+          "none": 0,
+          "e2": 0,
+          "e1": 0,
+          "e3": 1
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 615,
+      "output_tokens": 49
+    }
+  }
+}

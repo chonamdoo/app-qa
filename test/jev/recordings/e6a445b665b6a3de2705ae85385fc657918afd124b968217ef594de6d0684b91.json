@@ -1,0 +1,59 @@
+{
+  "key": "e6a445b665b6a3de2705ae85385fc657918afd124b968217ef594de6d0684b91",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db034bf578d2acdbcfa4cfeed491",
+  "latencyMs": 210,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | heading | Ticket Estimate | - | top",
+          "e2 | text | Estimate your ticket total, entirely offline. | - | top",
+          "e3 | text | Bundled offer | - | top",
+          "e4 | text | US$12.50 per ticket | - | top",
+          "e5 | text | Tickets: 0 of 5 | - | top",
+          "e6 | text | Total: US$0.00 | - | middle",
+          "e7 | button | Remove | disabled | middle",
+          "e8 | button | Add | - | middle",
+          "e9 | text | Estimate only. Nothing is purchased or reserved. Your quantity is not saved after this screen session ends. | - | middle"
+        ],
+        "texts": [
+          "Ticket Estimate",
+          "Estimate your ticket total, entirely offline.",
+          "Bundled offer",
+          "US$12.50 per ticket",
+          "Tickets: 0 of 5",
+          "Total: US$0.00",
+          "Remove",
+          "Add",
+          "Estimate only. Nothing is purchased or reserved. Your quantity is not saved after this screen session ends."
+        ]
+      },
+      "target": "e8 | button | Add | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.04
+      }
+    },
+    "usage": {
+      "input_tokens": 641,
+      "output_tokens": 21
+    }
+  }
+}

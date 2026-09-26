@@ -1,0 +1,75 @@
+# Jev claim(Noul) 골든셋 (q-v1, jev-1.13.0) — 실측 fixture 화면에 대한 참/거짓/부재 주장.
+#
+# ── 사전등록 기준 (2026-09-26, 첫 실호출 전에 작성·고정) ──────────────────────────────
+# 1. 확신 오답 = 0 건: 거짓 주장이 pass(P ≥ yes) 또는 참 주장이 fail(P ≤ no).
+# 2. 수용률 ≥ 80%: 참→pass, 거짓→fail. 그 사이(inconclusive)는 rejected(안전한 비수용).
+# 3. 임계값 탐색: yes ∈ [0.50, 0.99], no ∈ [0.01, 0.49], 0.01 격자, (확신 오답 최소 → 수용 최대 →
+#    경계 여백 leximin 최대). Choice(grounding/which) 임계값과 공유하지 않는다.
+# 4. 부재·빈 상태 주장(absence)과 한국어/영어를 따로 보고한다. 숫자 크기 비교 주장은 제외(checkEach 대상).
+# 5. 판정 근거는 화면 행·텍스트뿐이다(좌표·스크린샷 없음). 기준 미달이면 status: failed.
+# ── 정정 기록 (2026-09-26, 1차 실호출 직후; 위 기준·정답·항목은 그대로) ──
+# 3번의 3순위(동률 처리) 구현만 정정: 한쪽에만 항목이 있는 임계값이 느슨한 격자 끝(no 0.49)으로 가던 결함.
+# 이제 결과가 같은 구간 안에서, 양쪽이 항목으로 막히면 중점, 한쪽이 격자 끝이면 보수적 끝을 고른다.
+# 1차 녹화 응답(test/jev/recordings)을 그대로 재사용해 다시 산출했다(재질의 없음).
+primitive: claim
+criteria: { maxConfidentWrong: 0, minAcceptance: 0.8 }
+items:
+  # ── Android 떠남 홈 ──
+  - { id: c-al-01, screen: android/tteonam/launch, claim: 내 항공편 EY827이 화면에 표시되어 있다, expect: true, tags: [presence] }
+  - { id: c-al-02, screen: android/tteonam/launch, claim: "항공편 상태는 '출발했어요'이다", expect: true, tags: [value] }
+  - { id: c-al-03, screen: android/tteonam/launch, claim: 탑승 게이트는 12번이다, expect: true, tags: [value] }
+  - { id: c-al-04, screen: android/tteonam/launch, claim: 탑승 게이트는 15번이다, expect: false, tags: [value] }
+  - { id: c-al-05, screen: android/tteonam/launch, claim: T1 출국장 평균 대기 시간은 8분이다, expect: true, tags: [value] }
+  - { id: c-al-06, screen: android/tteonam/launch, claim: 홈 탭이 선택되어 있다, expect: true, tags: [state] }
+  - { id: c-al-07, screen: android/tteonam/launch, claim: 주차 탭이 선택되어 있다, expect: false, tags: [state] }
+  - { id: c-al-08, screen: android/tteonam/launch, claim: 화면에 오류 메시지가 없다, expect: true, tags: [absence] }
+  - { id: c-al-09, screen: android/tteonam/launch, claim: 로그인 버튼이 보인다, expect: false, tags: [presence] }
+  - { id: c-al-10, screen: android/tteonam/launch, claim: 내 항공편의 목적지는 아부다비이다, expect: true, tags: [value] }
+  # ── Android 내 항공편 시트 ──
+  - { id: c-as-01, screen: android/tteonam/my-flight-sheet, claim: 내 항공편 시트가 열려 있다, expect: true, tags: [state] }
+  - { id: c-as-02, screen: android/tteonam/my-flight-sheet, claim: 항공편을 지우는 버튼이 있다, expect: true, tags: [presence] }
+  - { id: c-as-03, screen: android/tteonam/my-flight-sheet, claim: 체크인 카운터는 J27-J35이다, expect: true, tags: [value] }
+  - { id: c-as-04, screen: android/tteonam/my-flight-sheet, claim: 출발 시각이 원래 01:35에서 01:25로 바뀌었다, expect: true, tags: [value] }
+  - { id: c-as-05, screen: android/tteonam/my-flight-sheet, claim: 결제 버튼이 보인다, expect: false, tags: [presence] }
+  # ── Android 출국장 탭 ──
+  - { id: c-ad-01, screen: android/tteonam/tab-departures, claim: 제1터미널 탭이 선택되어 있다, expect: true, tags: [state] }
+  - { id: c-ad-02, screen: android/tteonam/tab-departures, claim: 지금 가장 빠른 출국장은 출국장 2이다, expect: true, tags: [value] }
+  - { id: c-ad-03, screen: android/tteonam/tab-departures, claim: 출국장 3의 대기 시간은 5분이다, expect: false, tags: [value] }
+  - { id: c-ad-04, screen: android/tteonam/tab-departures, claim: 화면에 혼잡한 출국장이 없다, expect: true, tags: [absence] }
+  - { id: c-ad-05, screen: android/tteonam/tab-departures, claim: 제2터미널의 출국장 대기 현황이 표시되고 있다, expect: false, tags: [state] }
+  # ── Android 주차 탭 ──
+  - { id: c-ap-01, screen: android/tteonam/tab-parking, claim: 주차 탭이 선택되어 있다, expect: true, tags: [state] }
+  - { id: c-ap-02, screen: android/tteonam/tab-parking, claim: T1 전체 남은 자리는 408자리이다, expect: true, tags: [value] }
+  - { id: c-ap-03, screen: android/tteonam/tab-parking, claim: 단기 지하 3층은 여유 상태이다, expect: true, tags: [value] }
+  - { id: c-ap-04, screen: android/tteonam/tab-parking, claim: 장기 P1 주차장은 여유 상태이다, expect: false, tags: [value] }
+  - { id: c-ap-05, screen: android/tteonam/tab-parking, claim: 주차 요금 미리 보기가 표시되고 있다, expect: false, tags: [state] }
+  # ── Android 항공편 검색 ──
+  - { id: c-ar-01, screen: android/tteonam/search-results, claim: "검색창에 '대한항공'이 입력되어 있다", expect: true, tags: [value] }
+  - { id: c-ar-02, screen: android/tteonam/search-results, claim: 검색 결과에 김해행 항공편이 있다, expect: true, tags: [presence] }
+  - { id: c-ar-03, screen: android/tteonam/search-results, claim: 검색 결과에 아시아나항공 항공편이 있다, expect: false, tags: [presence] }
+  - { id: c-ar-04, screen: android/tteonam/search-results, claim: 검색 결과가 없다는 안내가 표시되어 있다, expect: false, tags: [presence] }
+  - { id: c-ar-05, screen: android/tteonam/search-results, claim: 목록의 모든 항공편이 T2에서 출발한다, expect: true, tags: [value] }
+  - { id: c-ae-01, screen: android/tteonam/search-empty-keyboard, claim: 검색창이 비어 있다, expect: true, tags: [absence] }
+  - { id: c-ae-02, screen: android/tteonam/search-empty-keyboard, claim: "검색창에 '대한항공'이 입력되어 있다", expect: false, tags: [value] }
+  # ── iOS 떠남 ──
+  - { id: c-il-01, screen: ios/tteonam/launch, claim: 등록된 내 항공편이 없다, expect: true, tags: [absence] }
+  - { id: c-il-02, screen: ios/tteonam/launch, claim: 내 탑승권 EY827이 표시되어 있다, expect: false, tags: [presence] }
+  - { id: c-il-03, screen: ios/tteonam/launch, claim: 항공편 찾기 버튼이 보인다, expect: true, tags: [presence] }
+  - { id: c-ip-01, screen: ios/tteonam/search-popup, claim: 항공편 검색 창이 열려 있다, expect: true, tags: [state] }
+  - { id: c-ip-02, screen: ios/tteonam/search-popup, claim: 검색 결과에 도하행 항공편이 있다, expect: true, tags: [presence] }
+  - { id: c-ip-03, screen: ios/tteonam/search-popup, claim: 오늘 날짜가 선택되어 있다, expect: true, tags: [state] }
+  - { id: c-ip-04, screen: ios/tteonam/search-popup, claim: 내일 날짜가 선택되어 있다, expect: false, tags: [state] }
+  - { id: c-ir-01, screen: ios/tteonam/search-results-keyboard, claim: 검색어로 대한항공이 입력되어 있다, expect: true, tags: [value] }
+  - { id: c-ir-02, screen: ios/tteonam/search-results-keyboard, claim: 검색 결과에 호찌민행 항공편이 있다, expect: false, tags: [presence] }
+  # ── 기타 앱 ──
+  - { id: c-st-01, screen: android/settings/launch, claim: "설정에서 '배터리'를 검색했다", expect: true, tags: [value] }
+  - { id: c-st-02, screen: android/settings/launch, claim: 검색 결과가 하나도 없다, expect: false, tags: [absence] }
+  - { id: c-ew-01, screen: android/easyway/launch, claim: 앱이 현재 위치를 확인하는 중이다, expect: true, tags: [state] }
+  - { id: c-ew-02, screen: android/easyway/launch, claim: 화면에 로그인 양식이 있다, expect: false, tags: [presence] }
+  - { id: c-te-01, screen: android/ticketestimate/launch, claim: 화면에 개발 서버 오류가 표시되어 있다, expect: true, tags: [state] }
+  - { id: c-te-02, screen: android/ticketestimate/launch, claim: 앱이 정상적으로 로드되었다, expect: false, tags: [state] }
+  - { id: c-et-01, screen: android/example-tickets/launch, claim: The ticket count is 0, expect: true, tags: [value] }
+  - { id: c-et-02, screen: android/example-tickets/launch, claim: The total price is US$12.50, expect: false, tags: [value] }
+  - { id: c-et-03, screen: android/example-tickets/launch, claim: The Remove button is disabled, expect: true, tags: [state] }
+  - { id: c-eg-01, screen: ios/expo-go/launch, claim: The Home tab is selected, expect: true, tags: [state] }
+  - { id: c-eg-02, screen: ios/expo-go/launch, claim: A running development server is listed, expect: false, tags: [presence] }

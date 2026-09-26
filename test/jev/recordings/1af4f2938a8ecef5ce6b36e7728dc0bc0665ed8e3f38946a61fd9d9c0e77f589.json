@@ -1,0 +1,78 @@
+{
+  "key": "1af4f2938a8ecef5ce6b36e7728dc0bc0665ed8e3f38946a61fd9d9c0e77f589",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db033a797282b10be0f50b48afaf",
+  "latencyMs": 180,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | text | Host | - | top",
+          "e2 | input | https://d2dzky5bdhec40.cloudfront.net | - | top",
+          "e3 | text | URL Scheme | - | top",
+          "e4 | input | granite://bare | - | top",
+          "e5 | text | Shared bundle url: | - | top",
+          "e6 | text | Service bundle url: | - | middle",
+          "e7 | button | Submit | - | middle",
+          "e8 | button | Open Dev Server | - | middle"
+        ],
+        "texts": [
+          "Host",
+          "URL Scheme",
+          "Shared bundle url:",
+          "Service bundle url:",
+          "Submit",
+          "Open Dev Server"
+        ]
+      },
+      "intent": "Open the dev server"
+    },
+    "questions": {
+      "target": {
+        "type": "choice",
+        "instructions": {
+          "question": "Which row of `screen.rows` is the on-screen element that `intent` refers to?",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "none": "Answer `none` when no row is the element that `intent` refers to (for example, it is not on this screen)."
+        },
+        "criteria": {
+          "e1": "text | Host | - | top",
+          "e2": "input | https://d2dzky5bdhec40.cloudfront.net | - | top",
+          "e3": "text | URL Scheme | - | top",
+          "e4": "input | granite://bare | - | top",
+          "e5": "text | Shared bundle url: | - | top",
+          "e6": "text | Service bundle url: | - | middle",
+          "e7": "button | Submit | - | middle",
+          "e8": "button | Open Dev Server | - | middle",
+          "none": "No row is the element that `intent` refers to."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "e8",
+        "confidence": 1,
+        "probabilities": {
+          "e6": 0,
+          "e2": 0,
+          "e1": 0,
+          "e4": 0,
+          "e3": 0,
+          "e5": 0,
+          "e8": 1,
+          "e7": 0,
+          "none": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 766,
+      "output_tokens": 89
+    }
+  }
+}

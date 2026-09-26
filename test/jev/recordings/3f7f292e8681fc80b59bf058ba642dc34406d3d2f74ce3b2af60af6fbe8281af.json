@@ -1,0 +1,48 @@
+{
+  "key": "3f7f292e8681fc80b59bf058ba642dc34406d3d2f74ce3b2af60af6fbe8281af",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db03443770e1beb05729b4def998",
+  "latencyMs": 188,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | text | 현재 위치를 확인하고 있어요 | - | middle",
+          "e2 | text | 서진이가 지금 계신 곳을 찾고 있어요. | - | middle",
+          "e3 | button | 그만두기 | - | middle"
+        ],
+        "texts": [
+          "현재 위치를 확인하고 있어요",
+          "서진이가 지금 계신 곳을 찾고 있어요.",
+          "그만두기"
+        ]
+      },
+      "claim": "앱이 현재 위치를 확인하는 중이다"
+    },
+    "questions": {
+      "claim": {
+        "type": "noul",
+        "instructions": {
+          "question": "Does the visible evidence on this current screen support this specific claim?",
+          "claim": "The claim is `claim`. The current screen is `screen`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "absence": "A claim that something is absent or not shown is supported when nothing in `screen` shows it."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "claim": {
+        "type": "noul",
+        "noul": 0.97
+      }
+    },
+    "usage": {
+      "input_tokens": 512,
+      "output_tokens": 20
+    }
+  }
+}

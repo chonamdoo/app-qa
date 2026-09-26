@@ -1,0 +1,54 @@
+// Report generation from `summary.json`: report.html (always), junit.xml (on request), manifest update.
+// `qa report <runId>` regenerates from the stored summary, so a plan/doc change shows up without re-running.
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { PATHS } from '../core/config.ts';
+import { writeSecure } from '../core/fsx.ts';
+import { renderHtml } from './html.ts';
+import { renderJunit } from './junit.ts';
+import { updateManifest } from './manifest.ts';
+import { buildTraceability } from './trace.ts';
+import { SUMMARY_SCHEMA, type RunSummary } from './types.ts';
+
+/** Writes report.html (+ junit.xml) for a run and records them in the manifest; returns absolute paths. */
+export function writeReports(runDir: string, summary: RunSummary, opts: { junit: boolean; root?: string }): { reportPath: string; junitPath: string | null } {
+  const traces = buildTraceability(summary, opts.root ?? PATHS.root);
+  const reportPath = join(runDir, 'report.html');
+  writeSecure(reportPath, renderHtml(summary, traces, runDir));
+  const entries: { kind: 'report' | 'junit'; relativePath: string }[] = [{ kind: 'report', relativePath: 'report.html' }];
+  let junitPath: string | null = null;
+  if (opts.junit) {
+    junitPath = join(runDir, 'junit.xml');
+    writeSecure(junitPath, renderJunit(summary));
+    entries.push({ kind: 'junit', relativePath: 'junit.xml' });
+  }
+  updateManifest(runDir, summary.runId, entries);
+  return { reportPath, junitPath };
+}
+
+function readSummary(runDir: string): RunSummary {
+  const file = join(runDir, 'summary.json');
+  if (!existsSync(file)) throw new Error(`summary.json이 없습니다: ${file}`);
+  const summary = JSON.parse(readFileSync(file, 'utf8')) as RunSummary;
+  if (summary.$schema !== SUMMARY_SCHEMA) throw new Error(`지원하지 않는 summary 형식: ${String(summary.$schema)}`);
+  return summary;
+}
+
+/** Most recent run id (ids sort by start time), or null. */
+export function latestRunId(runsDir: string = PATHS.runs): string | null {
+  if (!existsSync(runsDir)) return null;
+  const ids = readdirSync(runsDir, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && existsSync(join(runsDir, d.name, 'summary.json')))
+    .map((d) => d.name)
+    .sort();
+  return ids.at(-1) ?? null;
+}
+
+/** Re-renders a finished run's reports (junit only if the run had one). */
+export function regenerateReport(runId: string, opts: { runsDir?: string; root?: string } = {}): { reportPath: string; junitPath: string | null } {
+  if (!/^[\w.-]+$/.test(runId)) throw new Error(`올바르지 않은 실행 ID: ${runId}`);
+  const runDir = join(opts.runsDir ?? PATHS.runs, runId);
+  if (!existsSync(runDir)) throw new Error(`실행 기록이 없습니다: ${runId}`);
+  const summary = readSummary(runDir);
+  return writeReports(runDir, summary, { junit: summary.junitPath !== null, root: opts.root });
+}

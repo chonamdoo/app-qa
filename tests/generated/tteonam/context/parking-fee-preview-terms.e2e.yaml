@@ -1,0 +1,27 @@
+# qa plan으로 생성됨 · 상태 draft · 계획 tests/generated/tteonam/plan.json
+id: parking-fee-preview-terms
+name: 요금 미리 보기가 예상 요금으로 안내되고 할인·요금 계산 용어를 쓰지 않음
+app: tteonam
+covers:
+  - context#요금-미리-보기
+  - context#감면
+source:
+  plan: tests/generated/tteonam/plan.json
+  status: draft
+steps:
+  - tap: 주차
+    expect:
+      see:
+        intent: 주차
+        state:
+          selected: true
+  - tap: 요금 미리 보기
+    expect:
+      see:
+        intent: 요금 미리 보기
+        state:
+          selected: true
+  - wait: 1500
+  - assertNoText: 할인
+  - assertNoText: 요금 계산
+  - claim: 화면의 주차 요금은 예상 금액이며 실제 정산 금액이 아니라고 안내되어 있다

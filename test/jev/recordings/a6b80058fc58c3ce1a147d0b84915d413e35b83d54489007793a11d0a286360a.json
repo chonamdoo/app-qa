@@ -1,0 +1,160 @@
+{
+  "key": "a6b80058fc58c3ce1a147d0b84915d413e35b83d54489007793a11d0a286360a",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db032f5c77fca6e5e4120035a8b9",
+  "latencyMs": 225,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | 설정 | - | top",
+          "e2 | button | 내 항공편 EY827, 01:25 출발, 출발. 탑승권 열기 | - | top",
+          "e3 | other | 떠남 로고 | - | top",
+          "e4 | heading | 출국장 | - | top",
+          "e5 | button | 제1터미널 | selected | top",
+          "e6 | button | 제2터미널 | - | top",
+          "e7 | text | 내 항공편 EY827은 T1에서 떠나요. 주황 테두리가 지금 가장 빠른 곳이에요. | - | top",
+          "e8 | button | 출국장 4, 대기 8분, 원활 | - | middle",
+          "e9 | button | 출국장 3, 대기 15분, 원활 | - | middle",
+          "e10 | button | 출국장 5, 대기 5분, 원활 | - | middle",
+          "e11 | button | 출국장 2, 대기 5분, 원활, 가장 빠름 | - | middle",
+          "e12 | button | 출국장 6, 대기 6분, 원활 | - | middle",
+          "e13 | button | 출국장 1, 대기 6분, 원활 | - | middle",
+          "e14 | heading | 빨리 빠지는 순서 | - | middle",
+          "e15 | text | 08:20 기준 | - | middle",
+          "e16 | button | 출국장 2, 서편, 대기 5분, 원활, 추천 | - | middle",
+          "e17 | button | 출국장 5, 동편, 대기 5분, 원활 | - | bottom",
+          "e18 | button | 출국장 1, 동편, 대기 6분, 원활 | - | bottom",
+          "e19 | button | 출국장 6, 동편, 대기 6분, 원활 | - | bottom",
+          "e20 | button | 출국장 4, 동편, 대기 8분, 원활 | - | bottom",
+          "e21 | tab | 홈 | - | bottom",
+          "e22 | tab | 출국장 | selected | bottom",
+          "e23 | tab | 주차 | - | bottom",
+          "e24 | tab | 안내 | - | bottom"
+        ],
+        "texts": [
+          "설정",
+          "떠남 로고",
+          "출국장",
+          "EY827",
+          "01:25",
+          "제1터미널",
+          "제2터미널",
+          "내 항공편 EY827은 T1에서 떠나요. 주황 테두리가 지금 가장 빠른 곳이에요.",
+          "8분",
+          "15분",
+          "5분",
+          "5분",
+          "4번",
+          "3번",
+          "6분",
+          "6분",
+          "5번",
+          "2번",
+          "6번",
+          "1번",
+          "빨리 빠지는 순서",
+          "08:20 기준",
+          "출국장 2",
+          "추천",
+          "5분",
+          "서편 · 원활",
+          "출국장 5",
+          "5분",
+          "동편 · 원활",
+          "출국장 1",
+          "6분",
+          "동편 · 원활",
+          "출국장 6",
+          "6분",
+          "동편 · 원활",
+          "출국장 4, 동편, 대기 8분, 원활",
+          "홈",
+          "출국장",
+          "주차",
+          "안내"
+        ]
+      },
+      "intent": "하단 탭 바의 출국장 탭"
+    },
+    "questions": {
+      "target": {
+        "type": "choice",
+        "instructions": {
+          "question": "Which row of `screen.rows` is the on-screen element that `intent` refers to?",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "none": "Answer `none` when no row is the element that `intent` refers to (for example, it is not on this screen)."
+        },
+        "criteria": {
+          "e1": "button | 설정 | - | top",
+          "e2": "button | 내 항공편 EY827, 01:25 출발, 출발. 탑승권 열기 | - | top",
+          "e3": "other | 떠남 로고 | - | top",
+          "e4": "heading | 출국장 | - | top",
+          "e5": "button | 제1터미널 | selected | top",
+          "e6": "button | 제2터미널 | - | top",
+          "e7": "text | 내 항공편 EY827은 T1에서 떠나요. 주황 테두리가 지금 가장 빠른 곳이에요. | - | top",
+          "e8": "button | 출국장 4, 대기 8분, 원활 | - | middle",
+          "e9": "button | 출국장 3, 대기 15분, 원활 | - | middle",
+          "e10": "button | 출국장 5, 대기 5분, 원활 | - | middle",
+          "e11": "button | 출국장 2, 대기 5분, 원활, 가장 빠름 | - | middle",
+          "e12": "button | 출국장 6, 대기 6분, 원활 | - | middle",
+          "e13": "button | 출국장 1, 대기 6분, 원활 | - | middle",
+          "e14": "heading | 빨리 빠지는 순서 | - | middle",
+          "e15": "text | 08:20 기준 | - | middle",
+          "e16": "button | 출국장 2, 서편, 대기 5분, 원활, 추천 | - | middle",
+          "e17": "button | 출국장 5, 동편, 대기 5분, 원활 | - | bottom",
+          "e18": "button | 출국장 1, 동편, 대기 6분, 원활 | - | bottom",
+          "e19": "button | 출국장 6, 동편, 대기 6분, 원활 | - | bottom",
+          "e20": "button | 출국장 4, 동편, 대기 8분, 원활 | - | bottom",
+          "e21": "tab | 홈 | - | bottom",
+          "e22": "tab | 출국장 | selected | bottom",
+          "e23": "tab | 주차 | - | bottom",
+          "e24": "tab | 안내 | - | bottom",
+          "none": "No row is the element that `intent` refers to."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "e22",
+        "confidence": 1,
+        "probabilities": {
+          "e12": 0,
+          "e22": 1,
+          "none": 0,
+          "e19": 0,
+          "e23": 0,
+          "e9": 0,
+          "e13": 0,
+          "e10": 0,
+          "e8": 0,
+          "e16": 0,
+          "e2": 0,
+          "e7": 0,
+          "e21": 0,
+          "e17": 0,
+          "e20": 0,
+          "e14": 0,
+          "e5": 0,
+          "e1": 0,
+          "e24": 0,
+          "e4": 0,
+          "e6": 0,
+          "e3": 0,
+          "e15": 0,
+          "e11": 0,
+          "e18": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 2044,
+      "output_tokens": 233
+    }
+  }
+}

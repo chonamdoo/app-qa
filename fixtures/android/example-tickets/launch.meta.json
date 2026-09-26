@@ -1,0 +1,15 @@
+{
+  "platform": "android",
+  "app": "example-tickets",
+  "name": "launch",
+  "windowRect": {
+    "width": 1080,
+    "height": 2400,
+    "x": 0,
+    "y": 0
+  },
+  "capturedAt": "2026-09-26T08:21:00+09:00",
+  "device": "emulator-5554 (Android 17, 1080x2400 @420dpi)",
+  "source": "Appium UiAutomator2 8.7.0 /source (enableMultiWindows=false)",
+  "notes": "First screen after LAUNCHER intent of example.tickets. Framework unknown (black box)."
+}

@@ -1,0 +1,375 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AppiumAUT>
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="떠남" label="떠남" enabled="true" x="0" y="0" width="402" height="874" traits="" processId="83135" bundleId="kr.tteonam.app">
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" x="0" y="0" width="402" height="874" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="-402" y="-874" width="1206" height="2622" traits=""/>
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="123" traits="">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="123" traits=""/>
+                                                <XCUIElementTypeImage type="XCUIElementTypeImage" name="떠남 로고" label="떠남 로고" enabled="true" x="20" y="76" width="32" height="32" traits="Image"/>
+                                                <XCUIElementTypeButton type="XCUIElementTypeButton" name="설정" label="설정" enabled="true" x="350" y="70" width="44" height="44" traits="Button"/>
+                                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="떠남" name="떠남" label="떠남" enabled="true" x="60" y="78" width="282" height="28" traits="Header, StaticText">
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="떠남" name="떠남" label="떠남" enabled="true" x="60" y="78" width="282" height="28" traits="Header, StaticText"/>
+                                                </XCUIElementTypeStaticText>
+                                              </XCUIElementTypeOther>
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="123" width="402" height="636" traits="">
+                                                <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" x="0" y="123" width="402" height="636" traits="">
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="123" width="402" height="939" traits="">
+                                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="123" width="402" height="939" traits="">
+                                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="16" y="139" width="370" height="239" traits=""/>
+                                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="173" y="164" width="56" height="57" traits=""/>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="내 항공편을 추가하세요" name="내 항공편을 추가하세요" label="내 항공편을 추가하세요" enabled="true" x="120" y="232" width="162" height="25" traits="Header, StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="내 항공편을 추가하세요" name="내 항공편을 추가하세요" label="내 항공편을 추가하세요" enabled="true" x="120" y="232" width="162" height="25" traits="Header, StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요." name="게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요." label="게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요." enabled="true" x="62" y="268" width="278" height="21" traits="StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요." name="게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요." label="게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요." enabled="true" x="62" y="268" width="278" height="21" traits="StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="항공편 찾기" label="항공편 찾기" enabled="true" x="41" y="300" width="320" height="53" traits="Button"/>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="8분" name="8분" label="8분" enabled="true" x="20" y="394" width="69" height="72" traits="StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="8분" name="8분" label="8분" enabled="true" x="20" y="394" width="69" height="72" traits="StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="100" y="402" width="63" height="28" traits=""/>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="원활" name="원활" label="원활" enabled="true" x="128" y="406" width="25" height="20" traits="StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="원활" name="원활" label="원활" enabled="true" x="128" y="406" width="25" height="20" traits="StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="T1 출국장 평균 대기 · 가장 빠른 곳 5분" name="T1 출국장 평균 대기 · 가장 빠른 곳 5분" label="T1 출국장 평균 대기 · 가장 빠른 곳 5분" enabled="true" x="100" y="438" width="283" height="20" traits="StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="T1 출국장 평균 대기 · 가장 빠른 곳 5분" name="T1 출국장 평균 대기 · 가장 빠른 곳 5분" label="T1 출국장 평균 대기 · 가장 빠른 곳 5분" enabled="true" x="100" y="438" width="283" height="20" traits="StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="16" y="482" width="370" height="289" traits=""/>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="제1여객터미널 출국장" name="제1여객터미널 출국장" label="제1여객터미널 출국장" enabled="true" x="36" y="508" width="267" height="24" traits="Header, StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="제1여객터미널 출국장" name="제1여객터미널 출국장" label="제1여객터미널 출국장" enabled="true" x="36" y="508" width="267" height="24" traits="Header, StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="08:21 기준" name="08:21 기준" label="08:21 기준" enabled="true" x="311" y="512" width="55" height="16" traits="StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="08:21 기준" name="08:21 기준" label="08:21 기준" enabled="true" x="311" y="512" width="55" height="16" traits="StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="출국장 5, 대기 5분, 원활, 가장 빠름" label="출국장 5, 대기 5분, 원활, 가장 빠름" enabled="true" x="98" y="609" width="57" height="72" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="출국장 4, 대기 8분, 원활" label="출국장 4, 대기 8분, 원활" enabled="true" x="148" y="602" width="56" height="73" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="출국장 3, 대기 14분, 원활" label="출국장 3, 대기 14분, 원활" enabled="true" x="198" y="602" width="56" height="73" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="출국장 2, 대기 6분, 원활" label="출국장 2, 대기 6분, 원활" enabled="true" x="247" y="609" width="57" height="72" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="출국장 6, 대기 6분, 원활" label="출국장 6, 대기 6분, 원활" enabled="true" x="48" y="622" width="57" height="73" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="출국장 1, 대기 6분, 원활" label="출국장 1, 대기 6분, 원활" enabled="true" x="297" y="622" width="57" height="73" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="주차 보기" label="주차 보기" enabled="true" x="314" y="795" width="68" height="44" traits="Button"/>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="주차 빈자리" name="주차 빈자리" label="주차 빈자리" enabled="true" x="20" y="805" width="287" height="24" traits="Header, StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="주차 빈자리" name="주차 빈자리" label="주차 빈자리" enabled="true" x="20" y="805" width="287" height="24" traits="Header, StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="T1 단기주차장 236자리 남음, 혼잡, T1 장기주차장 75자리 남음, 혼잡. 주차 보기" label="T1 단기주차장 236자리 남음, 혼잡, T1 장기주차장 75자리 남음, 혼잡. 주차 보기" enabled="true" x="16" y="847" width="370" height="123" traits="Button"/>
+                                                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="새로고침" label="새로고침" enabled="true" x="295" y="978" width="87" height="44" traits="Button"/>
+                                                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="9월 26일 (토) 08:21 기준" name="9월 26일 (토) 08:21 기준" label="9월 26일 (토) 08:21 기준" enabled="true" x="20" y="992" width="268" height="16" traits="StaticText">
+                                                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="9월 26일 (토) 08:21 기준" name="9월 26일 (토) 08:21 기준" label="9월 26일 (토) 08:21 기준" enabled="true" x="20" y="992" width="268" height="16" traits="StaticText"/>
+                                                      </XCUIElementTypeStaticText>
+                                                    </XCUIElementTypeOther>
+                                                  </XCUIElementTypeOther>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 2 pages" label="Vertical scroll bar, 2 pages" enabled="true" x="369" y="123" width="30" height="636" traits="Adjustable">
+                                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="396" y="126" width="3" height="427" traits=""/>
+                                                  </XCUIElementTypeOther>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" x="0" y="726" width="402" height="30" traits="Adjustable">
+                                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="3" y="753" width="396" height="3" traits=""/>
+                                                  </XCUIElementTypeOther>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 2 pages" label="Vertical scroll bar, 2 pages" enabled="true" x="369" y="123" width="30" height="636" traits="Adjustable">
+                                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="396" y="126" width="3" height="427" traits=""/>
+                                                  </XCUIElementTypeOther>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" x="0" y="726" width="402" height="30" traits="Adjustable">
+                                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="3" y="753" width="396" height="3" traits=""/>
+                                                  </XCUIElementTypeOther>
+                                                </XCUIElementTypeScrollView>
+                                              </XCUIElementTypeOther>
+                                            </XCUIElementTypeOther>
+                                          </XCUIElementTypeOther>
+                                        </XCUIElementTypeOther>
+                                      </XCUIElementTypeOther>
+                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits="">
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="759" traits=""/>
+                                      </XCUIElementTypeOther>
+                                    </XCUIElementTypeOther>
+                                  </XCUIElementTypeOther>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="759" width="402" height="115" traits="TabBar"/>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="홈" label="홈" enabled="true" x="8" y="772" width="97" height="56" traits="Selected"/>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="출국장" label="출국장" enabled="true" x="104" y="772" width="97" height="56" traits=""/>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="주차" label="주차" enabled="true" x="201" y="772" width="97" height="56" traits=""/>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="안내" label="안내" enabled="true" x="297" y="772" width="97" height="56" traits=""/>
+                                </XCUIElementTypeOther>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeOther>
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+                        </XCUIElementTypeOther>
+                      </XCUIElementTypeOther>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="-402" y="-874" width="1206" height="2622" traits=""/>
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="62" width="402" height="812" traits="">
+          <XCUIElementTypeButton type="XCUIElementTypeButton" value="Expanded" name="Sheet Grabber" label="Sheet Grabber" enabled="true" x="163" y="57" width="76" height="25" traits="Button"/>
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="62" width="402" height="812" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="62" width="402" height="812" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="62" width="402" height="812" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="62" width="402" height="812" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="62" width="402" height="812" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="62" width="402" height="812" traits="">
+                      <XCUIElementTypeButton type="XCUIElementTypeButton" name="닫기" label="닫기" enabled="true" x="350" y="78" width="44" height="44" traits="Button"/>
+                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="내 항공편 찾기" name="내 항공편 찾기" label="내 항공편 찾기" enabled="true" x="20" y="86" width="322" height="28" traits="Header, StaticText">
+                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="내 항공편 찾기" name="내 항공편 찾기" label="내 항공편 찾기" enabled="true" x="20" y="86" width="322" height="28" traits="Header, StaticText"/>
+                      </XCUIElementTypeStaticText>
+                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="편명·도시·항공사" name="편명·도시·항공사" label="편명·도시·항공사" enabled="true" x="20" y="130" width="362" height="20" traits="StaticText">
+                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="편명·도시·항공사" name="편명·도시·항공사" label="편명·도시·항공사" enabled="true" x="20" y="130" width="362" height="20" traits="StaticText"/>
+                      </XCUIElementTypeStaticText>
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="20" y="154" width="362" height="48" traits=""/>
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="33" y="156" width="308" height="44" traits="">
+                        <XCUIElementTypeTextField type="XCUIElementTypeTextField" value="대한항공" name="편명·도시·항공사" label="편명·도시·항공사" enabled="true" x="33" y="156" width="308" height="44" placeholderValue="" traits="">
+                          <XCUIElementTypeButton type="XCUIElementTypeButton" name="Clear text" label="Clear text" enabled="true" x="317" y="169" width="19" height="18" traits="Button"/>
+                        </XCUIElementTypeTextField>
+                      </XCUIElementTypeOther>
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="20" y="202" width="362" height="64" traits="">
+                        <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" x="20" y="202" width="362" height="64" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="20" y="202" width="710" height="64" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="20" y="202" width="710" height="64" traits="">
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" value="1" name="오늘" label="오늘" enabled="true" x="20" y="214" width="56" height="40" traits="Selected, Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="내일" label="내일" enabled="true" x="83" y="214" width="56" height="40" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="9월 28일 (월)" label="9월 28일 (월)" enabled="true" x="146" y="214" width="112" height="40" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="9월 29일 (화)" label="9월 29일 (화)" enabled="true" x="266" y="214" width="112" height="40" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="9월 30일 (수)" label="9월 30일 (수)" enabled="true" x="385" y="214" width="113" height="40" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="10월 1일 (목)" label="10월 1일 (목)" enabled="true" x="505" y="214" width="108" height="40" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="10월 2일 (금)" label="10월 2일 (금)" enabled="true" x="620" y="214" width="110" height="40" traits="Button"/>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 2 pages" label="Vertical scroll bar, 2 pages" enabled="true" x="349" y="202" width="30" height="64" traits="Adjustable">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="376" y="205" width="3" height="58" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 2 pages" label="Vertical scroll bar, 2 pages" enabled="true" x="349" y="202" width="30" height="64" traits="Adjustable">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="376" y="205" width="3" height="58" traits=""/>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeScrollView>
+                      </XCUIElementTypeOther>
+                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="9월 26일 (토) 인천 출발" name="9월 26일 (토) 인천 출발" label="9월 26일 (토) 인천 출발" enabled="true" x="24" y="280" width="290" height="24" traits="Header, StaticText">
+                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="9월 26일 (토) 인천 출발" name="9월 26일 (토) 인천 출발" label="9월 26일 (토) 인천 출발" enabled="true" x="24" y="280" width="290" height="24" traits="Header, StaticText"/>
+                      </XCUIElementTypeStaticText>
+                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="08:22 기준" name="08:22 기준" label="08:22 기준" enabled="true" x="321" y="284" width="57" height="16" traits="StaticText">
+                        <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="08:22 기준" name="08:22 기준" label="08:22 기준" enabled="true" x="321" y="284" width="57" height="16" traits="StaticText"/>
+                      </XCUIElementTypeStaticText>
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="20" y="310" width="362" height="564" traits="">
+                        <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" x="20" y="310" width="362" height="564" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="20" y="310" width="362" height="6301" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="20" y="310" width="362" height="6301" traits="">
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="김해 PUS, KE1401 · 대한항공 · T2, 06:30 출발, 원래 06:35, 출발" label="김해 PUS, KE1401 · 대한항공 · T2, 06:30 출발, 원래 06:35, 출발" enabled="true" x="20" y="310" width="362" height="70" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="고마쓰 KMQ, KE2189 · 대한항공 · T2, 07:29 출발, 원래 07:30, 출발" label="고마쓰 KMQ, KE2189 · 대한항공 · T2, 07:29 출발, 원래 07:30, 출발" enabled="true" x="20" y="380" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="칭다오 TAO, KE841 · 대한항공 · T2, 07:46 출발, 원래 07:50, 출발" label="칭다오 TAO, KE841 · 대한항공 · T2, 07:46 출발, 원래 07:50, 출발" enabled="true" x="20" y="451" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="마닐라 MNL, KE621 · 대한항공 · T2, 07:48 출발, 원래 07:50, 출발" label="마닐라 MNL, KE621 · 대한항공 · T2, 07:48 출발, 원래 07:50, 출발" enabled="true" x="20" y="522" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="정저우 CGO, KE133 · 대한항공 · T2, 07:57 출발, 원래 08:00, 출발" label="정저우 CGO, KE133 · 대한항공 · T2, 07:57 출발, 원래 08:00, 출발" enabled="true" x="20" y="593" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="하노이 HAN, KE441 · 대한항공 · T2, 08:11 출발, 원래 08:00, 출발" label="하노이 HAN, KE441 · 대한항공 · T2, 08:11 출발, 원래 08:00, 출발" enabled="true" x="20" y="664" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="후쿠오카 FUK, KE787 · 대한항공 · T2, 08:02 출발, 원래 08:00, 출발" label="후쿠오카 FUK, KE787 · 대한항공 · T2, 08:02 출발, 원래 08:00, 출발" enabled="true" x="20" y="735" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="홍콩 HKG, KE2001 · 대한항공 · T2, 08:10 출발, 원래 08:05, 출발" label="홍콩 HKG, KE2001 · 대한항공 · T2, 08:10 출발, 원래 08:05, 출발" enabled="true" x="20" y="806" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="선양(심양) SHE, KE831 · 대한항공 · T2, 07:57 출발, 원래 08:05, 출발" label="선양(심양) SHE, KE831 · 대한항공 · T2, 07:57 출발, 원래 08:05, 출발" enabled="true" x="20" y="877" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="푸저우 FOC, KE127 · 대한항공 · T2, 08:07 출발, 원래 08:10, 출발" label="푸저우 FOC, KE127 · 대한항공 · T2, 08:07 출발, 원래 08:10, 출발" enabled="true" x="20" y="948" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="베이징/서우두 PEK, KE851 · 대한항공 · T2, 08:21 출발, 원래 08:15, 출발" label="베이징/서우두 PEK, KE851 · 대한항공 · T2, 08:21 출발, 원래 08:15, 출발" enabled="true" x="20" y="1019" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="김해 PUS, KE1403 · 대한항공 · T2, 08:20 출발, 탑승 마감" label="김해 PUS, KE1403 · 대한항공 · T2, 08:20 출발, 탑승 마감" enabled="true" x="20" y="1090" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="상하이/푸동 PVG, KE881 · 대한항공 · T2, 08:25 출발, 탑승 마감" label="상하이/푸동 PVG, KE881 · 대한항공 · T2, 08:25 출발, 탑승 마감" enabled="true" x="20" y="1161" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="신 울란바타르 UBN, KE2041 · 대한항공 · T2, 08:35 출발, 마감 예정" label="신 울란바타르 UBN, KE2041 · 대한항공 · T2, 08:35 출발, 마감 예정" enabled="true" x="20" y="1232" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="선전 SZX, KE835 · 대한항공 · T2, 08:40 출발, 탑승 중" label="선전 SZX, KE835 · 대한항공 · T2, 08:40 출발, 탑승 중" enabled="true" x="20" y="1303" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="애틀랜타 ATL, KE033 · 대한항공 · T2, 08:45 출발, 탑승 중" label="애틀랜타 ATL, KE033 · 대한항공 · T2, 08:45 출발, 탑승 중" enabled="true" x="20" y="1374" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="광저우 CAN, KE867 · 대한항공 · T2, 08:50 출발, 탑승 중" label="광저우 CAN, KE867 · 대한항공 · T2, 08:50 출발, 탑승 중" enabled="true" x="20" y="1445" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="고베 UKB, KE2171 · 대한항공 · T2, 09:05 출발, 탑승 준비" label="고베 UKB, KE2171 · 대한항공 · T2, 09:05 출발, 탑승 준비" enabled="true" x="20" y="1516" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="호찌민 SGN, KE471 · 대한항공 · T2, 09:05 출발, 탑승 준비" label="호찌민 SGN, KE471 · 대한항공 · T2, 09:05 출발, 탑승 준비" enabled="true" x="20" y="1587" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="톈진 TSN, KE805 · 대한항공 · T2, 09:10 출발, 탑승 준비" label="톈진 TSN, KE805 · 대한항공 · T2, 09:10 출발, 탑승 준비" enabled="true" x="20" y="1658" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="시안 XIY, KE141 · 대한항공 · T2, 09:10 출발, 정시" label="시안 XIY, KE141 · 대한항공 · T2, 09:10 출발, 정시" enabled="true" x="20" y="1729" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="댈러스/포트워스 DFW, KE031 · 대한항공 · T2, 09:20 출발, 정시" label="댈러스/포트워스 DFW, KE031 · 대한항공 · T2, 09:20 출발, 정시" enabled="true" x="20" y="1800" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="오키나와 OKA, KE2147 · 대한항공 · T2, 09:20 출발, 정시" label="오키나와 OKA, KE2147 · 대한항공 · T2, 09:20 출발, 정시" enabled="true" x="20" y="1871" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="옌지(연길) YNJ, KE115 · 대한항공 · T2, 09:25 출발, 탑승 준비" label="옌지(연길) YNJ, KE115 · 대한항공 · T2, 09:25 출발, 탑승 준비" enabled="true" x="20" y="1942" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="보스턴 BOS, KE091 · 대한항공 · T2, 09:30 출발, 정시" label="보스턴 BOS, KE091 · 대한항공 · T2, 09:30 출발, 정시" enabled="true" x="20" y="2013" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="오사카/ 간사이 KIX, KE723 · 대한항공 · T2, 09:35 출발, 정시" label="오사카/ 간사이 KIX, KE723 · 대한항공 · T2, 09:35 출발, 정시" enabled="true" x="20" y="2084" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="니가타 KIJ, KE2197 · 대한항공 · T2, 09:40 출발, 정시" label="니가타 KIJ, KE2197 · 대한항공 · T2, 09:40 출발, 정시" enabled="true" x="20" y="2155" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="방콕/수완나품 BKK, KE657 · 대한항공 · T2, 09:45 출발, 정시" label="방콕/수완나품 BKK, KE657 · 대한항공 · T2, 09:45 출발, 정시" enabled="true" x="20" y="2226" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="뉴욕/존에프케네디 JFK, KE081 · 대한항공 · T2, 10:00 출발, 정시" label="뉴욕/존에프케네디 JFK, KE081 · 대한항공 · T2, 10:00 출발, 정시" enabled="true" x="20" y="2297" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="괌 GUM, KE415 · 대한항공 · T2, 10:05 출발, 정시" label="괌 GUM, KE415 · 대한항공 · T2, 10:05 출발, 정시" enabled="true" x="20" y="2368" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="마카오 MFM, KE2015 · 대한항공 · T2, 10:10 출발, 정시" label="마카오 MFM, KE2015 · 대한항공 · T2, 10:10 출발, 정시" enabled="true" x="20" y="2439" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="도쿄/나리타 NRT, KE703 · 대한항공 · T2, 10:10 출발, 정시" label="도쿄/나리타 NRT, KE703 · 대한항공 · T2, 10:10 출발, 정시" enabled="true" x="20" y="2510" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="샤먼 XMN, KE125 · 대한항공 · T2, 10:20 출발, 정시" label="샤먼 XMN, KE125 · 대한항공 · T2, 10:20 출발, 정시" enabled="true" x="20" y="2581" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="워싱턴 IAD, KE093 · 대한항공 · T2, 10:25 출발, 정시" label="워싱턴 IAD, KE093 · 대한항공 · T2, 10:25 출발, 정시" enabled="true" x="20" y="2652" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="타이베이 TPE, KE2021 · 대한항공 · T2, 10:30 출발, 정시" label="타이베이 TPE, KE2021 · 대한항공 · T2, 10:30 출발, 정시" enabled="true" x="20" y="2723" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="나고야 NGO, KE741 · 대한항공 · T2, 10:35 출발, 정시" label="나고야 NGO, KE741 · 대한항공 · T2, 10:35 출발, 정시" enabled="true" x="20" y="2794" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="애틀랜타 ATL, KE035 · 대한항공 · T2, 10:35 출발, 정시" label="애틀랜타 ATL, KE035 · 대한항공 · T2, 10:35 출발, 정시" enabled="true" x="20" y="2865" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="삿포로 CTS, KE765 · 대한항공 · T2, 10:35 출발, 정시" label="삿포로 CTS, KE765 · 대한항공 · T2, 10:35 출발, 정시" enabled="true" x="20" y="2936" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="나가사키 NGS, KE2191 · 대한항공 · T2, 10:35 출발, 정시" label="나가사키 NGS, KE2191 · 대한항공 · T2, 10:35 출발, 정시" enabled="true" x="20" y="3007" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="시카고/오헤어 ORD, KE037 · 대한항공 · T2, 10:40 출발, 정시" label="시카고/오헤어 ORD, KE037 · 대한항공 · T2, 10:40 출발, 정시" enabled="true" x="20" y="3078" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="런던/히드로 LHR, KE907 · 대한항공 · T2, 10:55 출발, 정시" label="런던/히드로 LHR, KE907 · 대한항공 · T2, 10:55 출발, 정시" enabled="true" x="20" y="3149" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="프라하 PRG, KE969 · 대한항공 · T2, 11:05 출발, 정시" label="프라하 PRG, KE969 · 대한항공 · T2, 11:05 출발, 정시" enabled="true" x="20" y="3220" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="후쿠오카 FUK, KE791 · 대한항공 · T2, 11:05 출발, 정시" label="후쿠오카 FUK, KE791 · 대한항공 · T2, 11:05 출발, 정시" enabled="true" x="20" y="3291" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="취리히 ZRH, KE917 · 대한항공 · T2, 11:05 출발, 정시" label="취리히 ZRH, KE917 · 대한항공 · T2, 11:05 출발, 정시" enabled="true" x="20" y="3362" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="상하이/푸동 PVG, KE887 · 대한항공 · T2, 11:10 출발, 정시" label="상하이/푸동 PVG, KE887 · 대한항공 · T2, 11:10 출발, 정시" enabled="true" x="20" y="3433" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="파리/샤를드골 CDG, KE901 · 대한항공 · T2, 11:20 출발, 정시" label="파리/샤를드골 CDG, KE901 · 대한항공 · T2, 11:20 출발, 정시" enabled="true" x="20" y="3504" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="다낭 DAD, KE457 · 대한항공 · T2, 11:40 출발, 정시" label="다낭 DAD, KE457 · 대한항공 · T2, 11:40 출발, 정시" enabled="true" x="20" y="3575" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="암스테르담 AMS, KE925 · 대한항공 · T2, 11:55 출발, 정시" label="암스테르담 AMS, KE925 · 대한항공 · T2, 11:55 출발, 정시" enabled="true" x="20" y="3646" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="삿포로 CTS, KE769 · 대한항공 · T2, 12:35 출발, 정시" label="삿포로 CTS, KE769 · 대한항공 · T2, 12:35 출발, 정시" enabled="true" x="20" y="3717" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="톈진 TSN, KE803 · 대한항공 · T2, 12:35 출발, 정시" label="톈진 TSN, KE803 · 대한항공 · T2, 12:35 출발, 정시" enabled="true" x="20" y="3788" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="부다페스트 BUD, KE963 · 대한항공 · T2, 12:45 출발, 정시" label="부다페스트 BUD, KE963 · 대한항공 · T2, 12:45 출발, 정시" enabled="true" x="20" y="3859" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="다롄(대련) DLC, KE873 · 대한항공 · T2, 13:00 출발, 정시" label="다롄(대련) DLC, KE873 · 대한항공 · T2, 13:00 출발, 정시" enabled="true" x="20" y="3930" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="도쿄/나리타 NRT, KE711 · 대한항공 · T2, 13:00 출발, 정시" label="도쿄/나리타 NRT, KE711 · 대한항공 · T2, 13:00 출발, 정시" enabled="true" x="20" y="4001" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="칭다오 TAO, KE843 · 대한항공 · T2, 13:05 출발, 정시" label="칭다오 TAO, KE843 · 대한항공 · T2, 13:05 출발, 정시" enabled="true" x="20" y="4072" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="로마 FCO, KE931 · 대한항공 · T2, 13:20 출발, 정시" label="로마 FCO, KE931 · 대한항공 · T2, 13:20 출발, 정시" enabled="true" x="20" y="4143" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="허페이 HFE, KE155 · 대한항공 · T2, 13:25 출발, 정시" label="허페이 HFE, KE155 · 대한항공 · T2, 13:25 출발, 정시" enabled="true" x="20" y="4214" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="홍콩 HKG, KE2005 · 대한항공 · T2, 13:25 출발, 정시" label="홍콩 HKG, KE2005 · 대한항공 · T2, 13:25 출발, 정시" enabled="true" x="20" y="4285" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="카트만두 KTM, KE695 · 대한항공 · T2, 13:40 출발, 정시" label="카트만두 KTM, KE695 · 대한항공 · T2, 13:40 출발, 정시" enabled="true" x="20" y="4356" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="이스탄불 IST, KE955 · 대한항공 · T2, 13:40 출발, 정시" label="이스탄불 IST, KE955 · 대한항공 · T2, 13:40 출발, 정시" enabled="true" x="20" y="4427" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="싱가포르 SIN, KE643 · 대한항공 · T2, 13:50 출발, 정시" label="싱가포르 SIN, KE643 · 대한항공 · T2, 13:50 출발, 정시" enabled="true" x="20" y="4498" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="로스앤젤레스 LAX, KE017 · 대한항공 · T2, 14:30 출발, 정시" label="로스앤젤레스 LAX, KE017 · 대한항공 · T2, 14:30 출발, 정시" enabled="true" x="20" y="4569" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="선양(심양) SHE, KE833 · 대한항공 · T2, 14:35 출발, 정시" label="선양(심양) SHE, KE833 · 대한항공 · T2, 14:35 출발, 정시" enabled="true" x="20" y="4640" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="도쿄/나리타 NRT, KE707 · 대한항공 · T2, 14:45 출발, 정시" label="도쿄/나리타 NRT, KE707 · 대한항공 · T2, 14:45 출발, 정시" enabled="true" x="20" y="4711" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="오사카/ 간사이 KIX, KE725 · 대한항공 · T2, 15:05 출발, 정시" label="오사카/ 간사이 KIX, KE725 · 대한항공 · T2, 15:05 출발, 정시" enabled="true" x="20" y="4782" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="고베 UKB, KE2173 · 대한항공 · T2, 15:50 출발, 정시" label="고베 UKB, KE2173 · 대한항공 · T2, 15:50 출발, 정시" enabled="true" x="20" y="4853" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="샌프란시스코 SFO, KE023 · 대한항공 · T2, 16:00 출발, 정시" label="샌프란시스코 SFO, KE023 · 대한항공 · T2, 16:00 출발, 정시" enabled="true" x="20" y="4924" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="덴파사르 DPS, KE431 · 대한항공 · T2, 16:10 출발, 정시" label="덴파사르 DPS, KE431 · 대한항공 · T2, 16:10 출발, 정시" enabled="true" x="20" y="4995" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="타이베이 TPE, KE2027 · 대한항공 · T2, 16:10 출발, 정시" label="타이베이 TPE, KE2027 · 대한항공 · T2, 16:10 출발, 정시" enabled="true" x="20" y="5066" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="쿠알라룸푸르 KUL, KE427 · 대한항공 · T2, 16:20 출발, 정시" label="쿠알라룸푸르 KUL, KE427 · 대한항공 · T2, 16:20 출발, 정시" enabled="true" x="20" y="5137" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="가고시마 KOJ, KE2179 · 대한항공 · T2, 16:20 출발, 정시" label="가고시마 KOJ, KE2179 · 대한항공 · T2, 16:20 출발, 정시" enabled="true" x="20" y="5208" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="후쿠오카 FUK, KE795 · 대한항공 · T2, 16:25 출발, 정시" label="후쿠오카 FUK, KE795 · 대한항공 · T2, 16:25 출발, 정시" enabled="true" x="20" y="5279" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="시애틀/타코마 SEA, KE041 · 대한항공 · T2, 16:40 출발, 정시" label="시애틀/타코마 SEA, KE041 · 대한항공 · T2, 16:40 출발, 정시" enabled="true" x="20" y="5350" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="구마모토 KMJ, KE2155 · 대한항공 · T2, 17:05 출발, 정시" label="구마모토 KMJ, KE2155 · 대한항공 · T2, 17:05 출발, 정시" enabled="true" x="20" y="5421" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="토론토 YYZ, KE077 · 대한항공 · T2, 17:10 출발, 정시" label="토론토 YYZ, KE077 · 대한항공 · T2, 17:10 출발, 정시" enabled="true" x="20" y="5492" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="김해 PUS, KE1405 · 대한항공 · T2, 17:10 출발, 정시" label="김해 PUS, KE1405 · 대한항공 · T2, 17:10 출발, 정시" enabled="true" x="20" y="5563" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="도쿄/나리타 NRT, KE713 · 대한항공 · T2, 17:15 출발, 정시" label="도쿄/나리타 NRT, KE713 · 대한항공 · T2, 17:15 출발, 정시" enabled="true" x="20" y="5634" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="푸켓 HKT, KE677 · 대한항공 · T2, 17:50 출발, 정시" label="푸켓 HKT, KE677 · 대한항공 · T2, 17:50 출발, 정시" enabled="true" x="20" y="5705" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="덴파사르 DPS, KE433 · 대한항공 · T2, 18:00 출발, 정시" label="덴파사르 DPS, KE433 · 대한항공 · T2, 18:00 출발, 정시" enabled="true" x="20" y="5776" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="방콕/수완나품 BKK, KE651 · 대한항공 · T2, 18:05 출발, 정시" label="방콕/수완나품 BKK, KE651 · 대한항공 · T2, 18:05 출발, 정시" enabled="true" x="20" y="5847" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="다낭 DAD, KE459 · 대한항공 · T2, 18:20 출발, 정시" label="다낭 DAD, KE459 · 대한항공 · T2, 18:20 출발, 정시" enabled="true" x="20" y="5918" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="괌 GUM, KE417 · 대한항공 · T2, 18:25 출발, 정시" label="괌 GUM, KE417 · 대한항공 · T2, 18:25 출발, 정시" enabled="true" x="20" y="5989" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="김해 PUS, KE1407 · 대한항공 · T2, 18:25 출발, 정시" label="김해 PUS, KE1407 · 대한항공 · T2, 18:25 출발, 정시" enabled="true" x="20" y="6060" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="후쿠오카 FUK, KE781 · 대한항공 · T2, 18:35 출발, 정시" label="후쿠오카 FUK, KE781 · 대한항공 · T2, 18:35 출발, 정시" enabled="true" x="20" y="6131" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="도쿄/나리타 NRT, KE705 · 대한항공 · T2, 18:35 출발, 정시" label="도쿄/나리타 NRT, KE705 · 대한항공 · T2, 18:35 출발, 정시" enabled="true" x="20" y="6202" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="싱가포르 SIN, KE645 · 대한항공 · T2, 18:40 출발, 정시" label="싱가포르 SIN, KE645 · 대한항공 · T2, 18:40 출발, 정시" enabled="true" x="20" y="6273" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="밴쿠버 YVR, KE071 · 대한항공 · T2, 18:45 출발, 정시" label="밴쿠버 YVR, KE071 · 대한항공 · T2, 18:45 출발, 정시" enabled="true" x="20" y="6344" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="오사카/ 간사이 KIX, KE721 · 대한항공 · T2, 18:45 출발, 정시" label="오사카/ 간사이 KIX, KE721 · 대한항공 · T2, 18:45 출발, 정시" enabled="true" x="20" y="6415" width="362" height="71" traits="Button"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="마닐라 MNL, KE623 · 대한항공 · T2, 18:50 출발, 정시" label="마닐라 MNL, KE623 · 대한항공 · T2, 18:50 출발, 정시" enabled="true" x="20" y="6486" width="362" height="71" traits="Button"/>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 12 pages" label="Vertical scroll bar, 12 pages" enabled="true" x="349" y="310" width="30" height="522" traits="Adjustable">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="376" y="313" width="3" height="52" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" x="62" y="841" width="278" height="30" traits="Adjustable">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="65" y="868" width="272" height="3" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 12 pages" label="Vertical scroll bar, 12 pages" enabled="true" x="349" y="310" width="30" height="522" traits="Adjustable">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="376" y="313" width="3" height="52" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" x="62" y="841" width="278" height="30" traits="Adjustable">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="65" y="868" width="272" height="3" traits=""/>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeScrollView>
+                      </XCUIElementTypeOther>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" x="0" y="0" width="402" height="874" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits=""/>
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="566" width="402" height="308" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" name="inputView" enabled="true" x="0" y="566" width="402" height="308" traits=""/>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" x="0" y="0" width="402" height="874" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="566" width="402" height="308" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="566" width="402" height="308" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="566" width="402" height="308" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="566" width="402" height="308" traits=""/>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="583" width="402" height="233" traits="">
+            <XCUIElementTypeKeyboard type="XCUIElementTypeKeyboard" enabled="true" x="0" y="583" width="402" height="233" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="583" width="402" height="233" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" name="UIKeyboardLayoutStar Preview" enabled="true" x="0" y="583" width="402" height="233" traits="">
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="Padding-Left" label="Padding-Left" enabled="true" x="0" y="583" width="0" height="0" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅂ" label="ㅂ" enabled="true" x="4" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅈ" label="ㅈ" enabled="true" x="44" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㄷ" label="ㄷ" enabled="true" x="83" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㄱ" label="ㄱ" enabled="true" x="122" y="590" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅅ" label="ㅅ" enabled="true" x="162" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅛ" label="ㅛ" enabled="true" x="202" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅕ" label="ㅕ" enabled="true" x="241" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅑ" label="ㅑ" enabled="true" x="281" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅐ" label="ㅐ" enabled="true" x="320" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅔ" label="ㅔ" enabled="true" x="360" y="590" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="Padding-Right" label="Padding-Right" enabled="true" x="0" y="583" width="0" height="0" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="Padding-Left" label="Padding-Left" enabled="true" x="0" y="583" width="0" height="0" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅁ" label="ㅁ" enabled="true" x="24" y="644" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㄴ" label="ㄴ" enabled="true" x="63" y="644" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅇ" label="ㅇ" enabled="true" x="103" y="644" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㄹ" label="ㄹ" enabled="true" x="142" y="644" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅎ" label="ㅎ" enabled="true" x="182" y="644" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅗ" label="ㅗ" enabled="true" x="221" y="644" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅓ" label="ㅓ" enabled="true" x="261" y="644" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅏ" label="ㅏ" enabled="true" x="300" y="644" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅣ" label="ㅣ" enabled="true" x="340" y="644" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="Padding-Right" label="Padding-Right" enabled="true" x="0" y="583" width="0" height="0" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="shift" label="shift" enabled="true" x="4" y="698" width="52" height="54" traits="PlaysSound, KeyboardKey, Button"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="Padding-Left" label="Padding-Left" enabled="true" x="0" y="583" width="0" height="0" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅋ" label="ㅋ" enabled="true" x="63" y="698" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅌ" label="ㅌ" enabled="true" x="103" y="698" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅊ" label="ㅊ" enabled="true" x="142" y="698" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅍ" label="ㅍ" enabled="true" x="182" y="698" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅠ" label="ㅠ" enabled="true" x="221" y="698" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅜ" label="ㅜ" enabled="true" x="261" y="698" width="40" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="ㅡ" label="ㅡ" enabled="true" x="300" y="698" width="41" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="Padding-Right" label="Padding-Right" enabled="true" x="0" y="583" width="0" height="0" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="delete" label="삭제" enabled="true" x="348" y="698" width="52" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="more" label="숫자" enabled="true" x="4" y="752" width="50" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="emoji" label="이모지" enabled="true" x="53" y="752" width="51" height="54" traits="PlaysSound, KeyboardKey, Button"/>
+                  <XCUIElementTypeKey type="XCUIElementTypeKey" name="space" label=" " enabled="true" x="103" y="752" width="198" height="54" traits="PlaysSound, KeyboardKey"/>
+                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="Search" label="검색" enabled="true" x="300" y="752" width="100" height="54" traits="PlaysSound, KeyboardKey, Button"/>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeKeyboard>
+          </XCUIElementTypeOther>
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="583" width="402" height="291" traits="">
+            <XCUIElementTypeButton type="XCUIElementTypeButton" value="English (US)" name="Next keyboard" label="Next keyboard" enabled="true" x="8" y="805" width="69" height="70" traits="KeyboardKey, Button">
+              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" enabled="true" x="8" y="805" width="1" height="1" traits="StaticText"/>
+            </XCUIElementTypeButton>
+            <XCUIElementTypeButton type="XCUIElementTypeButton" name="dictation" label="Dictate" enabled="true" x="325" y="805" width="69" height="70" traits="KeyboardKey, Button">
+              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" enabled="true" x="325" y="805" width="1" height="1" traits="StaticText"/>
+            </XCUIElementTypeButton>
+            <XCUIElementTypeButton type="XCUIElementTypeButton" name="dictation" label="Dictate" enabled="true" x="325" y="805" width="69" height="70" traits="KeyboardKey, Button">
+              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" enabled="true" x="325" y="805" width="1" height="1" traits="StaticText"/>
+            </XCUIElementTypeButton>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+  </XCUIElementTypeApplication>
+</AppiumAUT>

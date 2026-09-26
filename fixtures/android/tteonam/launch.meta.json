@@ -1,0 +1,15 @@
+{
+  "platform": "android",
+  "app": "tteonam",
+  "name": "launch",
+  "windowRect": {
+    "width": 1080,
+    "height": 2400,
+    "x": 0,
+    "y": 0
+  },
+  "capturedAt": "2026-09-26T08:21:33+09:00",
+  "device": "emulator-5554 (Android 17, 1080x2400 @420dpi)",
+  "source": "Appium UiAutomator2 8.7.0 /source (enableMultiWindows=false)",
+  "notes": "떠남 cold launch (dev build via Metro). Bottom tabs 홈/출국장/주차/안내 are clickable Views."
+}

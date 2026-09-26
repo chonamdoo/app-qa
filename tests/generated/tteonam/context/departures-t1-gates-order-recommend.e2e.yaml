@@ -1,0 +1,93 @@
+# qa plan으로 생성됨 · 상태 draft · 계획 tests/generated/tteonam/plan.json
+id: departures-t1-gates-order-recommend
+name: 출국장 탭 T1에서 출국장 번호, 동편/서편, 대기시간 혼잡 단계, 추천 표시와 용어 확인
+app: tteonam
+covers:
+  - context#출국장
+  - context#출국장-동편-서편
+  - context#대기시간
+  - context#혼잡-단계
+  - context#추천-출국장
+  - context#기준-시각
+source:
+  plan: tests/generated/tteonam/plan.json
+  status: draft
+steps:
+  - tap: 출국장
+    expect:
+      see:
+        intent: 출국장
+        state:
+          selected: true
+  - wait:
+      until:
+        text:
+          regex: ^\d{1,2}:\d{2} 기준$
+    timeout: 15000
+  - see:
+      intent: 제1터미널
+      state:
+        selected: true
+  - assertText: 빨리 빠지는 순서
+  - checkEach:
+      pattern: ^(?<n>\d+)번$
+      rule:
+        and:
+          - ">=":
+              - var: n
+              - 1
+          - <=:
+              - var: n
+              - 6
+      min: 1
+  - assertText:
+      regex: "^(동편|서편) · "
+  - assertText: 추천
+  - checkEach:
+      pattern: 대기 (?<min>\d+)분, (?<level>원활|보통|혼잡|매우 혼잡)
+      rule:
+        or:
+          - and:
+              - ==:
+                  - var: level
+                  - 원활
+              - <:
+                  - var: min
+                  - 20
+          - and:
+              - ==:
+                  - var: level
+                  - 보통
+              - ">=":
+                  - var: min
+                  - 20
+              - <:
+                  - var: min
+                  - 40
+          - and:
+              - ==:
+                  - var: level
+                  - 혼잡
+              - ">=":
+                  - var: min
+                  - 40
+              - <:
+                  - var: min
+                  - 60
+          - and:
+              - ==:
+                  - var: level
+                  - 매우 혼잡
+              - ">=":
+                  - var: min
+                  - 60
+      min: 1
+  - assertNoText: 게이트
+  - assertNoText: DG
+  - assertNoText: 레인
+  - assertNoText: E/W
+  - assertNoText: 혼잡도
+  - assertNoText: 가장 빠른 곳
+  - assertNoText: 지금 가면 좋은 곳
+  - assertNoText: 탑승권
+  - assertNoText: 갱신 시각

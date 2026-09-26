@@ -1,0 +1,135 @@
+{
+  "key": "3393f0f7253681a70038b7d55ef237e114f521e94487c797df597890f24148f6",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db03390978849183f91ecf0c1315",
+  "latencyMs": 199,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | Enter URL | - | top",
+          "e2 | button | Account | - | top",
+          "e3 | image | Icon | - | top",
+          "e4 | text | Expo Go | - | top",
+          "e5 | text | DEVELOPMENT SERVERS | - | top",
+          "e6 | button | HELP | - | top",
+          "e7 | text | Start a local development server with: | - | top",
+          "e8 | text | npx expo start | - | top",
+          "e9 | text | Select the local server when it appears here. | - | top",
+          "e10 | text | • • • | - | middle",
+          "e11 | button | Open a new playground, Your own space to explore and learn | - | middle",
+          "e12 | text | RECENTLY OPENED | - | middle",
+          "e13 | button | CLEAR | - | middle",
+          "e14 | button | standalone | - | middle",
+          "e15 | button | standalone | - | middle",
+          "e16 | button | standalone | - | bottom",
+          "e17 | button | standalone | - | bottom",
+          "e18 | button | standalone | - | bottom",
+          "e19 | other | Tab Bar | - | bottom",
+          "e20 | tab | Home | value=\"1\", selected | bottom",
+          "e21 | tab | Learn | - | bottom",
+          "e22 | tab | Diagnostics | - | bottom",
+          "e23 | tab | Settings | - | bottom"
+        ],
+        "texts": [
+          "Enter URL",
+          "Account",
+          "Expo Go",
+          "DEVELOPMENT SERVERS",
+          "HELP",
+          "Start a local development server with:",
+          "npx expo start",
+          "Select the local server when it appears here.",
+          "• • •",
+          "Open a new playground",
+          "Your own space to explore and learn",
+          "RECENTLY OPENED",
+          "CLEAR",
+          "standalone",
+          "standalone",
+          "standalone",
+          "standalone",
+          "standalone"
+        ]
+      },
+      "intent": "standalone"
+    },
+    "questions": {
+      "target": {
+        "type": "choice",
+        "instructions": {
+          "question": "Which row of `screen.rows` is the on-screen element that `intent` refers to?",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "none": "Answer `none` when no row is the element that `intent` refers to (for example, it is not on this screen)."
+        },
+        "criteria": {
+          "e1": "button | Enter URL | - | top",
+          "e2": "button | Account | - | top",
+          "e3": "image | Icon | - | top",
+          "e4": "text | Expo Go | - | top",
+          "e5": "text | DEVELOPMENT SERVERS | - | top",
+          "e6": "button | HELP | - | top",
+          "e7": "text | Start a local development server with: | - | top",
+          "e8": "text | npx expo start | - | top",
+          "e9": "text | Select the local server when it appears here. | - | top",
+          "e10": "text | • • • | - | middle",
+          "e11": "button | Open a new playground, Your own space to explore and learn | - | middle",
+          "e12": "text | RECENTLY OPENED | - | middle",
+          "e13": "button | CLEAR | - | middle",
+          "e14": "button | standalone | - | middle",
+          "e15": "button | standalone | - | middle",
+          "e16": "button | standalone | - | bottom",
+          "e17": "button | standalone | - | bottom",
+          "e18": "button | standalone | - | bottom",
+          "e19": "other | Tab Bar | - | bottom",
+          "e20": "tab | Home | value=\"1\", selected | bottom",
+          "e21": "tab | Learn | - | bottom",
+          "e22": "tab | Diagnostics | - | bottom",
+          "e23": "tab | Settings | - | bottom",
+          "none": "No row is the element that `intent` refers to."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "e14",
+        "confidence": 0.83,
+        "probabilities": {
+          "e8": 0,
+          "e3": 0,
+          "e23": 0,
+          "e16": 0.02,
+          "e5": 0,
+          "e10": 0,
+          "e20": 0,
+          "e19": 0,
+          "e12": 0,
+          "none": 0.11,
+          "e17": 0,
+          "e11": 0,
+          "e6": 0,
+          "e18": 0,
+          "e4": 0,
+          "e13": 0,
+          "e2": 0,
+          "e14": 0.85,
+          "e7": 0,
+          "e1": 0,
+          "e21": 0,
+          "e22": 0,
+          "e9": 0,
+          "e15": 0.02
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 1399,
+      "output_tokens": 224
+    }
+  }
+}

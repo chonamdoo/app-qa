@@ -1,0 +1,60 @@
+# qa plan으로 생성됨 · 상태 draft · 계획 tests/generated/tteonam/plan.json
+id: parking-vacancy-types-levels
+name: 주차 탭 빈자리 수, 주차장 종류 필터, 주차 혼잡 단계와 용어 확인
+app: tteonam
+covers:
+  - context#주차-구역
+  - context#주차장-종류
+  - context#빈자리
+  - context#주차-혼잡
+source:
+  plan: tests/generated/tteonam/plan.json
+  status: draft
+steps:
+  - tap: 주차
+    expect:
+      see:
+        intent: 주차
+        state:
+          selected: true
+  - see:
+      intent: 빈자리
+      state:
+        selected: true
+  - see:
+      intent: T1
+      state:
+        selected: true
+  - see: 전체
+  - see: 단기
+  - see: 장기
+  - see: 예약
+  - checkEach:
+      pattern: ^(?<n>\d+)자리$
+      rule:
+        ">=":
+          - var: n
+          - 0
+      min: 1
+  - checkEach:
+      pattern: ^(?<level>여유|보통|혼잡|매우 혼잡|원활)$
+      rule:
+        in:
+          - var: level
+          - - 여유
+            - 보통
+            - 혼잡
+      min: 1
+  - assertNoText: 잔여
+  - assertNoText: 주차 대수
+  - assertNoText: 주차 타워
+  - tap: 단기
+    expect:
+      see:
+        intent: 단기
+        state:
+          selected: true
+  - assertText:
+      regex: "^단기 "
+  - assertNoText: 장기 P
+  - assertNoText: 예약 P

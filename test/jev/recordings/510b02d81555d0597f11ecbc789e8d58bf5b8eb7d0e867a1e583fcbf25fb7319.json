@@ -1,0 +1,72 @@
+{
+  "key": "510b02d81555d0597f11ecbc789e8d58bf5b8eb7d0e867a1e583fcbf25fb7319",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db1755e670edb00190ba90fd3d81",
+  "latencyMs": 186,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "context#항공편-검색",
+        "text": "[context#항공편-검색] 편명·도시·항공사로 항공편을 검색하면 오늘 인천 출발편 가운데 검색어와 일치하는 편이 목록에 보인다."
+      },
+      "test": {
+        "id": "flight-search",
+        "name": "항공사 이름으로 오늘 출발편을 찾는다",
+        "app": "tteonam",
+        "covers": [
+          "context#항공편-검색"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "tap": "출국장 탭"
+          },
+          {
+            "see": "추천 표시가 붙은 출국장 목록 항목"
+          },
+          {
+            "assertText": "원활"
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.08
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.88
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.58
+      }
+    },
+    "usage": {
+      "input_tokens": 558,
+      "output_tokens": 62
+    }
+  }
+}

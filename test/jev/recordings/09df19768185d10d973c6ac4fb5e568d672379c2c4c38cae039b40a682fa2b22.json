@@ -1,0 +1,75 @@
+{
+  "key": "09df19768185d10d973c6ac4fb5e568d672379c2c4c38cae039b40a682fa2b22",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db15ccb872e3b789e6bae081c039",
+  "latencyMs": 197,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | 닫기 | - | middle",
+          "e2 | heading | 내 항공편 | - | middle",
+          "e3 | text | 에티하드 항공 · EY827 | - | middle",
+          "e4 | text | 출발 | - | middle",
+          "e5 | other | ICN에서 아부다비 AUH로 | - | middle",
+          "e6 | text | 아부다비 | - | middle",
+          "e7 | other | 출발 01:25, 원래 01:35 | - | bottom",
+          "e8 | other | 게이트 12 | - | bottom",
+          "e9 | other | 터미널 T1 | - | bottom",
+          "e10 | other | 카운터 J27-J35 | - | bottom",
+          "e11 | text | 출발했어요 | - | bottom",
+          "e12 | text | 마지막 확인 06:10 | - | bottom",
+          "e13 | button | 항공편 바꾸기 | - | bottom",
+          "e14 | button | 새로고침 | - | bottom"
+        ],
+        "texts": [
+          "닫기",
+          "내 항공편",
+          "에티하드 항공 · EY827",
+          "출발",
+          "ICN",
+          "AUH",
+          "아부다비",
+          "출발",
+          "게이트",
+          "터미널",
+          "카운터",
+          "01:35",
+          "12",
+          "T1",
+          "J27-J35",
+          "01:25",
+          "출발했어요",
+          "마지막 확인 06:10",
+          "항공편 바꾸기",
+          "새로고침"
+        ]
+      },
+      "target": "e14 | button | 새로고침 | - | bottom"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.04
+      }
+    },
+    "usage": {
+      "input_tokens": 799,
+      "output_tokens": 21
+    }
+  }
+}

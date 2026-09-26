@@ -1,0 +1,79 @@
+{
+  "key": "6e3abf9603b90cc3e1632c2713370d86baeefe11dfb483522be27d7229bcb88c",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db1755337cdf9a75a43238f9384d",
+  "latencyMs": 178,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "context#기준-시각",
+        "text": "[context#기준-시각] 대기시간을 보여 주는 화면에는 그 값이 공항에서 수집된 기준 시각(예: \"08:20 기준\")이 함께 표시된다."
+      },
+      "test": {
+        "id": "reference-time",
+        "name": "대기시간 화면에 기준 시각이 보인다",
+        "app": "tteonam",
+        "covers": [
+          "context#기준-시각"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "assertText": {
+              "regex": "\\d{1,2}:\\d{2} 기준"
+            }
+          },
+          {
+            "tap": "출국장 탭"
+          },
+          {
+            "see": "빨리 빠지는 순서"
+          },
+          {
+            "assertText": {
+              "regex": "\\d{1,2}:\\d{2} 기준"
+            }
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.85
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.84
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.24
+      }
+    },
+    "usage": {
+      "input_tokens": 596,
+      "output_tokens": 62
+    }
+  }
+}

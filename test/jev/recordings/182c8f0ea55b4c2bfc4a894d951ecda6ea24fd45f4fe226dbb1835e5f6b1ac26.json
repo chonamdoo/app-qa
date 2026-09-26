@@ -1,0 +1,76 @@
+{
+  "key": "182c8f0ea55b4c2bfc4a894d951ecda6ea24fd45f4fe226dbb1835e5f6b1ac26",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db033d77700ba844ef415478d714",
+  "latencyMs": 214,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | 닫기 | - | middle",
+          "e2 | heading | 내 항공편 | - | middle",
+          "e3 | text | 에티하드 항공 · EY827 | - | middle",
+          "e4 | text | 출발 | - | middle",
+          "e5 | other | ICN에서 아부다비 AUH로 | - | middle",
+          "e6 | text | 아부다비 | - | middle",
+          "e7 | other | 출발 01:25, 원래 01:35 | - | bottom",
+          "e8 | other | 게이트 12 | - | bottom",
+          "e9 | other | 터미널 T1 | - | bottom",
+          "e10 | other | 카운터 J27-J35 | - | bottom",
+          "e11 | text | 출발했어요 | - | bottom",
+          "e12 | text | 마지막 확인 06:10 | - | bottom",
+          "e13 | button | 항공편 바꾸기 | - | bottom",
+          "e14 | button | 내 항공편 지우기 | - | bottom"
+        ],
+        "texts": [
+          "닫기",
+          "내 항공편",
+          "에티하드 항공 · EY827",
+          "출발",
+          "ICN",
+          "AUH",
+          "아부다비",
+          "출발",
+          "게이트",
+          "터미널",
+          "카운터",
+          "01:35",
+          "12",
+          "T1",
+          "J27-J35",
+          "01:25",
+          "출발했어요",
+          "마지막 확인 06:10",
+          "항공편 바꾸기",
+          "지우기"
+        ]
+      },
+      "claim": "항공편을 지우는 버튼이 있다"
+    },
+    "questions": {
+      "claim": {
+        "type": "noul",
+        "instructions": {
+          "question": "Does the visible evidence on this current screen support this specific claim?",
+          "claim": "The claim is `claim`. The current screen is `screen`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "absence": "A claim that something is absent or not shown is supported when nothing in `screen` shows it."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "claim": {
+        "type": "noul",
+        "noul": 0.98
+      }
+    },
+    "usage": {
+      "input_tokens": 817,
+      "output_tokens": 20
+    }
+  }
+}

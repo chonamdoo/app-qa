@@ -1,0 +1,15 @@
+{
+  "platform": "android",
+  "app": "tteonam",
+  "name": "search-results",
+  "windowRect": {
+    "width": 1080,
+    "height": 2400,
+    "x": 0,
+    "y": 0
+  },
+  "capturedAt": "2026-09-26T08:21:53+09:00",
+  "device": "emulator-5554 (Android 17, 1080x2400 @420dpi)",
+  "source": "Appium UiAutomator2 8.7.0 /source (enableMultiWindows=false)",
+  "notes": "Typed '대한항공' via setValue; results list rows contain '· 대한항공 ·'. Repeated row structure."
+}

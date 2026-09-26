@@ -1,0 +1,55 @@
+{
+  "key": "6c8e67d098e8b6e416d1d7400c6c68aab435ba9c6598fac625dd368912b6b846",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db15c9e379a884f40a2e1556ddb4",
+  "latencyMs": 199,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | text | Host | - | top",
+          "e2 | input | https://d2dzky5bdhec40.cloudfront.net | - | top",
+          "e3 | text | URL Scheme | - | top",
+          "e4 | input | granite://bare | - | top",
+          "e5 | text | Shared bundle url: | - | top",
+          "e6 | text | Service bundle url: | - | middle",
+          "e7 | button | Wipe all data | - | middle",
+          "e8 | button | Open Dev Server | - | middle"
+        ],
+        "texts": [
+          "Host",
+          "URL Scheme",
+          "Shared bundle url:",
+          "Service bundle url:",
+          "Wipe all data",
+          "Open Dev Server"
+        ]
+      },
+      "target": "e7 | button | Wipe all data | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.92
+      }
+    },
+    "usage": {
+      "input_tokens": 557,
+      "output_tokens": 21
+    }
+  }
+}

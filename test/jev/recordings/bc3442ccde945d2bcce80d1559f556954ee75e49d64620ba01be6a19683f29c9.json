@@ -1,0 +1,60 @@
+{
+  "key": "bc3442ccde945d2bcce80d1559f556954ee75e49d64620ba01be6a19683f29c9",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db0345c1712dba78a929039d0906",
+  "latencyMs": 184,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | heading | Ticket Estimate | - | top",
+          "e2 | text | Estimate your ticket total, entirely offline. | - | top",
+          "e3 | text | Bundled offer | - | top",
+          "e4 | text | US$12.50 per ticket | - | top",
+          "e5 | text | Tickets: 0 of 5 | - | top",
+          "e6 | text | Total: US$0.00 | - | middle",
+          "e7 | button | Remove | disabled | middle",
+          "e8 | button | Add | - | middle",
+          "e9 | text | Estimate only. Nothing is purchased or reserved. Your quantity is not saved after this screen session ends. | - | middle"
+        ],
+        "texts": [
+          "Ticket Estimate",
+          "Estimate your ticket total, entirely offline.",
+          "Bundled offer",
+          "US$12.50 per ticket",
+          "Tickets: 0 of 5",
+          "Total: US$0.00",
+          "Remove",
+          "Add",
+          "Estimate only. Nothing is purchased or reserved. Your quantity is not saved after this screen session ends."
+        ]
+      },
+      "claim": "The Remove button is disabled"
+    },
+    "questions": {
+      "claim": {
+        "type": "noul",
+        "instructions": {
+          "question": "Does the visible evidence on this current screen support this specific claim?",
+          "claim": "The claim is `claim`. The current screen is `screen`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "absence": "A claim that something is absent or not shown is supported when nothing in `screen` shows it."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "claim": {
+        "type": "noul",
+        "noul": 0.99
+      }
+    },
+    "usage": {
+      "input_tokens": 655,
+      "output_tokens": 20
+    }
+  }
+}

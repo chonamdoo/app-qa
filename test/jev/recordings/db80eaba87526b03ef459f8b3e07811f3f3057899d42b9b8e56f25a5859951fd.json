@@ -1,0 +1,94 @@
+{
+  "key": "db80eaba87526b03ef459f8b3e07811f3f3057899d42b9b8e56f25a5859951fd",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db1751b5787681b430790b30cb95",
+  "latencyMs": 275,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "context#내-항공편",
+        "text": "[context#내-항공편] 사용자가 항공편을 검색해 목록에서 고르면 그 운항편이 내 항공편으로 저장되고 홈 화면에 내 항공편으로 보인다. 저장은 한 번에 한 편만 있다."
+      },
+      "test": {
+        "id": "my-flight-save",
+        "name": "항공편을 검색해 고르면 홈에 내 항공편으로 보인다",
+        "app": "tteonam",
+        "covers": [
+          "context#내-항공편"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "tap": "항공편 찾기"
+          },
+          {
+            "type": "대한항공",
+            "into": "편명·도시·항공사"
+          },
+          {
+            "tap": "김해 PUS KE1401 항공편"
+          },
+          {
+            "tap": "홈"
+          },
+          {
+            "see": "내 탑승권 KE1401 카드"
+          },
+          {
+            "assertText": "KE1401"
+          },
+          {
+            "tap": "주차 탭"
+          },
+          {
+            "tap": "요금 미리 보기"
+          },
+          {
+            "tap": "장기"
+          },
+          {
+            "assertText": "장기"
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.77
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.24
+      }
+    },
+    "usage": {
+      "input_tokens": 690,
+      "output_tokens": 62
+    }
+  }
+}

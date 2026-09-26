@@ -1,0 +1,33 @@
+# qa plan으로 생성됨 · 상태 draft · 계획 tests/generated/tteonam/plan.json
+id: departures-t2-forecast-only
+name: 출국장 탭 T2에서는 대기시간·혼잡 단계·추천 없이 예상 인원만 표시
+app: tteonam
+covers:
+  - 0003-t2-departure-shows-forecast-only#t2-출국장은-예상-인원만-보여-주고-대기시간-혼잡-단계-추천은-보여-주지-않는다
+  - context#예상-인원
+source:
+  plan: tests/generated/tteonam/plan.json
+  status: draft
+steps:
+  - tap: 출국장
+    expect:
+      see:
+        intent: 출국장
+        state:
+          selected: true
+  - tap: 제2터미널
+    expect:
+      see:
+        intent: 제2터미널
+        state:
+          selected: true
+  - wait: 2000
+  - assertNoText:
+      regex: 대기 \d+분
+  - assertNoText: 추천
+  - assertNoText: 가장 빠름
+  - assertNoText: 원활
+  - assertNoText: 빨리 빠지는 순서
+  - assertNoText: 혼잡도
+  - assertNoText: 대기 인원
+  - claim: T2 출국장 정보는 실측 대기시간이 아닌 '예상' 인원으로 표시되어 있다

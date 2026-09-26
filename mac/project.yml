@@ -1,0 +1,48 @@
+name: AppQA
+options:
+  bundleIdPrefix: dev.appqa
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+  developmentLanguage: ko
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    DEAD_CODE_STRIPPING: YES
+targets:
+  AppQA:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/AppQA
+      - path: Resources/Assets.xcassets
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleName: AppQA
+        CFBundleDisplayName: App QA
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        CFBundleDevelopmentRegion: ko
+        LSApplicationCategoryType: public.app-category.developer-tools
+        LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
+        NSHumanReadableCopyright: app-qa
+        # Project root baked in by scripts/build-mac.sh (APPQA_ROOT); overridable in Settings.
+        AppQARoot: "$(APPQA_ROOT)"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.appqa.AppQA
+        PRODUCT_NAME: AppQA
+        GENERATE_INFOPLIST_FILE: NO
+        APPQA_ROOT: ""
+        # Ad-hoc signing, no sandbox: the app spawns node and reads the project tree.
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: NO

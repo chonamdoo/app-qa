@@ -1,0 +1,96 @@
+{
+  "key": "6e8879c76ddc74ed6a2b78e5264b876c5461673b8ad7f73528f6ac8518cec080",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db17545079d880342aea6e93485a",
+  "latencyMs": 280,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "context#떠나는-순서",
+        "text": "[context#떠나는-순서] 안내 탭의 떠나는 순서는 내 항공편 출발 시각에서 거꾸로 셈한 여섯 단계 — 집에서 출발, 주차하거나 내리기, 체크인·짐 맡기기, 출국장 보안검색, 면세·식사, 탑승 시작 — 를 보여 준다."
+      },
+      "test": {
+        "id": "departure-steps",
+        "name": "떠나는 순서 여섯 단계가 보인다",
+        "app": "tteonam",
+        "covers": [
+          "context#떠나는-순서"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "tap": "안내 탭"
+          },
+          {
+            "see": "떠나는 순서"
+          },
+          {
+            "assertText": "집에서 출발"
+          },
+          {
+            "assertText": "주차하거나 내리기"
+          },
+          {
+            "scroll": {
+              "direction": "down",
+              "until": {
+                "text": "탑승 시작"
+              },
+              "max": 5
+            }
+          },
+          {
+            "assertText": "체크인·짐 맡기기"
+          },
+          {
+            "assertText": "출국장 보안검색"
+          },
+          {
+            "assertText": "면세·식사"
+          },
+          {
+            "assertText": "탑승 시작"
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.74
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.22
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.21
+      }
+    },
+    "usage": {
+      "input_tokens": 714,
+      "output_tokens": 62
+    }
+  }
+}

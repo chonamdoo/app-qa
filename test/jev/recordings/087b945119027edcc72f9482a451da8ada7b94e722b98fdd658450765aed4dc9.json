@@ -1,0 +1,83 @@
+{
+  "key": "087b945119027edcc72f9482a451da8ada7b94e722b98fdd658450765aed4dc9",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db03421d7c24bca1ba444dd7bd37",
+  "latencyMs": 228,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | 설정 | - | top",
+          "e2 | image | 떠남 로고 | - | top",
+          "e3 | heading | 떠남 | - | top",
+          "e4 | heading | 내 항공편을 추가하세요 | - | top",
+          "e5 | text | 게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요. | - | top",
+          "e6 | button | 항공편 찾기 | - | middle",
+          "e7 | text | 8분 | - | middle",
+          "e8 | text | 원활 | - | middle",
+          "e9 | text | T1 출국장 평균 대기 · 가장 빠른 곳 5분 | - | middle",
+          "e10 | heading | 제1여객터미널 출국장 | - | middle",
+          "e11 | text | 08:21 기준 | - | middle",
+          "e12 | button | 출국장 4, 대기 8분, 원활 | - | bottom",
+          "e13 | button | 출국장 3, 대기 14분, 원활 | - | bottom",
+          "e14 | button | 출국장 5, 대기 5분, 원활, 가장 빠름 | - | bottom",
+          "e15 | button | 출국장 2, 대기 6분, 원활 | - | bottom",
+          "e16 | button | 출국장 6, 대기 6분, 원활 | - | bottom",
+          "e17 | button | 출국장 1, 대기 6분, 원활 | - | bottom",
+          "e18 | tab | 홈 | selected | bottom",
+          "e19 | tab | 출국장 | - | bottom",
+          "e20 | tab | 주차 | - | bottom",
+          "e21 | tab | 안내 | - | bottom"
+        ],
+        "texts": [
+          "설정",
+          "떠남",
+          "내 항공편을 추가하세요",
+          "게이트, 지연, 가장 빠른 출국장을 여기서 바로 봐요.",
+          "항공편 찾기",
+          "8분",
+          "원활",
+          "T1 출국장 평균 대기 · 가장 빠른 곳 5분",
+          "제1여객터미널 출국장",
+          "08:21 기준",
+          "출국장 4, 대기 8분, 원활",
+          "출국장 3, 대기 14분, 원활",
+          "출국장 5, 대기 5분, 원활, 가장 빠름",
+          "출국장 2, 대기 6분, 원활",
+          "출국장 6, 대기 6분, 원활",
+          "출국장 1, 대기 6분, 원활",
+          "홈",
+          "출국장",
+          "주차",
+          "안내"
+        ]
+      },
+      "claim": "내 탑승권 EY827이 표시되어 있다"
+    },
+    "questions": {
+      "claim": {
+        "type": "noul",
+        "instructions": {
+          "question": "Does the visible evidence on this current screen support this specific claim?",
+          "claim": "The claim is `claim`. The current screen is `screen`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "absence": "A claim that something is absent or not shown is supported when nothing in `screen` shows it."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "claim": {
+        "type": "noul",
+        "noul": 0.02
+      }
+    },
+    "usage": {
+      "input_tokens": 1100,
+      "output_tokens": 20
+    }
+  }
+}

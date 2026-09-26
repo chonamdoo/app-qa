@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AppiumAUT>
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="granite_ios" label="granite_ios" enabled="true" x="0" y="0" width="402" height="874" traits="" processId="84211" bundleId="io.tuist.granite-ios">
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" x="0" y="0" width="402" height="874" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="0" y="0" width="402" height="874" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" x="20" y="82" width="362" height="390" traits="">
+                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Host" name="Host" label="Host" enabled="true" x="20" y="82" width="362" height="21" traits="StaticText"/>
+                    <XCUIElementTypeTextField type="XCUIElementTypeTextField" value="https://d2dzky5bdhec40.cloudfront.net" label="" enabled="true" x="20" y="122" width="362" height="35" placeholderValue="https://d2dzky5bdhec40.cloudfront.net" traits=""/>
+                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="URL Scheme" name="URL Scheme" label="URL Scheme" enabled="true" x="20" y="176" width="362" height="21" traits="StaticText"/>
+                    <XCUIElementTypeTextField type="XCUIElementTypeTextField" value="granite://bare" label="" enabled="true" x="20" y="216" width="362" height="35" placeholderValue="granite://bare" traits=""/>
+                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Shared bundle url:&#10;" name="Shared bundle url:&#10;" label="Shared bundle url:&#10;" enabled="true" x="20" y="270" width="362" height="42" traits="StaticText"/>
+                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Service bundle url:&#10;" name="Service bundle url:&#10;" label="Service bundle url:&#10;" enabled="true" x="20" y="331" width="362" height="41" traits="StaticText"/>
+                    <XCUIElementTypeButton type="XCUIElementTypeButton" name="Submit" label="Submit" enabled="true" x="20" y="392" width="362" height="30" traits="Button">
+                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Submit" name="Submit" label="Submit" enabled="true" x="176" y="398" width="50" height="18" traits="StaticText"/>
+                    </XCUIElementTypeButton>
+                    <XCUIElementTypeButton type="XCUIElementTypeButton" name="Open Dev Server" label="Open Dev Server" enabled="true" x="20" y="442" width="362" height="30" traits="Button">
+                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Open Dev Server" name="Open Dev Server" label="Open Dev Server" enabled="true" x="142" y="448" width="118" height="18" traits="StaticText"/>
+                    </XCUIElementTypeButton>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+  </XCUIElementTypeApplication>
+</AppiumAUT>

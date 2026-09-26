@@ -1,0 +1,98 @@
+{
+  "key": "ade7170b89c51b85055b8a4fd53a47ce9dc2cbcd59acafab0df380eadb4e0d70",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db0348817331833144e97388de3b",
+  "latencyMs": 235,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | Enter URL | - | top",
+          "e2 | button | Account | - | top",
+          "e3 | image | Icon | - | top",
+          "e4 | text | Expo Go | - | top",
+          "e5 | text | DEVELOPMENT SERVERS | - | top",
+          "e6 | button | HELP | - | top",
+          "e7 | text | Start a local development server with: | - | top",
+          "e8 | text | npx expo start | - | top",
+          "e9 | text | Select the local server when it appears here. | - | top",
+          "e10 | text | • • • | - | middle",
+          "e11 | button | Open a new playground, Your own space to explore and learn | - | middle",
+          "e12 | text | RECENTLY OPENED | - | middle",
+          "e13 | button | CLEAR | - | middle",
+          "e14 | button | standalone | - | middle",
+          "e15 | button | standalone | - | middle",
+          "e16 | button | standalone | - | bottom",
+          "e17 | button | standalone | - | bottom",
+          "e18 | button | standalone | - | bottom",
+          "e19 | other | Tab Bar | - | bottom",
+          "e20 | tab | Home | value=\"1\", selected | bottom",
+          "e21 | tab | Learn | - | bottom",
+          "e22 | tab | Diagnostics | - | bottom",
+          "e23 | tab | Settings | - | bottom"
+        ],
+        "texts": [
+          "Enter URL",
+          "Account",
+          "Expo Go",
+          "DEVELOPMENT SERVERS",
+          "HELP",
+          "Start a local development server with:",
+          "npx expo start",
+          "Select the local server when it appears here.",
+          "• • •",
+          "Open a new playground",
+          "Your own space to explore and learn",
+          "RECENTLY OPENED",
+          "CLEAR",
+          "standalone",
+          "standalone",
+          "standalone",
+          "standalone",
+          "standalone"
+        ]
+      },
+      "options": [
+        "Expo Go home screen",
+        "Expo Go settings screen",
+        "Project loading screen"
+      ]
+    },
+    "questions": {
+      "screen": {
+        "type": "choice",
+        "instructions": {
+          "question": "Which option describes the current screen `screen`?",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        },
+        "criteria": {
+          "s0": "Expo Go home screen",
+          "s1": "Expo Go settings screen",
+          "s2": "Project loading screen",
+          "none": "still loading / none of these"
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "screen": {
+        "type": "choice",
+        "choice": "s0",
+        "confidence": 1,
+        "probabilities": {
+          "none": 0,
+          "s1": 0,
+          "s2": 0,
+          "s0": 1
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 914,
+      "output_tokens": 49
+    }
+  }
+}

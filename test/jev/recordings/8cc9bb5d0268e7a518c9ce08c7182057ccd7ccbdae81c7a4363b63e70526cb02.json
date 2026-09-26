@@ -1,0 +1,97 @@
+{
+  "key": "8cc9bb5d0268e7a518c9ce08c7182057ccd7ccbdae81c7a4363b63e70526cb02",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db0337607a9da2183aef415db4be",
+  "latencyMs": 214,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | 뒤로 | - | top",
+          "e2 | input | 설정 검색 | value=\"배터리\", focused | top",
+          "e3 | button | 텍스트 삭제 | - | top",
+          "e4 | text | 배터리 | - | top",
+          "e5 | button | 배터리 | - | top",
+          "e6 | button | 배터리 위젯 배터리 | - | top",
+          "e7 | button | 배터리 자동 조절 | - | middle",
+          "e8 | button | 배터리 잔량 비율 배터리 | - | middle",
+          "e9 | button | 배터리 자동 조절 사용 배터리 자동 조절 | - | middle",
+          "e10 | text | 배터리 사용량 | - | middle",
+          "e11 | button | 배터리 사용량 | - | middle"
+        ],
+        "texts": [
+          "뒤로",
+          "배터리",
+          "텍스트 삭제",
+          "배터리",
+          "배터리",
+          "배터리",
+          "배터리 위젯",
+          "배터리",
+          "배터리 자동 조절",
+          "배터리 자동 조절",
+          "배터리 잔량 비율",
+          "배터리",
+          "배터리 자동 조절 사용",
+          "배터리 자동 조절",
+          "배터리 사용량",
+          "배터리 사용량"
+        ]
+      },
+      "intent": "검색어 지우기"
+    },
+    "questions": {
+      "target": {
+        "type": "choice",
+        "instructions": {
+          "question": "Which row of `screen.rows` is the on-screen element that `intent` refers to?",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "none": "Answer `none` when no row is the element that `intent` refers to (for example, it is not on this screen)."
+        },
+        "criteria": {
+          "e1": "button | 뒤로 | - | top",
+          "e2": "input | 설정 검색 | value=\"배터리\", focused | top",
+          "e3": "button | 텍스트 삭제 | - | top",
+          "e4": "text | 배터리 | - | top",
+          "e5": "button | 배터리 | - | top",
+          "e6": "button | 배터리 위젯 배터리 | - | top",
+          "e7": "button | 배터리 자동 조절 | - | middle",
+          "e8": "button | 배터리 잔량 비율 배터리 | - | middle",
+          "e9": "button | 배터리 자동 조절 사용 배터리 자동 조절 | - | middle",
+          "e10": "text | 배터리 사용량 | - | middle",
+          "e11": "button | 배터리 사용량 | - | middle",
+          "none": "No row is the element that `intent` refers to."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "e3",
+        "confidence": 0.97,
+        "probabilities": {
+          "e5": 0,
+          "e8": 0,
+          "e3": 0.98,
+          "e1": 0,
+          "e2": 0.02,
+          "e9": 0,
+          "none": 0,
+          "e6": 0,
+          "e11": 0,
+          "e7": 0,
+          "e4": 0,
+          "e10": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 1029,
+      "output_tokens": 115
+    }
+  }
+}

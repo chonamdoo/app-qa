@@ -1,0 +1,63 @@
+{
+  "key": "43fa9977fa934771562f768d076c58ecc823800a27b68cfae2923698c38b42bd",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db0347657bb79119fcd33f37de59",
+  "latencyMs": 186,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | text | 현재 위치를 확인하고 있어요 | - | middle",
+          "e2 | text | 서진이가 지금 계신 곳을 찾고 있어요. | - | middle",
+          "e3 | button | 그만두기 | - | middle"
+        ],
+        "texts": [
+          "현재 위치를 확인하고 있어요",
+          "서진이가 지금 계신 곳을 찾고 있어요.",
+          "그만두기"
+        ]
+      },
+      "options": [
+        "홈 화면",
+        "지도 화면",
+        "설정 화면"
+      ]
+    },
+    "questions": {
+      "screen": {
+        "type": "choice",
+        "instructions": {
+          "question": "Which option describes the current screen `screen`?",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        },
+        "criteria": {
+          "s0": "홈 화면",
+          "s1": "지도 화면",
+          "s2": "설정 화면",
+          "none": "still loading / none of these"
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "screen": {
+        "type": "choice",
+        "choice": "none",
+        "confidence": 0.94,
+        "probabilities": {
+          "s1": 0.04,
+          "none": 0.96,
+          "s0": 0,
+          "s2": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 533,
+      "output_tokens": 48
+    }
+  }
+}

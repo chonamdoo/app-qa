@@ -1,0 +1,83 @@
+{
+  "key": "66612355dc4dd85e81363125e3eff4b66304c264eab857756106994358ecfdcd",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db0345ee777081b8ca30d0e03ce6",
+  "latencyMs": 199,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | Enter URL | - | top",
+          "e2 | button | Account | - | top",
+          "e3 | image | Icon | - | top",
+          "e4 | text | Expo Go | - | top",
+          "e5 | text | DEVELOPMENT SERVERS | - | top",
+          "e6 | button | HELP | - | top",
+          "e7 | text | Start a local development server with: | - | top",
+          "e8 | text | npx expo start | - | top",
+          "e9 | text | Select the local server when it appears here. | - | top",
+          "e10 | text | • • • | - | middle",
+          "e11 | button | Open a new playground, Your own space to explore and learn | - | middle",
+          "e12 | text | RECENTLY OPENED | - | middle",
+          "e13 | button | CLEAR | - | middle",
+          "e14 | button | standalone | - | middle",
+          "e15 | button | standalone | - | middle",
+          "e16 | button | standalone | - | bottom",
+          "e17 | button | standalone | - | bottom",
+          "e18 | button | standalone | - | bottom",
+          "e19 | other | Tab Bar | - | bottom",
+          "e20 | tab | Home | value=\"1\", selected | bottom",
+          "e21 | tab | Learn | - | bottom",
+          "e22 | tab | Diagnostics | - | bottom",
+          "e23 | tab | Settings | - | bottom"
+        ],
+        "texts": [
+          "Enter URL",
+          "Account",
+          "Expo Go",
+          "DEVELOPMENT SERVERS",
+          "HELP",
+          "Start a local development server with:",
+          "npx expo start",
+          "Select the local server when it appears here.",
+          "• • •",
+          "Open a new playground",
+          "Your own space to explore and learn",
+          "RECENTLY OPENED",
+          "CLEAR",
+          "standalone",
+          "standalone",
+          "standalone",
+          "standalone",
+          "standalone"
+        ]
+      },
+      "claim": "A running development server is listed"
+    },
+    "questions": {
+      "claim": {
+        "type": "noul",
+        "instructions": {
+          "question": "Does the visible evidence on this current screen support this specific claim?",
+          "claim": "The claim is `claim`. The current screen is `screen`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text.",
+          "absence": "A claim that something is absent or not shown is supported when nothing in `screen` shows it."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "claim": {
+        "type": "noul",
+        "noul": 0.25
+      }
+    },
+    "usage": {
+      "input_tokens": 877,
+      "output_tokens": 20
+    }
+  }
+}

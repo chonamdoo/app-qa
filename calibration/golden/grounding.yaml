@@ -1,0 +1,109 @@
+# Jev grounding 골든셋 (q-v1, jev-1.13.0) — 실측 fixture 기반, 정답은 후보 이름으로 참조(실행 시 키로 해석).
+#
+# ── 사전등록 기준 (2026-09-26, 첫 실호출 전에 작성·고정) ──────────────────────────────
+# 1. 확신 오답(confident-wrong) = 0 건. 정의:
+#    - 정답이 대상(target)인데 게이트가 다른 후보로 pass, 또는 not_found
+#    - 정답이 none(부재·가림)인데 게이트가 어떤 후보로든 pass
+#    - 정답이 ambiguous(같은 이름 중복)인데 게이트가 pass 또는 not_found
+# 2. 수용률(accepted / 전체) ≥ 80%. accepted = target→그 후보로 pass, none→not_found, ambiguous→ambiguous.
+#    ambiguous 판정으로 정답을 놓친 경우는 rejected(안전한 비수용).
+# 3. 기준은 엄격(strict, `see`) 게이트로 판정한다. 비엄격(tap/type)의 차이 구제(rescueGap)는 확신 오답을
+#    늘리지 않고 수용을 늘릴 때만 켠다.
+# 4. 임계값 탐색: 0.01 격자, (확신 오답 최소 → 수용 최대 → 경계 여백 leximin 최대) 순. 기준 미달이면
+#    레코드에 status: failed로 기록하고 런타임은 계속 fail-closed(uncalibrated).
+# 5. 숫자 크기 비교("가장 많이 남은")처럼 Jev가 약한 산술 의도는 제외(결정적 checkEach 대상).
+# 6. 한국어 성능은 언어별(ko/en)로 따로 보고한다. 골든셋 수정 시 다시 사전등록 후 재실행.
+# ── 정정 기록 (2026-09-26, 1차 실호출 직후; 위 기준·정답·항목은 그대로) ──
+# 4번의 3순위(동률 처리) 구현만 정정: 한쪽에만 항목이 있는 임계값이 느슨한 격자 끝(noneMin 0.30)으로 가던 결함.
+# 이제 결과가 같은 구간 안에서, 양쪽이 항목으로 막히면 중점, 한쪽이 격자 끝이면 보수적 끝을 고른다.
+# 1차 녹화 응답(test/jev/recordings)을 그대로 재사용해 다시 산출했다(재질의 없음).
+primitive: grounding
+criteria: { maxConfidentWrong: 0, minAcceptance: 0.8 }
+items:
+  # ── Android 떠남 홈 (내 항공편 EY827 등록됨) ──
+  - { id: g-al-01, screen: android/tteonam/launch, intent: 앱 설정 열기, expect: { target: 설정 }, tags: [paraphrase] }
+  - { id: g-al-02, screen: android/tteonam/launch, intent: 다른 항공편 검색하기, expect: { target: 다른 편 검색 }, tags: [paraphrase] }
+  - { id: g-al-03, screen: android/tteonam/launch, intent: 내 탑승권 카드, expect: { target: { includes: 내 탑승권 EY827 } }, tags: [paraphrase] }
+  - { id: g-al-04, screen: android/tteonam/launch, intent: 주차 탭, expect: { target: 주차 }, tags: [exact] }
+  - { id: g-al-05, screen: android/tteonam/launch, intent: 지도에서 가장 빠른 출국장, expect: { target: { includes: 가장 빠름 } }, tags: [semantic] }
+  - { id: g-al-06, screen: android/tteonam/launch, intent: 대기 15분인 출국장, expect: { target: { includes: '출국장 3, 대기 15분' } }, tags: [semantic] }
+  - { id: g-al-07, screen: android/tteonam/launch, intent: 로그인 버튼, expect: { none: absent }, tags: [none] }
+  - { id: g-al-08, screen: android/tteonam/launch, intent: 항공편 바꾸기 버튼, expect: { none: absent }, tags: [none] }
+  - { id: g-al-09, screen: android/tteonam/launch, intent: 안내 화면으로 가는 탭, expect: { target: 안내 }, tags: [paraphrase] }
+  # ── Android 내 항공편 시트 (배경 13개 가림) ──
+  - { id: g-as-01, screen: android/tteonam/my-flight-sheet, intent: 시트 닫기 버튼, expect: { target: 닫기 }, tags: [paraphrase] }
+  - { id: g-as-02, screen: android/tteonam/my-flight-sheet, intent: 등록한 항공편 삭제, expect: { target: 내 항공편 지우기 }, tags: [paraphrase] }
+  - { id: g-as-03, screen: android/tteonam/my-flight-sheet, intent: 다른 항공편으로 변경, expect: { target: 항공편 바꾸기 }, tags: [paraphrase] }
+  - { id: g-as-04, screen: android/tteonam/my-flight-sheet, intent: 집에서 출발 안내 카드, expect: { none: occluded }, tags: [occluded] }
+  - { id: g-as-05, screen: android/tteonam/my-flight-sheet, intent: 주차하거나 내리기 카드, expect: { none: occluded }, tags: [occluded] }
+  - { id: g-as-06, screen: android/tteonam/my-flight-sheet, intent: 하단 안내 탭, expect: { none: occluded }, tags: [occluded] }
+  - { id: g-as-07, screen: android/tteonam/my-flight-sheet, intent: 탑승 게이트 번호, expect: { target: { includes: 게이트 12 } }, tags: [semantic] }
+  # ── Android 출국장 탭 ──
+  - { id: g-ad-01, screen: android/tteonam/tab-departures, intent: 제2터미널 탭, expect: { target: 제2터미널 }, tags: [paraphrase] }
+  - { id: g-ad-02, screen: android/tteonam/tab-departures, intent: 출국장 4, expect: { ambiguous: { includes: 출국장 4 } }, tags: [duplicate] }
+  - { id: g-ad-03, screen: android/tteonam/tab-departures, intent: 출국장, expect: { ambiguous: 출국장 }, tags: [duplicate] }
+  - { id: g-ad-04, screen: android/tteonam/tab-departures, intent: 목록에서 추천 출국장, expect: { target: { includes: 추천 } }, tags: [semantic] }
+  - { id: g-ad-05, screen: android/tteonam/tab-departures, intent: 하단 탭 바의 출국장 탭, expect: { target: 출국장, nth: 2 }, tags: [duplicate-resolved] }
+  - { id: g-ad-06, screen: android/tteonam/tab-departures, intent: 홈으로 이동, expect: { target: 홈 }, tags: [paraphrase] }
+  - { id: g-ad-07, screen: android/tteonam/tab-departures, intent: 탑승권 열기, expect: { target: { includes: 탑승권 열기 } }, tags: [paraphrase] }
+  - { id: g-ad-08, screen: android/tteonam/tab-departures, intent: 제3터미널 탭, expect: { none: absent }, tags: [none] }
+  # ── Android 주차 탭 ──
+  - { id: g-ap-01, screen: android/tteonam/tab-parking, intent: 요금 미리 보기 탭, expect: { target: 요금 미리 보기 }, tags: [exact] }
+  - { id: g-ap-02, screen: android/tteonam/tab-parking, intent: 장기 주차 필터, expect: { target: 장기 }, tags: [paraphrase] }
+  - { id: g-ap-03, screen: android/tteonam/tab-parking, intent: 여유 있는 주차장, expect: { target: { includes: 단기 지하 3층 } }, tags: [semantic] }
+  - { id: g-ap-04, screen: android/tteonam/tab-parking, intent: 제2터미널 선택, expect: { target: T2 }, tags: [paraphrase] }
+  - { id: g-ap-05, screen: android/tteonam/tab-parking, intent: 장기 P2 타워 주차장, expect: { target: { includes: 장기 P2 타워 } }, tags: [near-duplicate] }
+  - { id: g-ap-06, screen: android/tteonam/tab-parking, intent: 장기 P2 주차장 (타워 말고), expect: { target: { includes: '장기 P2,' } }, tags: [near-duplicate] }
+  - { id: g-ap-07, screen: android/tteonam/tab-parking, intent: 전기차 충전소, expect: { none: absent }, tags: [none] }
+  # ── Android 항공편 검색 결과 ('대한항공') ──
+  - { id: g-ar-01, screen: android/tteonam/search-results, intent: 검색 입력창, expect: { target: 편명·도시·항공사, nth: 2 }, tags: [duplicate-resolved] }
+  - { id: g-ar-02, screen: android/tteonam/search-results, intent: 칭다오 가는 항공편, expect: { target: { includes: 칭다오 TAO } }, tags: [repeated-rows] }
+  - { id: g-ar-03, screen: android/tteonam/search-results, intent: KE2189편, expect: { target: { includes: KE2189 } }, tags: [repeated-rows] }
+  - { id: g-ar-04, screen: android/tteonam/search-results, intent: 내일 날짜 선택, expect: { target: 내일 }, tags: [paraphrase] }
+  - { id: g-ar-05, screen: android/tteonam/search-results, intent: 부산 김해행 항공편, expect: { target: { includes: 김해 PUS } }, tags: [repeated-rows] }
+  - { id: g-ar-06, screen: android/tteonam/search-results, intent: 주차 탭, expect: { none: occluded }, tags: [occluded] }
+  - { id: g-ar-07, screen: android/tteonam/search-results, intent: 도쿄 나리타행 항공편, expect: { none: absent }, tags: [none] }
+  - { id: g-ar-08, screen: android/tteonam/search-results, intent: 검색 창 닫기, expect: { target: 닫기 }, tags: [paraphrase] }
+  # ── Android 항공편 검색 (검색어 없음) ──
+  - { id: g-ae-01, screen: android/tteonam/search-empty-keyboard, intent: 쿠알라룸푸르행 항공편, expect: { target: { includes: 쿠알라룸푸르 } }, tags: [repeated-rows] }
+  - { id: g-ae-02, screen: android/tteonam/search-empty-keyboard, intent: 베트남 하노이 가는 비행기, expect: { target: { includes: 하노이 HAN } }, tags: [repeated-rows] }
+  - { id: g-ae-03, screen: android/tteonam/search-empty-keyboard, intent: 29일 화요일 날짜, expect: { target: 9월 29일 (화) }, tags: [paraphrase] }
+  - { id: g-ae-04, screen: android/tteonam/search-empty-keyboard, intent: 대한항공 김해행 항공편, expect: { none: absent }, tags: [none] }
+  # ── iOS 떠남 홈 (등록된 항공편 없음) ──
+  - { id: g-il-01, screen: ios/tteonam/launch, intent: 항공편 찾기 버튼, expect: { target: 항공편 찾기 }, tags: [exact] }
+  - { id: g-il-02, screen: ios/tteonam/launch, intent: 상단의 설정 아이콘, expect: { target: 설정 }, tags: [paraphrase] }
+  - { id: g-il-03, screen: ios/tteonam/launch, intent: 출국장 탭, expect: { target: 출국장 }, tags: [exact] }
+  - { id: g-il-04, screen: ios/tteonam/launch, intent: 지도의 출국장 3, expect: { target: { includes: '출국장 3,' } }, tags: [semantic] }
+  - { id: g-il-05, screen: ios/tteonam/launch, intent: 내 탑승권 카드, expect: { none: absent }, tags: [none] }
+  - { id: g-il-06, screen: ios/tteonam/launch, intent: 다른 편 검색, expect: { none: absent }, tags: [none] }
+  # ── iOS 항공편 검색 팝업 (배경 홈 가림) ──
+  - { id: g-ip-01, screen: ios/tteonam/search-popup, intent: 팝업 닫기, expect: { target: 닫기 }, tags: [paraphrase] }
+  - { id: g-ip-02, screen: ios/tteonam/search-popup, intent: 편명 입력 필드, expect: { target: 편명·도시·항공사, nth: 2 }, tags: [duplicate-resolved] }
+  - { id: g-ip-03, screen: ios/tteonam/search-popup, intent: 도하행 카타르항공 항공편, expect: { target: { includes: 도하 DOH } }, tags: [repeated-rows] }
+  - { id: g-ip-04, screen: ios/tteonam/search-popup, intent: 에티하드 EY827 항공편, expect: { target: { includes: EY827 } }, tags: [repeated-rows] }
+  - { id: g-ip-05, screen: ios/tteonam/search-popup, intent: 홈 화면의 항공편 찾기 버튼, expect: { none: occluded }, tags: [occluded] }
+  - { id: g-ip-06, screen: ios/tteonam/search-popup, intent: 하단 홈 탭, expect: { none: occluded }, tags: [occluded] }
+  # ── iOS 검색 결과 + 한국어 키보드 ──
+  - { id: g-ir-01, screen: ios/tteonam/search-results-keyboard, intent: 검색어 지우기, expect: { target: Clear text }, tags: [cross-language] }
+  - { id: g-ir-02, screen: ios/tteonam/search-results-keyboard, intent: 마닐라행 항공편, expect: { target: { includes: 마닐라 MNL } }, tags: [repeated-rows] }
+  - { id: g-ir-03, screen: ios/tteonam/search-results-keyboard, intent: 키보드의 검색 키, expect: { none: absent }, tags: [none, keyboard] }
+  # ── Android 설정 검색 ('배터리') ──
+  - { id: g-st-01, screen: android/settings/launch, intent: 뒤로 가기, expect: { target: 뒤로 }, tags: [paraphrase] }
+  - { id: g-st-02, screen: android/settings/launch, intent: 검색어 지우기, expect: { target: 텍스트 삭제 }, tags: [paraphrase] }
+  - { id: g-st-03, screen: android/settings/launch, intent: 배터리 사용량 항목, expect: { target: 배터리 사용량, nth: 2 }, tags: [duplicate-resolved] }
+  - { id: g-st-04, screen: android/settings/launch, intent: 배터리, expect: { ambiguous: 배터리 }, tags: [duplicate] }
+  - { id: g-st-05, screen: android/settings/launch, intent: Wi-Fi 설정, expect: { none: absent }, tags: [none] }
+  # ── 기타 앱 ──
+  - { id: g-ew-01, screen: android/easyway/launch, intent: 위치 확인 취소 버튼, expect: { target: 그만두기 }, tags: [paraphrase, loading] }
+  - { id: g-et-01, screen: android/example-tickets/launch, intent: Add a ticket, expect: { target: Add }, tags: [paraphrase] }
+  - { id: g-et-02, screen: android/example-tickets/launch, intent: Decrease the ticket quantity, expect: { target: Remove }, tags: [paraphrase] }
+  - { id: g-et-03, screen: android/example-tickets/launch, intent: Checkout button, expect: { none: absent }, tags: [none] }
+  - { id: g-eg-01, screen: ios/expo-go/launch, intent: standalone, expect: { ambiguous: standalone }, tags: [duplicate] }
+  - { id: g-eg-02, screen: ios/expo-go/launch, intent: Settings tab, expect: { target: Settings }, tags: [exact] }
+  - { id: g-eg-03, screen: ios/expo-go/launch, intent: Clear the recently opened list, expect: { target: CLEAR }, tags: [paraphrase] }
+  - { id: g-eg-04, screen: ios/expo-go/launch, intent: Scan QR code button, expect: { none: absent }, tags: [none] }
+  - { id: g-eg-05, screen: ios/expo-go/launch, intent: Enter a URL manually, expect: { target: Enter URL }, tags: [paraphrase] }
+  - { id: g-gr-01, screen: ios/granite/launch, intent: Submit the form, expect: { target: Submit }, tags: [paraphrase] }
+  - { id: g-gr-02, screen: ios/granite/launch, intent: Open the dev server, expect: { target: Open Dev Server }, tags: [paraphrase] }
+  - { id: g-te-01, screen: android/ticketestimate/launch, intent: Reload the app, expect: { target: 'RELOAD (R, R)' }, tags: [paraphrase, redbox] }
+  - { id: g-te-02, screen: android/ticketestimate/launch, intent: 에러 화면 닫기, expect: { target: DISMISS (ESC) }, tags: [cross-language, redbox] }

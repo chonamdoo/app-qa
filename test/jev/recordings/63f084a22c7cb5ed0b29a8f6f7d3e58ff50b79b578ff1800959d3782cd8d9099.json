@@ -1,0 +1,75 @@
+{
+  "key": "63f084a22c7cb5ed0b29a8f6f7d3e58ff50b79b578ff1800959d3782cd8d9099",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db0348627483a8c87de31605494b",
+  "latencyMs": 201,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | heading | Ticket Estimate | - | top",
+          "e2 | text | Estimate your ticket total, entirely offline. | - | top",
+          "e3 | text | Bundled offer | - | top",
+          "e4 | text | US$12.50 per ticket | - | top",
+          "e5 | text | Tickets: 0 of 5 | - | top",
+          "e6 | text | Total: US$0.00 | - | middle",
+          "e7 | button | Remove | disabled | middle",
+          "e8 | button | Add | - | middle",
+          "e9 | text | Estimate only. Nothing is purchased or reserved. Your quantity is not saved after this screen session ends. | - | middle"
+        ],
+        "texts": [
+          "Ticket Estimate",
+          "Estimate your ticket total, entirely offline.",
+          "Bundled offer",
+          "US$12.50 per ticket",
+          "Tickets: 0 of 5",
+          "Total: US$0.00",
+          "Remove",
+          "Add",
+          "Estimate only. Nothing is purchased or reserved. Your quantity is not saved after this screen session ends."
+        ]
+      },
+      "options": [
+        "Ticket estimate screen",
+        "Checkout screen",
+        "Login screen"
+      ]
+    },
+    "questions": {
+      "screen": {
+        "type": "choice",
+        "instructions": {
+          "question": "Which option describes the current screen `screen`?",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        },
+        "criteria": {
+          "s0": "Ticket estimate screen",
+          "s1": "Checkout screen",
+          "s2": "Login screen",
+          "none": "still loading / none of these"
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "screen": {
+        "type": "choice",
+        "choice": "s0",
+        "confidence": 1,
+        "probabilities": {
+          "none": 0,
+          "s0": 1,
+          "s1": 0,
+          "s2": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 685,
+      "output_tokens": 49
+    }
+  }
+}

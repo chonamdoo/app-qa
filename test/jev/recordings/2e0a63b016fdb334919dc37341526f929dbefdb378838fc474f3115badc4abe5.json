@@ -1,0 +1,72 @@
+{
+  "key": "2e0a63b016fdb334919dc37341526f929dbefdb378838fc474f3115badc4abe5",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db1753767bc6879a6f0446194d65",
+  "latencyMs": 201,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "adr-0003#t2-예상-인원",
+        "text": "[adr-0003#t2-예상-인원] 제2터미널 출국장 화면은 현재 시간대 예상 인원만 \"예상\"이라고 밝혀 보여 주고, 대기시간·혼잡 단계·추천 출국장은 보여 주지 않는다."
+      },
+      "test": {
+        "id": "t2-forecast-only",
+        "name": "T2는 예상 인원만 보여 준다",
+        "app": "tteonam",
+        "covers": [
+          "adr-0003#t2-예상-인원"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "tap": "출국장 탭"
+          },
+          {
+            "tap": "제2터미널 탭"
+          },
+          {
+            "assertText": "예상"
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.27
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.28
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.36
+      }
+    },
+    "usage": {
+      "input_tokens": 581,
+      "output_tokens": 62
+    }
+  }
+}

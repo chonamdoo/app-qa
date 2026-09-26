@@ -1,0 +1,72 @@
+{
+  "key": "9c6f9ed9c63d3f79d3ff6edb69e83d647b66e2413e03c519d0cad322434483b6",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db1756fc7668b39006e98e1aa659",
+  "latencyMs": 212,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "memo#정확성",
+        "text": "[memo#정확성] 주차 정보는 항상 정확해야 한다."
+      },
+      "test": {
+        "id": "parking-accuracy",
+        "name": "주차 정보가 정확하다",
+        "app": "tteonam",
+        "covers": [
+          "memo#정확성"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "tap": "주차 탭"
+          },
+          {
+            "see": "단기 지하 1층 주차 구역"
+          },
+          {
+            "assertText": "자리"
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.17
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.53
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.67
+      }
+    },
+    "usage": {
+      "input_tokens": 510,
+      "output_tokens": 62
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "key": "ebeea9c11978c5a6b5f50be44371cb647fe073ff831cf45ade4fd303b0d00332",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db15cbf2750e8d8d0eac47a71d48",
+  "latencyMs": 417,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | button | 뒤로 | - | top",
+          "e2 | input | 설정 검색 | value=\"배터리\", focused | top",
+          "e3 | button | 텍스트 삭제 | - | top",
+          "e4 | text | 배터리 | - | top",
+          "e5 | button | 배터리 | - | top",
+          "e6 | button | 배터리 위젯 배터리 | - | top",
+          "e7 | button | 배터리 자동 조절 | - | middle",
+          "e8 | button | 배터리 잔량 비율 배터리 | - | middle",
+          "e9 | button | 배터리 자동 조절 사용 배터리 자동 조절 | - | middle",
+          "e10 | text | 배터리 사용량 | - | middle",
+          "e11 | button | 배터리 사용량 | - | middle"
+        ],
+        "texts": [
+          "뒤로",
+          "배터리",
+          "텍스트 삭제",
+          "배터리",
+          "배터리",
+          "배터리",
+          "배터리 위젯",
+          "배터리",
+          "배터리 자동 조절",
+          "배터리 자동 조절",
+          "배터리 잔량 비율",
+          "배터리",
+          "배터리 자동 조절 사용",
+          "배터리 자동 조절",
+          "배터리 사용량",
+          "배터리 사용량"
+        ]
+      },
+      "target": "e1 | button | 뒤로 | - | top"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.07
+      }
+    },
+    "usage": {
+      "input_tokens": 717,
+      "output_tokens": 21
+    }
+  }
+}

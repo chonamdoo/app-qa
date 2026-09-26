@@ -1,0 +1,92 @@
+{
+  "key": "581190600578d4970894e830d6f89c9f6ebd869c004e294b78e0244ecd64b116",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db17538d7313ab8b2d22a88d4c57",
+  "latencyMs": 206,
+  "request": {
+    "state": {
+      "requirement": {
+        "id": "context#요금-미리-보기",
+        "text": "[context#요금-미리-보기] 요금 미리 보기는 주차장 종류, 머무는 기간, 감면 조건으로 셈한 예상 주차 요금을 보여 주며, 실제 정산 금액이 아님을 밝힌다."
+      },
+      "test": {
+        "id": "parking-fee-preview",
+        "name": "조건을 고르면 예상 주차 요금이 보인다",
+        "app": "tteonam",
+        "covers": [
+          "context#요금-미리-보기"
+        ],
+        "steps": [
+          {
+            "launch": true
+          },
+          {
+            "tap": "주차 탭"
+          },
+          {
+            "tap": "요금 미리 보기"
+          },
+          {
+            "tap": "장기 주차장 종류"
+          },
+          {
+            "tap": "머무는 기간 3일"
+          },
+          {
+            "tap": "경차 감면"
+          },
+          {
+            "see": "예상 주차 요금 금액"
+          },
+          {
+            "assertText": {
+              "regex": "[0-9,]+원"
+            }
+          },
+          {
+            "assertText": "예상"
+          },
+          {
+            "claim": "표시된 금액이 실제 정산 금액이 아니라는 안내가 있다"
+          }
+        ]
+      }
+    },
+    "questions": {
+      "addresses_requirement": {
+        "type": "noul",
+        "instructions": "Do the steps and checks in `test` verify the behavior that `requirement.text` describes?"
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "instructions": "Does `test` contain steps or checks that are unrelated to `requirement.text` (not needed to reach or verify it)?"
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "instructions": "Is `requirement.text` too vague or ambiguous to test without asking its author for clarification?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "addresses_requirement": {
+        "type": "noul",
+        "noul": 0.85
+      },
+      "unrelated_steps": {
+        "type": "noul",
+        "noul": 0.18
+      },
+      "needs_clarification": {
+        "type": "noul",
+        "noul": 0.16
+      }
+    },
+    "usage": {
+      "input_tokens": 679,
+      "output_tokens": 62
+    }
+  }
+}

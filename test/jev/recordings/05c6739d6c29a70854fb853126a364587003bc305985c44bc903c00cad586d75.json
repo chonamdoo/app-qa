@@ -1,0 +1,47 @@
+{
+  "key": "05c6739d6c29a70854fb853126a364587003bc305985c44bc903c00cad586d75",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db034cc47239840a8d9b10fd4c14",
+  "latencyMs": 210,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | text | 현재 위치를 확인하고 있어요 | - | middle",
+          "e2 | text | 서진이가 지금 계신 곳을 찾고 있어요. | - | middle",
+          "e3 | button | 그만두기 | - | middle"
+        ],
+        "texts": [
+          "현재 위치를 확인하고 있어요",
+          "서진이가 지금 계신 곳을 찾고 있어요.",
+          "그만두기"
+        ]
+      },
+      "target": "e3 | button | 그만두기 | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.41
+      }
+    },
+    "usage": {
+      "input_tokens": 492,
+      "output_tokens": 21
+    }
+  }
+}

@@ -1,0 +1,28 @@
+# qa plan으로 생성됨 · 상태 draft · 계획 tests/generated/tteonam/plan.json
+id: terminal-one-departure-waits
+name: 제1터미널 출국장별 대기시간과 용어 확인
+app: tteonam
+platforms:
+  - android
+covers:
+  - inline#출국장-탭
+  - inline#출국장-탭.2
+source:
+  plan: tests/generated/tteonam/plan.json
+  status: draft
+steps:
+  - tap: 출국장
+  - see:
+      intent: 제1터미널
+      state:
+        selected: true
+  - see: 출국장 2, 서편, 대기 5분, 원활, 추천
+  - see: 출국장 5, 동편, 대기 5분, 원활
+  - checkEach:
+      pattern: ^(?<min>\d+)분$
+      rule:
+        ">=":
+          - var: min
+          - 0
+      min: 1
+  - assertNoText: 출국 게이트

@@ -1,0 +1,59 @@
+{
+  "key": "a8b1959aa47537af46398b4a1ddf5bae762761db8fb47b6eb762be10fd128e58",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db03496c76119717cfb3b1e07da0",
+  "latencyMs": 196,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | text | Local URI identity smoke | - | middle"
+        ],
+        "texts": [
+          "Local URI identity smoke"
+        ]
+      },
+      "options": [
+        "지도 화면",
+        "경로 검색 화면",
+        "로그인 화면"
+      ]
+    },
+    "questions": {
+      "screen": {
+        "type": "choice",
+        "instructions": {
+          "question": "Which option describes the current screen `screen`?",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        },
+        "criteria": {
+          "s0": "지도 화면",
+          "s1": "경로 검색 화면",
+          "s2": "로그인 화면",
+          "none": "still loading / none of these"
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "screen": {
+        "type": "choice",
+        "choice": "none",
+        "confidence": 0.86,
+        "probabilities": {
+          "s1": 0.04,
+          "s0": 0.04,
+          "s2": 0.03,
+          "none": 0.89
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 457,
+      "output_tokens": 48
+    }
+  }
+}

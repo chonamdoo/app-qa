@@ -1,0 +1,55 @@
+{
+  "key": "9dabbefd1179207cc1f6321f01e1cf441abe956e5336041e2ba0abdeba1f2dc0",
+  "model": "jev-1.13.0",
+  "questionVersion": "q-v1",
+  "requestId": "req_01a0db15ccb77efdb1eece954ab9ac59",
+  "latencyMs": 204,
+  "request": {
+    "state": {
+      "screen": {
+        "rows": [
+          "e1 | text | Host | - | top",
+          "e2 | input | https://d2dzky5bdhec40.cloudfront.net | - | top",
+          "e3 | text | URL Scheme | - | top",
+          "e4 | input | granite://bare | - | top",
+          "e5 | text | Shared bundle url: | - | top",
+          "e6 | text | Service bundle url: | - | middle",
+          "e7 | button | Submit | - | middle",
+          "e8 | button | Open Dev Server | - | middle"
+        ],
+        "texts": [
+          "Host",
+          "URL Scheme",
+          "Shared bundle url:",
+          "Service bundle url:",
+          "Submit",
+          "Open Dev Server"
+        ]
+      },
+      "target": "e8 | button | Open Dev Server | - | middle"
+    },
+    "questions": {
+      "commits": {
+        "type": "noul",
+        "instructions": {
+          "question": "Would activating `target` commit an irreversible or external change (delete, pay, send, sign out…)?",
+          "target": "`target` is one row of `screen.rows`.",
+          "screen": "`screen.rows` lists the elements as `key | role | name | state | region`; `screen.texts` is the visible text."
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "commits": {
+        "type": "noul",
+        "noul": 0.16
+      }
+    },
+    "usage": {
+      "input_tokens": 550,
+      "output_tokens": 21
+    }
+  }
+}
