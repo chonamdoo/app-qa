@@ -250,7 +250,7 @@ async function claimDevices(d: RunnerDeps, platforms: readonly Platform[], ids: 
     try {
       display.lock = d.acquireDisplayLock();
     } catch (err) {
-      displayProblem = { code: 'device_locked', reason: `데스크톱 화면 사용 중: ${message(err)}` };
+      displayProblem = { code: 'device_locked', reason: message(err) };
     }
     const unknown = display.lock ? d.readDisplayUnknown() : null;
     if (unknown) displayProblem = { code: 'display_unknown', reason: displayUnknownReason(unknown) };

@@ -393,7 +393,7 @@ describe('the desktop lane (every desktop browser on one display)', () => {
     ]);
     for (const t of held.result.tests.filter((t) => t.platform.startsWith('desktop'))) {
       assert.equal(t.qaStatus, 'BLOCKED');
-      assert.match(t.reason, new RegExp(`^데스크톱 화면 사용 중: 데스크톱 화면: 다른 qa 프로세스\\(pid ${process.pid}, `));
+      assert.match(t.reason, new RegExp(`^데스크톱 화면: 다른 qa 프로세스\\(pid ${process.pid}, `));
     }
     assert.equal(d['desktop-chrome'].called('open').length + d['desktop-safari'].called('open').length, 0);
     // Once released, a run from yet another project root opens its browsers.
