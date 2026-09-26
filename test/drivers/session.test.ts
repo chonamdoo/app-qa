@@ -175,6 +175,30 @@ describe('a tap that gives no input focus', () => {
   });
 });
 
+describe('a refusal after the tap was sent', () => {
+  it('typeText and clearText are uncertain, never rejected: the tap reached the device', async () => {
+    const refused: Reply = { status: 400, body: { value: { error: 'invalid element state', message: 'element is not editable' } } };
+    const stub = await startAppiumStub((req) => {
+      if (req.path === '/session/s1/element/active') return { body: { value: { [W3C_ELEMENT_KEY]: 'E1' } } };
+      if (req.path === '/session/s1/element/E1/clear') return refused;
+      return undefined;
+    });
+    const driver = new AndroidDriver('emulator-5554', { serverUrl: stub.url });
+    try {
+      await driver.open({ kind: 'app', platform: 'android', appId: 'kr.tteonam.app' });
+      for (const o of [await driver.typeText({ x: 10, y: 10 }, '대한항공'), await driver.clearText({ x: 10, y: 10 })]) {
+        assert.equal(o.status, 'uncertain', o.error ?? '');
+        assert.match(o.error ?? '', /^탭\(클릭\)은 이미 전달된 뒤 거부됨 — 행동의 효과를 알 수 없음: .*element is not editable/);
+      }
+      assert.equal(stub.requests.filter((r) => r.path === '/session/s1/actions').length, 2);
+      assert.ok(!stub.requests.some((r) => r.path === '/session/s1/element/E1/value'));
+    } finally {
+      await driver.close();
+      stub.close();
+    }
+  });
+});
+
 describe('mutating mobile: scripts succeed only with their documented answer', () => {
   const AT = { x: 10, y: 10 };
   const IOS_APP = { kind: 'app' as const, platform: 'ios' as const, appId: 'kr.tteonam.app' };

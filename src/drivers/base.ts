@@ -114,6 +114,14 @@ const elapsed = (t0: number) => Math.round(performance.now() - t0);
 /** A tap that was sent but gave no element input focus: what the tap did is unknown, so it is `uncertain`, never `rejected`. */
 const NO_FOCUS: ActionOutcome = { status: 'uncertain', ms: 0, error: '탭은 보냈지만 입력 포커스가 생기지 않았습니다 (탭의 효과를 알 수 없음)' };
 
+/**
+ * The outcome of a later part (field lookup, clear, keys, Enter, window raise) of an action whose tap or click was
+ * already sent: never `rejected`, which says the device did nothing — a refusal there leaves the action `uncertain`.
+ */
+export function afterInput(o: ActionOutcome): ActionOutcome {
+  return o.status === 'rejected' ? { ...o, status: 'uncertain', error: `탭(클릭)은 이미 전달된 뒤 거부됨 — 행동의 효과를 알 수 없음: ${o.error ?? '이유 없음'}` } : o;
+}
+
 export abstract class AppiumDriver implements Driver {
   abstract readonly platform: Platform;
   readonly deviceId: string;
@@ -302,7 +310,7 @@ export abstract class AppiumDriver implements Driver {
         before = await this.readField(id);
       }
     });
-    if (prep.status !== 'completed' || !id || !before) return fail(prep);
+    if (prep.status !== 'completed' || !id || !before) return fail(afterInput(prep));
     const field: string = id;
     const base: FieldValue = before;
 
@@ -322,11 +330,11 @@ export abstract class AppiumDriver implements Driver {
         return fail({ status: 'completed', ms: 0, error: `INPUT_UNVERIFIED: 기대 "${mask(expected)}", 실제 "${mask(after.value)}"` }, mask(after.value), path);
       }
     } catch (err) {
-      return fail({ status: failureStatus(err), ms: 0, error: (err as Error).message }, null, path);
+      return fail(afterInput({ status: failureStatus(err), ms: 0, error: (err as Error).message }), null, path);
     }
     if (opts.submit) {
       const pressed = await this.press('enter');
-      if (pressed.status !== 'completed') return fail(pressed, mask(after.value), path);
+      if (pressed.status !== 'completed') return fail(afterInput(pressed), mask(after.value), path);
     }
     return { status: 'completed', ms: elapsed(t0), readBack: mask(after.value), path };
   }
@@ -346,7 +354,7 @@ export abstract class AppiumDriver implements Driver {
     if (o.status === 'completed' && value !== '') {
       return { status: 'completed', ms: elapsed(t0), readBack: value, path: 'setValue', error: `INPUT_UNVERIFIED: 지운 뒤 값 "${value}"` };
     }
-    return { ...o, ms: elapsed(t0), readBack: value, path: 'setValue' };
+    return { ...afterInput(o), ms: elapsed(t0), readBack: value, path: 'setValue' };
   }
 
   /** Polls until the keyboard state equals `shown` or time runs out; returns the final state. */

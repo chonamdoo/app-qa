@@ -195,25 +195,51 @@ describe('Safari input needs its window in front', () => {
     }, undefined, SAFARI);
   });
 
-  it('the keys of type/clear pass the same guard: a window lost after the click gets no keys, and the action is uncertain', async () => {
-    for (const act of ['type', 'clear'] as const) {
-      let clicked = false;
-      const override = (req: StubRequest): Reply | undefined => {
-        const body = req.body as { actions?: { type: string }[]; script?: string } | null;
-        if (req.path === '/session/s1/actions' && body?.actions?.[0]?.type === 'pointer') clicked = true;
-        // Another app takes the front between the click and the keys; raising the window does not win it back.
-        else if (clicked && req.path === '/session/s1/execute/sync' && body?.script === DESKTOP_SCRIPTS.focused) return { body: { value: false } };
-        return undefined;
-      };
-      await withDriver({ field: { value: '이전 값', password: false } }, async (d, stub) => {
-        const o = act === 'type' ? await d.typeText(AT, 'qa') : await d.clearText(AT);
-        assert.equal(o.status, 'uncertain', act);
-        assert.match(o.error ?? '', /필드 클릭은 전달됐지만 Safari 창이 앞으로 오지 않아 키를 보내지 않았습니다/, act);
-        assert.equal(stub.sources().length, 1, `${act}: the click only`);
-        assert.deepEqual(keysDown(stub), [], act);
-        assert.equal(stub.page.field?.value, '이전 값', act);
-      }, override, SAFARI);
+  it('after the click of type/clear nothing is rejected: a lost window, a refused raise or focus probe, or a lost Enter leave the action uncertain', async () => {
+    const noSuchWindow: Reply = { status: 404, body: { value: { error: 'no such window', message: 'window closed' } } };
+    /** What goes wrong once the click was sent (null = the default page answers). */
+    const after: Record<string, (req: StubRequest, script: string | undefined) => Reply | undefined> = {
+      // Another app takes the front between the click and the keys; raising the window does not win it back.
+      'window stays behind': (req, script) => (req.path === '/session/s1/execute/sync' && script === DESKTOP_SCRIPTS.focused ? { body: { value: false } } : undefined),
+      'raise refused': (req, script) => {
+        if (req.path === '/session/s1/execute/sync' && script === DESKTOP_SCRIPTS.focused) return { body: { value: false } };
+        return req.path === '/session/s1/window' ? noSuchWindow : undefined;
+      },
+      'focus probe refused': (req, script) => (req.path === '/session/s1/execute/sync' && script === DESKTOP_SCRIPTS.focused ? noSuchWindow : undefined),
+    };
+    for (const [name, fail] of Object.entries(after)) {
+      for (const act of ['type', 'clear'] as const) {
+        let clicked = false;
+        const override = (req: StubRequest): Reply | undefined => {
+          const body = req.body as { actions?: { type: string }[]; script?: string } | null;
+          if (req.path === '/session/s1/actions' && body?.actions?.[0]?.type === 'pointer') clicked = true;
+          else if (clicked) return fail(req, body?.script);
+          return undefined;
+        };
+        await withDriver({ field: { value: '이전 값', password: false } }, async (d, stub) => {
+          const o = act === 'type' ? await d.typeText(AT, 'qa') : await d.clearText(AT);
+          assert.equal(o.status, 'uncertain', `${name} / ${act}: ${o.error}`);
+          assert.match(o.error ?? '', /^탭\(클릭\)은 이미 전달된 뒤 거부됨/, `${name} / ${act}`);
+          assert.equal(stub.sources().length, 1, `${name} / ${act}: the click only`);
+          assert.deepEqual(keysDown(stub), [], `${name} / ${act}`);
+          assert.equal(stub.page.field?.value, '이전 값', `${name} / ${act}`);
+        }, override, SAFARI);
+      }
     }
+    // The window goes behind after the keys: the Enter of type.submit is not sent, and the action is uncertain.
+    let typedKeys = false;
+    const enterLost = (req: StubRequest): Reply | undefined => {
+      const body = req.body as { actions?: { type: string }[]; script?: string } | null;
+      if (req.path === '/session/s1/actions' && body?.actions?.[0]?.type === 'key') typedKeys = true;
+      else if (typedKeys && req.path === '/session/s1/execute/sync' && body?.script === DESKTOP_SCRIPTS.focused) return { body: { value: false } };
+      return undefined;
+    };
+    await withDriver({ field: { value: '', password: false } }, async (d, stub) => {
+      const o = await d.typeText(AT, 'qa', { submit: true });
+      assert.equal(o.status, 'uncertain', o.error ?? '');
+      assert.ok(!keysDown(stub).includes(W3C_KEYS.enter));
+      assert.equal(stub.page.field?.value, 'qa');
+    }, enterLost, SAFARI);
   });
 
   it('Chrome takes input in a background window without being raised', async () => {

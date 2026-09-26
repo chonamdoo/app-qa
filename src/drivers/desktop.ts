@@ -15,7 +15,7 @@ import { PLATFORM_INFO } from '../core/platform.ts';
 import type { ActionOutcome, AppTarget, Driver, Point, Rect, ResetMode, Snapshot, TypeOutcome, WebTarget } from '../core/types.ts';
 import { parseWebSource, WEB_EXTRACT_SCRIPT, webSourceFromExtract } from '../observe/web.ts';
 import { navigationProblem, targetProblem } from './appid.ts';
-import { failureStatus, RefusedError, StepError, valueMatches, type DriverOptions, type Key, type LaunchOptions } from './base.ts';
+import { afterInput, failureStatus, RefusedError, StepError, valueMatches, type DriverOptions, type Key, type LaunchOptions } from './base.ts';
 import { sliceLog } from './logs.ts';
 
 /** The deepest element at viewport point `(x, y)` (`arguments`), through open shadow roots, in `el` (null: nothing there). */
@@ -281,19 +281,16 @@ export class DesktopWebDriver implements Driver {
   /**
    * Real input (`fn` dispatches it). Safari drops WebDriver input while another app is in front (measured, Safari
    * 26.6: the click reached nothing), so on Safari an unfocused page gets its window raised before every input and must
-   * gain focus within RAISE_MS, else nothing more is sent: refused before the action's first input, `uncertain` once
-   * its click was sent (`clickSent`: the keys of type/clear).
+   * gain focus within RAISE_MS, else the input is refused unsent. A refusal after the same action's click was sent
+   * (the keys and Enter of type/clear) is `uncertain` there (`afterInput`).
    */
-  #input(fn: () => Promise<void>, opts: { clickSent?: boolean } = {}): Promise<ActionOutcome> {
+  #input(fn: () => Promise<void>): Promise<ActionOutcome> {
     return this.#act(async () => {
       if (this.platform === 'desktop-safari' && !(await this.#focused())) {
         await this.#api.raiseWindow();
         const deadline = performance.now() + RAISE_MS;
         while (!(await this.#focused())) {
-          if (performance.now() >= deadline) {
-            if (opts.clickSent) throw new StepError({ status: 'uncertain', ms: 0, error: '필드 클릭은 전달됐지만 Safari 창이 앞으로 오지 않아 키를 보내지 않았습니다 (다른 앱이 앞에 있음)' });
-            throw new RefusedError('Safari 창이 앞으로 오지 않아 입력을 보내지 않았습니다 (다른 앱이 앞에 있음 — 실행 중에는 Safari 창을 가리지 마세요)');
-          }
+          if (performance.now() >= deadline) throw new RefusedError('Safari 창이 앞으로 오지 않아 입력을 보내지 않았습니다 (다른 앱이 앞에 있음 — 실행 중에는 Safari 창을 가리지 마세요)');
           await delay(100);
         }
       }
@@ -415,8 +412,8 @@ export class DesktopWebDriver implements Driver {
   /**
    * Tap `at`, require a focused text field, clear it with ⌘A + Backspace (or move the caret to the end when appending),
    * type `text` as key actions in the same dispatch (through the same foreground guard as the click), then read the value
-   * back. Mismatch → `INPUT_UNVERIFIED`. A click that focused no text field is `uncertain`: it was sent, and what it did
-   * is unknown.
+   * back. Mismatch → `INPUT_UNVERIFIED`. Once the click was sent nothing is `rejected` (`afterInput`): a click that
+   * focused no text field, or a refused field lookup, raise or key dispatch, is `uncertain`.
    */
   async #fill(at: Point, text: string, opts: { secure?: boolean; append?: boolean }): Promise<TypeOutcome> {
     const t0 = performance.now();
@@ -432,13 +429,13 @@ export class DesktopWebDriver implements Driver {
       if (!field) throw new StepError({ status: 'uncertain', ms: 0, error: '클릭은 보냈지만 편집 가능한 입력 포커스가 생기지 않았습니다 (클릭의 효과를 알 수 없음)' });
     });
     const target = field as Field | null;
-    if (focus.status !== 'completed' || !target) return done(focus);
+    if (focus.status !== 'completed' || !target) return done(afterInput(focus));
     secure = target.secure;
     const expected = opts.append ? target.value + text : text;
     const chars = [...text];
     const strokes = [...(opts.append ? [END_STROKE] : CLEAR_STROKES), ...chars.map((c) => [c])];
-    const typed = await this.#input(() => this.#api.performActions(keyStrokes(strokes), 30_000 + 20 * chars.length), { clickSent: true });
-    if (typed.status !== 'completed') return done(typed);
+    const typed = await this.#input(() => this.#api.performActions(keyStrokes(strokes), 30_000 + 20 * chars.length));
+    if (typed.status !== 'completed') return done(afterInput(typed));
     let after: Field | null;
     try {
       after = await this.#readBack(target, expected);
@@ -462,7 +459,7 @@ export class DesktopWebDriver implements Driver {
     const typed = await this.#fill(at, text, opts);
     if (typed.status !== 'completed' || typed.error || !opts.submit) return typed;
     const pressed = await this.press('enter');
-    return { ...typed, ...pressed, ms: elapsed(t0) };
+    return { ...typed, ...afterInput(pressed), ms: elapsed(t0) };
   }
 
   clearText(at: Point): Promise<TypeOutcome> {
