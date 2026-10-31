@@ -45,7 +45,7 @@ import {
 } from '../spec/schema.ts';
 import type { z } from 'zod';
 import { checkHealth } from './health.ts';
-import { dHash, decodePng, hammingHex, type Raster } from './image.ts';
+import { decodePng, hammingHex, pngHash, type Raster } from './image.ts';
 import { findTabs, screenSlug, writeInventory } from './inventory.ts';
 import { navigationProblem } from '../policy/navigation.ts';
 import { assessRisk, labelRisk, type RiskAssessment } from '../policy/risk.ts';
@@ -219,17 +219,6 @@ function textOnly(until: TargetSpec | { text: TextMatchSpec }): TextMatchSpec | 
 
 function describeMatch(m: TextMatchSpec): string {
   return typeof m === 'string' ? `"${m}"` : `/${m.regex}/${m.flags ?? ''}`;
-}
-
-const hashCache = new WeakMap<Uint8Array, string | null>();
-
-function pngHash(png: Uint8Array | null): string | null {
-  if (!png) return null;
-  if (hashCache.has(png)) return hashCache.get(png)!;
-  const raster = decodePng(png);
-  const h = raster ? dHash(raster) : null;
-  hashCache.set(png, h);
-  return h;
 }
 
 export class TestSession {

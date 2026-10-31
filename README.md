@@ -16,6 +16,8 @@ node bin/qa.ts setup --browsers   # 웹 테스트도 할 때: Android Chrome 준
 node bin/qa.ts doctor         # 전체 상태 점검 (기기 설정은 바꾸지 않음)
 ```
 
+이미지 계산용 Rust 모듈은 선택 사항이다. 기본 `npm ci`·`qa setup`은 Rust를 설치하거나 빌드하지 않는다. Rust 1.94 이상과 C 도구가 준비된 환경에서 `npm run build:image-native`를 명시적으로 실행하면 scanline/RGB 복원·dHash와 실측 크기 이상 색상 통계에 native 모듈을 사용한다. 모듈이 없으면 기존 JavaScript를 사용한다. `APP_QA_IMAGE_BACKEND=js`로 기존 구현을 명시적으로 선택하고, `native`로 빌드를 필수화할 수 있다. 설치된 모듈의 손상·버전 불일치·실행 오류는 숨기지 않는다. Linux x64에서 검증했으며 macOS/Windows 빌드는 아직 검증하지 않았다. [지원 범위·실측·재현 방법](docs/performance/rust-image.md)을 확인한다.
+
 데스크톱 Safari는 macOS에서 한 번 "원격 자동화 허용"을 켜야 한다: `sudo safaridriver --enable` (또는 Safari 설정 › 고급 › 웹 개발자용 기능 보기 → 개발자 › 원격 자동화 허용).
 
 데스크톱 브라우저 창 종료를 확인하지 못한 실행은 이 Mac의 데스크톱 화면을 "알 수 없음"으로 표시하고(모든 checkout 공통), 표시가 남아 있는 동안 데스크톱 웹 테스트는 모두 BLOCKED(`display_unknown`)다. `qa doctor`가 이유와 시각을 보여 주며, 남은 자동화 브라우저 창을 닫은 뒤 `qa setup --browsers`로 지운다.
