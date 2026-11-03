@@ -1,6 +1,6 @@
-name: AppQA
+name: QAutra
 options:
-  bundleIdPrefix: dev.appqa
+  bundleIdPrefix: dev.qautra
   deploymentTarget:
     macOS: "15.0"
   createIntermediateGroups: true
@@ -12,31 +12,37 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     DEAD_CODE_STRIPPING: YES
 targets:
-  AppQA:
+  QAutra:
     type: application
     platform: macOS
     sources:
-      - path: Sources/AppQA
+      - path: Sources/QAutra
       - path: Resources/Assets.xcassets
+      - path: Resources/QAutra.icns
+        buildPhase: resources
+      - path: ../.tools/guest-runtime/GuestRuntime
+        type: folder
+        buildPhase: resources
     info:
       path: Resources/Info.plist
       properties:
-        CFBundleName: AppQA
-        CFBundleDisplayName: App QA
+        CFBundleName: QAutra
+        CFBundleDisplayName: QAutra
+        CFBundleIconFile: QAutra
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "1"
         CFBundleDevelopmentRegion: ko
         LSApplicationCategoryType: public.app-category.developer-tools
         LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
-        NSHumanReadableCopyright: app-qa
-        # Project root baked in by scripts/build-mac.sh (APPQA_ROOT); overridable in Settings.
-        AppQARoot: "$(APPQA_ROOT)"
+        NSHumanReadableCopyright: QAutra
+        # Project root baked in by scripts/build-mac.sh (QAUTRA_ROOT); overridable in Settings.
+        QAutraRoot: "$(QAUTRA_ROOT)"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.appqa.AppQA
-        PRODUCT_NAME: AppQA
+        PRODUCT_BUNDLE_IDENTIFIER: dev.qautra.QAutra
+        PRODUCT_NAME: QAutra
         GENERATE_INFOPLIST_FILE: NO
-        APPQA_ROOT: ""
+        QAUTRA_ROOT: ""
         # Ad-hoc signing, no sandbox: the app spawns node and reads the project tree.
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual

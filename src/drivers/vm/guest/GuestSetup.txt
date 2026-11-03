@@ -1,0 +1,82 @@
+QAutra guest preparation
+
+These instructions apply only inside the newly created, product-owned macOS virtual machine. Do not run them on the physical Mac. Do not share the host home directory or project with the VM.
+
+Prerequisites
+
+Complete the guest's Apple license agreement, Setup Assistant, and local account creation in the product-owned VM setup window. Log in to its graphical desktop. Guest administrator authorization installs a root-owned service that mounts only the two fixed virtiofs shares after boot. The browser agent remains an unprivileged user LaunchAgent. Browser automation never approves macOS permissions or license agreements for you.
+
+The host packager must place QAutraGuestAgent.app, setup-guest.sh, this file, and instance.json in the private QAutraKit directory. QAutraKit is read-only. QAutraStatus is a separate read-write bootstrap directory. Both shares must belong to this physical VM UUID, not to a browser context UUID.
+
+In Terminal INSIDE THE GUEST, first confirm that this reports 1:
+
+  /usr/sbin/sysctl -n kern.hv_vmm_present
+
+Then mount the private kit using the actual guest account's UID and GID:
+
+  sudo /bin/mkdir -m 755 /Volumes/QAutraKit
+  sudo /sbin/mount_virtiofs -r -u "$(id -u)" -g "$(id -g)" QAutraKit /Volumes/QAutraKit
+
+Do not replace an existing directory, mount, or installation if its identity is uncertain. The native installer checks the filesystem type, share tag, mount path, read-only mode, and private bootstrap files before installing anything.
+
+Safari guests
+
+Before creating the first session, open Safari INSIDE THE GUEST. In Safari Settings > Advanced, enable the features for web developers. In the guest Safari Develop menu, enable Allow Remote Automation. When required by guest macOS, run the following command INSIDE THE GUEST and approve its guest administrator prompt:
+
+  sudo /usr/bin/safaridriver --enable
+
+No host Safari setting, Accessibility grant, screen-recording grant, TCC database, SIP setting, or AMFI setting is needed or changed. The installer does not run this Safari authorization command for you. A real failed safaridriver session remains a preparation failure, not browser readiness.
+
+Install and submit the user LaunchAgent:
+
+  sh /Volumes/QAutraKit/setup-guest.sh
+
+Chrome guests
+
+Install the agent and download Stable Chrome for Testing plus its matching mac-arm64 ChromeDriver:
+
+  sh /Volumes/QAutraKit/setup-guest.sh --install-browser
+
+The downloads come from Google's official Chrome for Testing metadata and the exact storage.googleapis.com artifact paths selected by that metadata. The installer verifies Google code signatures, arm64 architecture, and matching bundle/driver versions before publishing the private browser directory. It retains all extracted browser resources and supplied notices. It never installs a host browser, Homebrew package, Node runtime, Python runtime, or Rust toolchain.
+
+The installed executable also exposes --install-browser for an explicitly authorized guest installation that has not installed its browser yet. It refuses an existing browser installation instead of silently upgrading or replacing it. Use the complete quoted executable path:
+
+  "$HOME/Library/Application Support/QAutraGuest/QAutraGuestAgent.app/Contents/MacOS/QAutraGuestAgent" --install-browser
+
+After every guest reboot
+
+The guest-only com.qautra.guest-mounts LaunchDaemon remounts QAutraKit read-only and QAutraStatus read-write using the guest UID/GID recorded at installation. It runs only in a virtual machine and never executes code from the host share as root. The user agent waits up to 120 seconds for those exact mounts and the initial NAT address/default route, then validates their identity and the new epoch before connecting. No manual mount or kickstart is required during normal boot. A preparation failure is not readiness.
+
+A start that has already acquired a control connection in the same guest boot is never resumed or reconnected automatically. A control disconnect, crash, malformed browser response, or dispatched timeout requires manager reconciliation and a confirmed physical VM stop/reboot with a fresh epoch. Do not replay the failed command or repeatedly kickstart an unknown owner.
+
+Connection and readiness
+
+The hello.json file contains only bootstrap identity, token hash, PID, addresses, and OS version. It is not a command mailbox and does not establish browser readiness. The agent reads connection.json once its matching boot configuration exists, verifies the exact server DER certificate SHA-256 pin, authenticates its own persistent control stream, and forwards browser commands only to guest-owned loopback driver processes. A successful real W3C POST /session supplies the browser version and capabilities.
+
+Chrome browser context UUIDs are separate from the physical VM UUID. Each active context owns a separate ChromeDriver and fresh private user-data directory. Safari permits one attached context in the guest graphical environment. Private localhost forwarding requires explicit parent-approved route.bind ports; the agent never derives grants from a URL, page, or settings file.
+
+Required guest video preparation
+
+Required attempt video uses ScreenCaptureKit and AVFoundation in this guest, not WebDriver screenshots or the physical Mac's display. The guest must have exactly one active, awake display, an unlocked graphical login owned by the agent user, enough private spool space, and Screen & System Audio Recording permission for the installed QAutraGuestAgent. No audio is collected.
+
+After installing the user agent, request that permission explicitly INSIDE THE GUEST:
+
+  "$HOME/Library/Application Support/QAutraGuest/QAutraGuestAgent.app/Contents/MacOS/QAutraGuestAgent" --request-recording-permission
+
+Approve the guest macOS prompt or enable the installed QAutraGuestAgent under the guest's System Settings > Privacy & Security > Screen & System Audio Recording. If guest macOS requires restarting the agent, finish setup and perform a confirmed guest stop/reboot before preparing a new epoch. Do not repeatedly kickstart an active or unknown owner. Host screen-recording permissions, host foreground/input, and host capture are never requested or used.
+
+Browser readiness and recorder readiness are separate. Preparation verifies the existing browser context first. Before browser session creation/navigation or other required changes, attach recording to that exact context/generation/guest PID/epoch/attempt and wait for a successfully written real ScreenCaptureKit frame. A permission flag, hello.json, elapsed delay, or a screenshot does not prove recorder readiness.
+
+Only one recorder may own the guest display. It stores private UUID-derived spool paths below QAutraStatus/recordings/<context UUID>/<recorder UUID>, binds all commands to the full identity, and exposes no client-selected guest path. Recording is limited to ten minutes and one GiB per segment. Idle ScreenCaptureKit callbacks are health observations, not fabricated video frames. Missing callbacks, incomplete frames, encoder backpressure, permission/GUI loss, or an exceeded limit blocks subsequent browser changes.
+
+Normal stop confirms capture termination, finalizes the movie, decodes every real video frame, and checks dimensions, timestamps, frame count, duration, size and SHA-256. The host retrieves bounded chunks over the same owned durable control channel into an exclusive private evidence file, checks the complete hash/size, syncs the file and parent directory, and only then confirms guest spool release. A stop/finalization/recovery error or lost acknowledgement is unknown, is never retried automatically, retains evidence/ownership, and requires reconciliation. A saved or partially finalized file is not by itself complete video evidence.
+
+Failure handling
+
+The service does not reconnect or retry mutations. An uncertain command quarantines every co-resident context and closes localhost tunnels. A confirmed W3C session delete plus driver termination can confirm a normal close; an unconfirmed session creation cannot be declared closed merely because a driver was killed. Stop the physical VM before releasing unknown ownership.
+
+The first installation refuses preexisting application/identity/LaunchAgent destinations. Failed browser staging directories are retained privately for diagnosis rather than adopted or overwritten. Do not delete an unknown active installation to bypass these checks.
+
+Limits
+
+Control frames are at most 16 MiB, request bodies 8 MiB, browser responses 15 MiB, retained command/output queues 32 MiB each, pending browser commands 32 globally and 4 per context, Chrome contexts 8, approved localhost ports 32, and active forwarding streams 64. Forwarding transfers at most 64 KiB per direction before waiting for the corresponding send completion. Tunnels time out after 120 seconds without traffic or 24 hours total. TLS establishment has a 15-second control timeout and a 10-second forwarding timeout. Browser command timeouts are at most 240 seconds, with a host deadline at most 300 seconds in the future. This guest implementation is IPv4-NAT bootstrap only; localhost forwarding binds both 127.0.0.1 and ::1.

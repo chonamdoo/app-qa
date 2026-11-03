@@ -3,9 +3,10 @@
 // Written once when the run finishes (evidence is final and sanitized by then); `qa report` never rewrites it, so the
 // hashes keep describing the bytes the run produced.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { basename, join, relative, resolve, sep } from 'node:path';
 import { sha256, writeJsonAtomic } from '../core/fsx.ts';
 import type { Platform } from '../core/types.ts';
+import { assertProductEvidenceRead } from '../core/product-evidence.ts';
 import { updateManifest } from './manifest.ts';
 import type { QaStatus } from './status.ts';
 import type { RunSummary, TestResult } from './types.ts';
@@ -44,6 +45,7 @@ function evidence(runDir: string, dir: string): { path: string; sha256: string }
   for (const e of readdirSync(root, { withFileTypes: true, recursive: true })) {
     if (!e.isFile()) continue;
     const file = join(e.parentPath, e.name);
+    assertProductEvidenceRead(resolve(runDir, '../../..'), basename(runDir), relative(runDir, file).split(sep).join('/'));
     const bytes = readFileSync(file);
     if (bytes.length > 0) out.push({ path: relative(runDir, file).split(sep).join('/'), sha256: sha256(bytes) });
   }

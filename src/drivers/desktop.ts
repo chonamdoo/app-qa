@@ -1,22 +1,25 @@
-// Desktop browser driver (Chrome / Safari on macOS): W3C WebDriver through the project Appium server
-// (appium-chromium-driver / appium-safari-driver). Every action is real input — mouse, wheel and keyboard actions in
-// viewport CSS px. Page scripts only observe: DOM extraction, focused-field read-back, elementFromPoint, activeElement,
-// history length.
+// Desktop browser input and observation through an owned headless Chrome or prepared worker W3C endpoint.
+// Page scripts observe only; actions use real WebDriver pointer, wheel and keyboard input in viewport CSS px.
 import { appendFileSync, readFileSync } from 'node:fs';
+import { arch, platform as hostPlatform, release } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import { AppiumClient, keyStrokes, tapGesture, unexpectedResponse, W3C_ELEMENT_KEY, W3C_KEYS, wheelScroll } from '../appium/client.ts';
-import { ensureAppium } from '../appium/server.ts';
-import { CHROMEDRIVER_DIR, SAFARI_AUTOMATION_HINT, type DesktopPlatform } from '../appium/setup.ts';
+import type { DesktopPlatform } from '../appium/setup.ts';
 import { ensureDir } from '../core/fsx.ts';
 import { PATHS } from '../core/config.ts';
 import { PLATFORM_INFO } from '../core/platform.ts';
+import type { ProjectFixtureBootstrap } from '../core/project-fixture.ts';
 import type { ActionOutcome, AppTarget, Driver, Point, Rect, ResetMode, Snapshot, TypeOutcome, WebTarget } from '../core/types.ts';
 import { parseWebSource, WEB_EXTRACT_SCRIPT, webSourceFromExtract } from '../observe/web.ts';
 import { navigationProblem, targetProblem } from './appid.ts';
 import { afterInput, failureStatus, RefusedError, StepError, valueMatches, type DriverOptions, type Key, type LaunchOptions } from './base.ts';
 import { sliceLog } from './logs.ts';
+import type { ChromeOwnerLocator } from '../core/chrome-owner.ts';
+import type { StartTargetRecording, TargetRecording } from '../core/recording.ts';
+import { ChromeOwnerClient, type ChromeOwnerOptions } from './chrome-owner-client.ts';
+import { resolveOwnedChromePage } from './chrome-page.ts';
 
 /** The deepest element at viewport point `(x, y)` (`arguments`), through open shadow roots, in `el` (null: nothing there). */
 const ELEMENT_AT = `
@@ -71,6 +74,27 @@ return active && active !== document.body && active !== document.documentElement
 return chain;`,
   hit: `${HIT_CHAIN}
 return chain.map((link) => link[1]);`,
+  // The origin check runs in the same script as the fetch, so a navigation in between cannot move the credentialed request.
+  fixtureWitness: `if (location.origin !== new URL(arguments[0]).origin) throw new Error('fixture_witness_origin');
+return (async () => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(arguments[0], { credentials: 'include', cache: 'no-store', redirect: 'error', signal: controller.signal });
+    if (!response.ok || !response.body || response.url !== arguments[0]) throw new Error('fixture_witness_refused');
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8', { fatal: true });
+    let total = 0, text = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > 262144) { await reader.cancel(); throw new Error('fixture_witness_size_limit'); }
+      text += decoder.decode(value, { stream: true });
+    }
+    return JSON.parse(text + decoder.decode());
+  } finally { clearTimeout(timer); }
+})();`,
 } as const;
 
 const Viewport = z.tuple([z.number(), z.number()]);
@@ -111,8 +135,6 @@ const LOG_POLL_MS = 1000;
 const RAISE_MS = 1500;
 /** Chrome reports a crashed renderer on the next command. */
 const TAB_CRASH = /tab crashed|page crash/i;
-/** safaridriver refusing a session because remote automation is off (or it was never enabled). */
-const SAFARI_AUTOMATION_OFF = /remote automation|safaridriver --enable|--enable' command line argument/i;
 
 const elapsed = (t0: number) => Math.round(performance.now() - t0);
 
@@ -123,10 +145,15 @@ function localStamp(ms: number): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
 }
 
+interface DesktopDriverOptions extends DriverOptions {
+  onUncertain?: (reason: string) => void;
+  nativeOwner?: () => Promise<Omit<ChromeOwnerOptions, 'deviceId'>>;
+}
+
 export class DesktopWebDriver implements Driver {
   readonly platform: DesktopPlatform;
   readonly deviceId: string;
-  readonly #opts: DriverOptions;
+  readonly #opts: DesktopDriverOptions;
   #client: AppiumClient | null = null;
   #target: WebTarget | null = null;
   /** Renderer crashes seen in command errors (Chrome answers the next command with "tab crashed"). */
@@ -137,17 +164,99 @@ export class DesktopWebDriver implements Driver {
   #draining: Promise<void> | null = null;
   /** Wheel input sources used so far: Safari ignores every scroll after the first on a reused wheel source (measured). */
   #wheels = 0;
-  /**
-   * Why a browser window of this driver may still be on the shared display: a session start or end that was not
-   * confirmed. Sticky for the driver's life (the lost session is never retried): no new session opens and every
-   * session end — `terminate`, `reset`, `open`, `close()` — fails `uncertain` so the desktop lane stops.
-   */
+  /** Sticky uncertainty: the owned guest browser may remain open, so later starts and closes cannot release its lease. */
   #displayUnknown: string | null = null;
+  #mutationGuard: (() => void) | undefined;
+  #nativeOwnerObserver: ((locator: ChromeOwnerLocator) => void) | undefined;
+  #ownedEndpoint: ChromeOwnerClient | null = null;
+  #chromeAddress: string | null = null;
+  #browserIdentity: Record<string, unknown> | null = null;
 
-  constructor(platform: DesktopPlatform, deviceId: string, opts: DriverOptions = {}) {
+  constructor(platform: DesktopPlatform, deviceId: string, opts: DesktopDriverOptions = {}) {
     this.platform = platform;
     this.deviceId = deviceId;
     this.#opts = opts;
+  }
+
+  setMutationGuard(guard: () => void): void {
+    this.#mutationGuard = guard;
+  }
+
+  setNativeOwnerObserver(observer: (locator: ChromeOwnerLocator) => void): void {
+    if (this.#ownedEndpoint) throw new RefusedError('원 native 시작 후 복구 binding을 교체하지 않습니다.');
+    this.#nativeOwnerObserver = observer;
+  }
+
+  protected beforeCommand(method: 'GET' | 'POST' | 'DELETE', path: string): void {
+    if (this.#ownedEndpoint && method === 'DELETE' && /^\/session\/[^/]+$/.test(path)) return;
+    this.#ownedEndpoint?.assertHealthy();
+    this.#mutationGuard?.();
+  }
+
+  protected async ownedEndpoint(): Promise<{ url: string; chrome?: ChromeOwnerClient }> {
+    if (this.platform !== 'desktop-chrome') throw new RefusedError('Safari는 준비된 실제 macOS worker에서만 실행할 수 있습니다.');
+    if (this.#opts.serverUrl) throw new RefusedError('호스트 Chrome은 외부 W3C endpoint를 채택하지 않습니다.');
+    const options = this.#opts.nativeOwner ? await this.#opts.nativeOwner() : { projectRoot: process.cwd() };
+    const chrome = new ChromeOwnerClient({ ...options, deviceId: this.deviceId, onCreated: locator => {
+      options.onCreated?.(locator);
+      this.#nativeOwnerObserver?.(locator);
+    } });
+    this.#ownedEndpoint = chrome;
+    await chrome.start();
+    return { url: chrome.url, chrome };
+  }
+
+  get nativeOwnerLocator(): ChromeOwnerLocator | null { return this.#ownedEndpoint?.locator ?? null; }
+
+  async startOwnedChromeRecording(input: Parameters<StartTargetRecording>[0]): Promise<TargetRecording> {
+    if (!this.#ownedEndpoint) throw new RefusedError('소유한 Chrome native 세션이 없습니다.');
+    return this.#ownedEndpoint.startRecording(input);
+  }
+
+  get ownedChromeIdentity(): Readonly<Record<string, unknown>> | null {
+    return this.#browserIdentity;
+  }
+
+  ownedChromeConnection(): { identity: { browserSessionId: string; profile: string; browserVersion: string; osVersion: string }; assertHealthy(): void; stop(): Promise<void> } {
+    const identity = z.object({ browserSessionId: z.string().min(1), profile: z.string().min(1), browserVersion: z.string().min(1), osVersion: z.string().min(1) }).parse(this.#browserIdentity);
+    return { identity, assertHealthy: () => this.assertOwnedChromeHealthy(), stop: () => this.close() };
+  }
+
+  assertOwnedChromeHealthy(): void {
+    if (!this.#ownedEndpoint || !this.#client?.sessionId || this.#displayUnknown) throw new RefusedError('소유한 Chrome native 세션이 준비되지 않았습니다.');
+    this.#ownedEndpoint.assertHealthy();
+  }
+
+  async applyProjectFixture(bootstrap: ProjectFixtureBootstrap, entryURL: string): Promise<void> {
+    const entry = new URL(entryURL);
+    if (!this.#target?.origins.includes(bootstrap.origin) || entry.origin !== bootstrap.origin || entry.username || entry.password || entry.hash || entry.search || !['http:', 'https:'].includes(entry.protocol)) throw new RefusedError('fixture cookie와 bootstrap entry는 승인된 실제 context origin에 결합되어야 합니다.');
+    await this.#api.navigate(entry.href, NAV_TIMEOUT_MS);
+    const actualURL = await this.#api.cmd('GET', '/url');
+    if (typeof actualURL !== 'string' || new URL(actualURL).origin !== entry.origin) throw new RefusedError('Bootstrap entry가 승인된 origin의 실제 문서로 열리지 않았습니다.');
+    const cookie = { ...bootstrap.cookie, expiry: Math.floor(Date.parse(bootstrap.lease.expiresAt) / 1000) };
+    try {
+      const response = await this.#api.cmd('POST', '/cookie', { cookie });
+      if (response !== null) throw unexpectedResponse('fixture cookie installation', response);
+      const actual = z.object({ name: z.string(), value: z.string(), domain: z.string(), path: z.string(), httpOnly: z.boolean(), secure: z.boolean(), sameSite: z.string().optional() }).parse(await this.#api.cmd('GET', `/cookie/${encodeURIComponent(cookie.name)}`));
+      if (actual.name !== cookie.name || actual.value !== cookie.value || actual.domain !== entry.hostname || actual.path !== '/' || !actual.httpOnly || actual.secure !== cookie.secure || actual.sameSite !== 'Strict') throw new RefusedError('실제 browser cookie가 승인된 host-only fixture authority와 다릅니다.');
+    } catch (error) {
+      // An install that failed or answered unexpectedly may still have set the credential, and the page may have navigated
+      // after the origin check; remove it from whichever host received it. The original failure stands either way, and
+      // the caller keeps the bootstrap effect unknown.
+      try { await this.#api.cmd('DELETE', `/cookie/${encodeURIComponent(cookie.name)}`); } catch { /* reported through the original failure */ }
+      throw error;
+    }
+  }
+
+  async projectFixtureWitness(url: string): Promise<unknown> {
+    const witness = new URL(url);
+    if (!this.#target?.origins.includes(witness.origin) || witness.username || witness.password || witness.hash || !['http:', 'https:'].includes(witness.protocol)) throw new RefusedError('fixture witness가 승인된 context origin 밖에 있습니다.');
+    return this.#api.executeScript(DESKTOP_SCRIPTS.fixtureWitness, [witness.href], 10_000);
+  }
+
+  async ownedChromePage(): Promise<string> {
+    if (!this.#ownedEndpoint || !this.#chromeAddress) throw new RefusedError('소유한 headless Chrome 세션이 없습니다.');
+    return resolveOwnedChromePage(this.#ownedEndpoint, this.#api);
   }
 
   get #api(): AppiumClient {
@@ -168,15 +277,12 @@ export class DesktopWebDriver implements Driver {
 
   #capabilities(): Record<string, unknown> {
     // Prompts are never answered on the runner's behalf: an open alert fails the next command instead.
-    const common = { 'appium:newCommandTimeout': 600, timeouts: { pageLoad: PAGE_LOAD_MS, script: 15_000 }, unhandledPromptBehavior: 'ignore' };
-    if (this.platform === 'desktop-safari') return { ...common, platformName: 'mac', browserName: 'safari', 'appium:automationName': 'Safari' };
+    const common = { timeouts: { pageLoad: PAGE_LOAD_MS, script: 15_000 }, unhandledPromptBehavior: 'ignore' };
+    if (this.platform === 'desktop-safari') return { ...common, platformName: 'mac', browserName: 'safari' };
     return {
       ...common,
       platformName: 'mac',
       browserName: 'chrome',
-      'appium:automationName': 'Chromium',
-      'appium:executableDir': ensureDir(CHROMEDRIVER_DIR),
-      'appium:autodownloadEnabled': true,
       'goog:chromeOptions': {
         args: ['--no-first-run', '--no-default-browser-check', '--disable-search-engine-choice-screen', '--lang=ko-KR'],
         prefs: { credentials_enable_service: false, profile: { password_manager_enabled: false, password_manager_leak_detection: false }, translate: { enabled: false } },
@@ -185,31 +291,32 @@ export class DesktopWebDriver implements Driver {
     };
   }
 
-  /**
-   * New browser session (fresh profile) sized to the target viewport. `rejected` (RefusedError) only when no browser
-   * window can remain: Appium did not start (no session request was sent), safaridriver refused remote automation, or
-   * the viewport could not be fitted and the session end was confirmed. A failed or timed-out session request is
-   * `uncertain`: the browser may have opened a window on the shared display (Appium also answers `session not created`
-   * for driver failures after the browser started). Refused `uncertain` while an earlier window may remain.
-   */
+  /** A failed creation is unknown until guest termination is confirmed; an HTTP error is not proof that no browser opened. */
   async #startSession(target: WebTarget): Promise<void> {
     if (this.#displayUnknown !== null) throw this.#displayUnknownError();
     const t0 = performance.now();
-    let url: string;
-    try {
-      url = this.#opts.serverUrl ?? (await ensureAppium()).url;
-    } catch (err) {
-      throw new RefusedError((err as Error).message);
-    }
-    const client = new AppiumClient(url);
+    const endpoint = await this.ownedEndpoint();
+    const url = endpoint.url;
+    this.#ownedEndpoint = endpoint.chrome ?? null;
+    const client = new AppiumClient(url, { beforeCommand: (method, path) => this.beforeCommand(method, path), ...(endpoint.chrome ? { nativeOwner: endpoint.chrome.credentials } : {}) });
     const capabilities = this.#capabilities();
+    if (endpoint.chrome) {
+      capabilities['goog:chromeOptions'] = { debuggerAddress: endpoint.chrome.debuggerAddress };
+    }
     try {
-      await client.createSession(capabilities);
+      const actual = await client.createSession(capabilities);
+      if (endpoint.chrome) {
+        const options = actual['goog:chromeOptions'];
+        const address = typeof options === 'object' && options !== null && 'debuggerAddress' in options ? options.debuggerAddress : null;
+        if (typeof address !== 'string' || address !== endpoint.chrome.debuggerAddress) throw new Error('소유 Chrome debugger identity가 원 native browser와 다릅니다.');
+        this.#chromeAddress = address;
+        if (typeof actual.browserVersion !== 'string' || !actual.browserVersion || !client.sessionId) throw new Error('실제 Chrome 버전·세션 identity가 없습니다.');
+        const commandLine = z.object({ arguments: z.array(z.string().min(1)).max(512) }).parse(await client.cmd('POST', '/goog/cdp/execute', { cmd: 'Browser.getBrowserCommandLine', params: {} }));
+        if (commandLine.arguments.filter(argument => argument.startsWith('--user-data-dir=')).length !== 1 || !commandLine.arguments.includes(`--user-data-dir=${endpoint.chrome.profile}`) || !commandLine.arguments.includes('--headless=new')) throw new Error('실제 Chrome 실행 인자가 원 소유 profile·headless 실행과 다릅니다.');
+        this.#browserIdentity = { browserSessionId: client.sessionId, browserVersion: actual.browserVersion, osVersion: release(), capabilities: actual, binary: endpoint.chrome.binary, profile: endpoint.chrome.profile, args: commandLine.arguments, os: { platform: hostPlatform(), release: release(), arch: arch() }, viewport: target.viewport };
+      }
     } catch (err) {
       const message = (err as Error).message;
-      if (this.platform === 'desktop-safari' && SAFARI_AUTOMATION_OFF.test(message)) {
-        throw new RefusedError(`Safari 원격 자동화가 허용되지 않아 세션을 만들 수 없습니다. ${SAFARI_AUTOMATION_HINT}. (safaridriver: ${message.slice(0, 300)})`);
-      }
       this.#displayUnknown = `브라우저 세션을 만들지 못했습니다(창이 남았을 수 있음): ${message}`;
       throw new StepError({ status: 'uncertain', ms: elapsed(t0), error: this.#displayUnknown });
     }
@@ -217,6 +324,11 @@ export class DesktopWebDriver implements Driver {
     this.#target = target;
     try {
       await this.#fitViewport(client, target.viewport);
+      if (this.#browserIdentity) {
+        const observed = await client.executeScript('return { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, userAgent: navigator.userAgent, language: navigator.language, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone };');
+        const identity = z.object({ width: z.number().positive(), height: z.number().positive(), dpr: z.number().positive(), userAgent: z.string().min(1), language: z.string().min(1), timezone: z.string().min(1) }).parse(observed);
+        this.#browserIdentity = { ...this.#browserIdentity, observed: identity };
+      }
     } catch (err) {
       await this.#endSession();
       throw new RefusedError((err as Error).message);
@@ -224,8 +336,18 @@ export class DesktopWebDriver implements Driver {
     if (this.#logFile) this.#logTimer ??= setInterval(() => void this.#drainLogs().catch(() => undefined), LOG_POLL_MS).unref();
   }
 
-  /** Resizes the window until `innerWidth × innerHeight` equals the viewport (browser chrome height differs per browser/state). */
+  /** Owned Chrome's CSS viewport must not depend on the host display; Safari keeps its real guest window. */
   async #fitViewport(client: AppiumClient, want: { width: number; height: number }): Promise<void> {
+    if (this.#ownedEndpoint) {
+      await client.cmd('POST', '/goog/cdp/execute', {
+        cmd: 'Emulation.setDeviceMetricsOverride',
+        params: { width: want.width, height: want.height, deviceScaleFactor: 1, mobile: false, screenWidth: want.width, screenHeight: want.height },
+      });
+      const actual = Viewport.safeParse(await client.executeScript(DESKTOP_SCRIPTS.viewport));
+      if (!actual.success || actual.data[0] !== want.width || actual.data[1] !== want.height) throw new Error('소유 Chrome의 실제 CSS viewport가 요청한 가상 화면과 다릅니다.');
+      if (this.#browserIdentity) this.#browserIdentity = { ...this.#browserIdentity, viewportMode: 'owned-chrome-desktop-metrics', deviceScaleFactor: 1 };
+      return;
+    }
     for (let attempt = 0; ; attempt++) {
       const raw = await client.executeScript(DESKTOP_SCRIPTS.viewport);
       const measured = Viewport.safeParse(raw);
@@ -255,6 +377,10 @@ export class DesktopWebDriver implements Driver {
     }
     try {
       await client.deleteSession();
+      await this.#ownedEndpoint?.close();
+      this.#ownedEndpoint = null;
+      this.#chromeAddress = null;
+      this.#browserIdentity = null;
     } catch (err) {
       this.#displayUnknown = `브라우저 세션 종료를 확인하지 못했습니다: ${(err as Error).message}`;
       throw new StepError({ status: 'uncertain', ms: 0, error: this.#displayUnknown });
@@ -270,11 +396,14 @@ export class DesktopWebDriver implements Driver {
   async #act(fn: () => Promise<void>): Promise<ActionOutcome> {
     const t0 = performance.now();
     try {
+      this.#mutationGuard?.();
       await fn();
       return { status: 'completed', ms: elapsed(t0) };
     } catch (err) {
       this.#noteFailure(err);
-      return { status: failureStatus(err), ms: elapsed(t0), error: (err as Error).message };
+      const outcome: ActionOutcome = { status: failureStatus(err), ms: elapsed(t0), error: (err as Error).message };
+      if (outcome.status === 'uncertain') this.#opts.onUncertain?.('guest_action_unknown');
+      return outcome;
     }
   }
 
@@ -290,7 +419,7 @@ export class DesktopWebDriver implements Driver {
         await this.#api.raiseWindow();
         const deadline = performance.now() + RAISE_MS;
         while (!(await this.#focused())) {
-          if (performance.now() >= deadline) throw new RefusedError('Safari 창이 앞으로 오지 않아 입력을 보내지 않았습니다 (다른 앱이 앞에 있음 — 실행 중에는 Safari 창을 가리지 마세요)');
+          if (performance.now() >= deadline) throw new RefusedError('guest 안의 Safari 창이 활성화되지 않아 입력을 보내지 않았습니다. 호스트의 창·포커스·자동화 설정은 변경하지 않습니다.');
           await delay(100);
         }
       }

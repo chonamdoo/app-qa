@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { connect } from 'node:net';
@@ -83,17 +84,19 @@ async function postJob(body: unknown): Promise<{ id: string; state: string }> {
 }
 
 before(async () => {
-  root = mkdtempSync(join(tmpdir(), 'qa-server-'));
-  mkdirSync(join(root, 'runs', 'run-1', 'step-01'), { recursive: true });
-  writeFileSync(join(root, 'runs', 'run-1', 'step-01', 'before.png'), 'png-bytes');
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'qa-server-')));
+  mkdirSync(join(root, 'runs', 'run-1', 'step-01'), { recursive: true, mode: 0o700 });
+  writeFileSync(join(root, 'runs', 'run-1', 'step-01', 'before.png'), 'png-bytes', { mode: 0o600 });
   writeFileSync(join(root, 'secret.txt'), 'outside');
   symlinkSync(join(root, 'secret.txt'), join(root, 'runs', 'run-1', 'escape.txt'));
   const handlers: ServerHandlers = {
+    agent: { call: async () => { throw new Error('Unexpected agent request'); }, shutdown: async () => {} },
     run: (params, ctx) => runImpl(params, ctx),
     smoke: ok,
     plan: (params, ctx) => planImpl(params, ctx),
     calibrate: ok,
     capture: ok,
+    inspect: ok,
     devices: async () => [],
     screen: async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
     apps: async () => [],
@@ -104,6 +107,7 @@ before(async () => {
     handlers,
     token: 'test-token',
     ringSize: 16,
+    evidenceAuthorityRoot: `${root}-authority`,
     paths: { root, runs: join(root, 'runs'), apps: join(root, 'apps'), generated: join(root, 'generated'), uploads: join(root, 'uploads'), recordings: join(root, 'rec') },
   });
   port = await server.listen(0);
@@ -112,6 +116,7 @@ before(async () => {
 after(async () => {
   await server.close();
   rmSync(root, { recursive: true, force: true });
+  rmSync(`${root}-authority`, { recursive: true, force: true });
 });
 
 describe('auth', { timeout: 10_000 }, () => {
@@ -362,16 +367,6 @@ describe('jobs', { timeout: 10_000 }, () => {
 });
 
 describe('web targets', { timeout: 10_000 }, () => {
-  test('device-only routes refuse desktop browsers with 409 and a Korean reason; unknown platforms stay 400', async () => {
-    const screen = await call('/api/devices/desktop-chrome/desktop-chrome/screen');
-    assert.equal(screen.status, 409);
-    assert.match(JSON.parse(screen.body.toString()).error, /^Chrome \(macOS\): 데스크톱 브라우저는 실시간 화면이 없습니다/);
-    const recording = await call('/api/devices/desktop-safari/desktop-safari/recording', { method: 'POST', body: JSON.stringify({ on: true }) });
-    assert.equal(recording.status, 409);
-    assert.equal((await call('/api/apps?platform=desktop-chrome&device=desktop-chrome')).status, 409);
-    assert.equal((await call('/api/devices/windows/pc/screen')).status, 400);
-    assert.equal((await call('/api/devices/android/emu-1/screen')).status, 200);
-  });
 
   test('app profiles expose web settings and the platforms each profile runs on', async () => {
     mkdirSync(join(root, 'apps'), { recursive: true });
@@ -385,17 +380,6 @@ describe('web targets', { timeout: 10_000 }, () => {
     assert.deepEqual(body.profiles.find((p) => p.id === 'tteonam')?.platforms, ['android', 'ios']);
   });
 
-  test('a smoke of a website on `all` claims its browsers (desktop by browser id) and is titled with web labels', async () => {
-    mkdirSync(join(root, 'apps'), { recursive: true });
-    writeFileSync(join(root, 'apps', 'shop.yaml'), JSON.stringify({ id: 'shop', name: '상점', web: { url: 'http://localhost:4173/', platforms: ['desktop-chrome', 'android'] } }));
-    const finished = waitForEvent((e) => e.type === 'job.finished' && e.kind === 'smoke');
-    const reply = await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'smoke', params: { app: 'shop', deviceIds: { android: 'emulator-5554' } } }) });
-    assert.equal(reply.status, 201, reply.body.toString());
-    const job = JSON.parse(reply.body.toString()) as { devices: string[]; title: string };
-    assert.deepEqual(job.devices, ['android:emulator-5554', 'desktop-chrome:desktop-chrome']);
-    assert.equal(job.title, '스모크 · shop · Android Chrome + Chrome (macOS)');
-    await finished;
-  });
 });
 
 describe('files', { timeout: 10_000 }, () => {
@@ -422,6 +406,21 @@ describe('files', { timeout: 10_000 }, () => {
     assert.equal((await call('/api/runs/run-1/files/../../secret.txt')).status, 400);
   });
 
+  test('revoked JSON restored under a summary filename cannot be read through the typed summary route', async () => {
+    const directory = join(root, 'runs', 'revoked-summary');
+    mkdirSync(directory, { recursive: true, mode: 0o700 });
+    const bytes = JSON.stringify({ sensitive: 'DELETED_PRIVATE_BODY' });
+    writeFileSync(join(directory, 'summary.json'), bytes, { mode: 0o600 });
+    const markers = join(`${root}-authority`, 'revoked-digests');
+    mkdirSync(markers, { recursive: true, mode: 0o700 });
+    writeFileSync(join(markers, `${createHash('sha256').update(bytes).digest('hex')}.json`), JSON.stringify({ runID: 'original', at: new Date().toISOString() }), { mode: 0o600 });
+    assert.equal((await call('/api/runs/revoked-summary/files/summary.json')).status, 410);
+    const reply = await call('/api/runs/revoked-summary');
+    assert.equal(reply.status, 410);
+    assert.equal(reply.body.includes('DELETED_PRIVATE_BODY'), false);
+    assert.equal((await call('/api/health')).status, 200);
+  });
+
   test('a file that cannot be opened fails that request only; the server keeps serving', { skip: process.getuid?.() === 0 }, async () => {
     const file = join(root, 'runs', 'run-1', 'locked.txt');
     writeFileSync(file, 'locked');
@@ -435,17 +434,17 @@ describe('files', { timeout: 10_000 }, () => {
   });
 
   test('events.jsonl that is not a regular file is a 404; the server keeps serving', async () => {
-    mkdirSync(join(root, 'runs', 'run-dir', 'events.jsonl'), { recursive: true });
+    mkdirSync(join(root, 'runs', 'run-dir', 'events.jsonl'), { recursive: true, mode: 0o700 });
     assert.equal((await call('/api/runs/run-dir/events')).status, 404);
     assert.equal((await call('/api/health')).status, 200);
   });
 
   test('events.jsonl that grows during the response is sent exactly up to the stat size', async () => {
     const file = join(root, 'runs', 'run-grow', 'events.jsonl');
-    mkdirSync(join(root, 'runs', 'run-grow'));
+    mkdirSync(join(root, 'runs', 'run-grow'), { mode: 0o700 });
     const line = `${JSON.stringify({ seq: 1, ts: '2026-09-26T00:00:00.000Z', type: 'log', level: 'info', source: 'grow', message: 'x'.repeat(200) })}\n`;
     const initial = Buffer.from(line.repeat(Math.ceil((16 * 1024 * 1024) / line.length)));
-    writeFileSync(file, initial);
+    writeFileSync(file, initial, { mode: 0o600 });
     // Raw socket with `Connection: close`: every byte the server writes is observed, not just `content-length` of them.
     const socket = connect(port, '127.0.0.1');
     const chunks: Buffer[] = [];

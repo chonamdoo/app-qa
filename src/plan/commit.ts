@@ -236,11 +236,15 @@ function sameFile(a: string, b: string): boolean {
 }
 
 function prune(planDir: string, stage: string, stale: readonly string[]): void {
+  const dirs: string[] = [];
   for (const rel of stale) {
     const file = join(planDir, rel);
     rmSync(file, { force: true });
     removeEmptyDir(dirname(file), planDir);
+    dirs.push(dirname(file), dirname(dirname(file)));
   }
+  // Keep the recovery record until deleted tests and any removed directory entries are durable.
+  fsyncDirs(dirs);
   discard(planDir, stage);
 }
 
@@ -250,6 +254,7 @@ function discard(planDir: string, stage: string): void {
   rmSync(join(stage, MANIFEST), { force: true });
   fsyncDir(stage);
   rmSync(stage, { recursive: true, force: true });
+  fsyncDir(dirname(stage));
 }
 
 function readManifest(file: string): Manifest {

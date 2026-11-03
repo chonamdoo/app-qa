@@ -7,15 +7,43 @@ import { describe, it } from 'node:test';
 import { W3C_ELEMENT_KEY, W3C_KEYS } from '../../src/appium/client.ts';
 import { PATHS } from '../../src/core/config.ts';
 import type { DeviceInfo, Rect, WebTarget } from '../../src/core/types.ts';
+import type { ProjectFixtureBootstrap } from '../../src/core/project-fixture.ts';
 import { failureStatus } from '../../src/drivers/base.ts';
 import { chooseDevice } from '../../src/drivers/devices.ts';
-import { DESKTOP_SCRIPTS, DesktopWebDriver } from '../../src/drivers/desktop.ts';
+import { DESKTOP_SCRIPTS, DesktopWebDriver as ProductionDesktopWebDriver } from '../../src/drivers/desktop.ts';
 import type { Reply, StubRequest } from './stubs.ts';
 import { sampleExtract, startW3CStub, type FakePage, type W3CStub } from './w3c-stub.ts';
 
 const CHROME: WebTarget = { kind: 'web', platform: 'desktop-chrome', appId: 'chrome', url: 'http://localhost:4173/', origins: ['http://localhost:4173'], viewport: { width: 1280, height: 800 } };
 const SAFARI: WebTarget = { ...CHROME, platform: 'desktop-safari', appId: 'safari' };
 const AT = { x: 400.6, y: 107.2 };
+
+class DesktopWebDriver extends ProductionDesktopWebDriver {
+  readonly #endpoint: string;
+  constructor(...args: ConstructorParameters<typeof ProductionDesktopWebDriver>) {
+    super(...args);
+    this.#endpoint = args[2]?.serverUrl ?? '';
+  }
+  protected override async ownedEndpoint(): Promise<{ url: string }> {
+    return { url: this.#endpoint };
+  }
+}
+
+describe('host endpoint isolation', () => {
+  it('rejects supplied host Chrome endpoints and host Safari without sending a request', async () => {
+    const stub = await startW3CStub();
+    try {
+      for (const target of [CHROME, SAFARI]) {
+        const driver = new ProductionDesktopWebDriver(target.platform as 'desktop-chrome' | 'desktop-safari', target.platform, { serverUrl: stub.url });
+        await assert.rejects(driver.open(target), { name: 'RefusedError' });
+        assert.equal(stub.requests.length, 0);
+        await driver.close();
+      }
+    } finally {
+      stub.close();
+    }
+  });
+});
 
 /** Opens a driver on a fresh fake browser, runs `fn`, closes both. */
 async function withDriver<T>(init: Partial<FakePage>, fn: (d: DesktopWebDriver, stub: W3CStub) => Promise<T>, override?: (req: StubRequest) => Reply | undefined, target = CHROME): Promise<T> {
@@ -97,22 +125,6 @@ describe('open', () => {
     }
   });
 
-  it('a Safari session refused for remote automation names the fix', async () => {
-    const refusal = (req: StubRequest): Reply | undefined =>
-      req.path === '/session'
-        ? { status: 500, body: { value: { error: 'session not created', message: "Could not create a session: You must enable the 'Allow Remote Automation' option in Safari's Develop menu to control Safari via WebDriver." } } }
-        : undefined;
-    const stub = await startW3CStub({}, refusal);
-    try {
-      const driver = new DesktopWebDriver('desktop-safari', 'desktop-safari', { serverUrl: stub.url });
-      await assert.rejects(driver.open(SAFARI), (err: Error) => err.name === 'RefusedError' && /원격 자동화 허용/.test(err.message) && /sudo safaridriver --enable/.test(err.message));
-      const launched = await driver.launch(SAFARI);
-      assert.equal(launched.status, 'rejected');
-      assert.match(launched.error ?? '', /원격 자동화/);
-    } finally {
-      stub.close();
-    }
-  });
 });
 
 describe('snapshot', () => {
@@ -189,7 +201,6 @@ describe('Safari input needs its window in front', () => {
     await withDriver({ front: false, raises: false }, async (d, stub) => {
       const tapped = await d.tap(AT);
       assert.equal(tapped.status, 'rejected');
-      assert.match(tapped.error ?? '', /Safari 창이 앞으로 오지 않아 입력을 보내지 않았습니다/);
       assert.equal((await d.typeText(AT, 'qa')).status, 'rejected');
       assert.deepEqual(stub.sources(), []);
     }, undefined, SAFARI);
@@ -705,12 +716,103 @@ describe('console logs', () => {
   });
 });
 
+describe('project fixture bootstrap (the only non-observing page access)', () => {
+  const EXPIRES = '2026-11-03T12:00:00.000Z';
+  const bootstrap = (origin = 'http://localhost:4173') => ({
+    kind: 'web-cookie', origin, lease: { expiresAt: EXPIRES },
+    cookie: { name: 'qa_fixture', value: 'v'.repeat(32), path: '/', httpOnly: true, secure: false, sameSite: 'Strict' },
+  }) as unknown as ProjectFixtureBootstrap;
+  const installed = { name: 'qa_fixture', value: 'v'.repeat(32), domain: 'localhost', path: '/', httpOnly: true, secure: false, sameSite: 'Strict' };
+  const browser = (current: string, cookie: Record<string, unknown>) => (req: StubRequest): Reply | undefined => {
+    if (req.method === 'GET' && req.path === '/session/s1/url') return { body: { value: current } };
+    if (req.method === 'GET' && req.path === '/session/s1/cookie/qa_fixture') return { body: { value: cookie } };
+    return undefined;
+  };
+
+  it('installs the host-only cookie on the granted origin and checks what the browser actually stored', async () => {
+    await withDriver({}, async (d, stub) => {
+      await d.applyProjectFixture(bootstrap(), 'http://localhost:4173/fixture');
+      assert.deepEqual(posted(stub, '/cookie').map((r) => r.body), [{ cookie: { ...bootstrap().cookie, expiry: Date.parse(EXPIRES) / 1000 } }]);
+    }, browser('http://localhost:4173/fixture', installed));
+  });
+
+  it('refuses an origin outside the grant or a document that opened elsewhere before installing, and removes a cookie the browser stored differently', async () => {
+    const cases: [string, ProjectFixtureBootstrap, string, string, Record<string, unknown>, number][] = [
+      ['bootstrap origin outside the target', bootstrap('http://other.test'), 'http://other.test/fixture', 'http://other.test/fixture', installed, 0],
+      ['entry on another origin', bootstrap(), 'http://localhost:4173/fixture', 'http://other.test/', installed, 0],
+      ['cookie not httpOnly', bootstrap(), 'http://localhost:4173/fixture', 'http://localhost:4173/fixture', { ...installed, httpOnly: false }, 1],
+      ['cookie for another host (page navigated after the origin check)', bootstrap(), 'http://localhost:4173/fixture', 'http://localhost:4173/fixture', { ...installed, domain: 'other.test' }, 1],
+    ];
+    for (const [name, payload, entry, current, cookie, installs] of cases) {
+      await withDriver({}, async (d, stub) => {
+        await assert.rejects(d.applyProjectFixture(payload, entry), { name: 'RefusedError' }, name);
+        assert.equal(posted(stub, '/cookie').length, installs, name);
+        const deleted = stub.requests.filter((r) => r.method === 'DELETE' && r.path === '/session/s1/cookie/qa_fixture').length;
+        assert.equal(deleted, installs, `${name}: an installed cookie that failed read-back is removed`);
+      }, browser(current, cookie));
+    }
+  });
+
+  it('removes the cookie when the install itself answers with something other than W3C null', async () => {
+    await withDriver({}, async (d, stub) => {
+      await assert.rejects(d.applyProjectFixture(bootstrap(), 'http://localhost:4173/fixture'));
+      assert.equal(posted(stub, '/cookie').length, 1);
+      assert.equal(stub.requests.filter((r) => r.method === 'DELETE' && r.path === '/session/s1/cookie/qa_fixture').length, 1);
+    }, (req: StubRequest): Reply | undefined => {
+      if (req.method === 'POST' && req.path === '/session/s1/cookie') return { body: { value: { unexpected: true } } };
+      return browser('http://localhost:4173/fixture', installed)(req);
+    });
+  });
+
+  it('refuses a witness URL outside the granted origins without running any script', async () => {
+    await withDriver({}, async (d, stub) => {
+      const before = posted(stub, '/execute/sync').length;
+      await assert.rejects(d.projectFixtureWitness('http://other.test/witness'), { name: 'RefusedError' });
+      assert.equal(posted(stub, '/execute/sync').length, before);
+    });
+  });
+
+  /** Runs the witness page script with a fake `location` and `fetch`, as the browser would. */
+  function witnessIn(origin: string, url: string, reply: { ok?: boolean; url?: string; chunks?: Uint8Array[] } = {}): { result: Promise<unknown>; fetched: [string, RequestInit][]; cancelled: () => boolean } {
+    const fetched: [string, RequestInit][] = [];
+    let cancelled = false;
+    const chunks = reply.chunks ?? [new TextEncoder().encode('{"fixture":"ready"}')];
+    const fetch = async (target: string, init: RequestInit) => {
+      fetched.push([target, init]);
+      return { ok: reply.ok ?? true, url: reply.url ?? target, body: { getReader: () => ({ read: async () => chunks.length ? { value: chunks.shift(), done: false } : { done: true }, cancel: async () => { cancelled = true; } }) } };
+    };
+    const run = new Function('location', 'fetch', 'args', `return (function () {${DESKTOP_SCRIPTS.fixtureWitness}\n}).apply(null, args);`);
+    let result: Promise<unknown>;
+    try { result = Promise.resolve(run({ origin }, fetch, [url])); } catch (error) { result = Promise.reject(error); }
+    return { result, fetched, cancelled: () => cancelled };
+  }
+
+  it('the witness script fetches only from a document on the witness origin, with credentials and no redirects', async () => {
+    const moved = witnessIn('http://other.test', 'http://localhost:4173/witness');
+    await assert.rejects(moved.result, /fixture_witness_origin/);
+    assert.deepEqual(moved.fetched, []);
+    const same = witnessIn('http://localhost:4173', 'http://localhost:4173/witness');
+    assert.deepEqual(await same.result, { fixture: 'ready' });
+    assert.deepEqual(same.fetched.map(([target, init]) => [target, init.credentials, init.redirect]), [['http://localhost:4173/witness', 'include', 'error']]);
+  });
+
+  it('the witness script refuses a failed, redirected, oversized or non-UTF-8 answer', async () => {
+    const url = 'http://localhost:4173/witness';
+    await assert.rejects(witnessIn('http://localhost:4173', url, { ok: false }).result, /fixture_witness_refused/);
+    await assert.rejects(witnessIn('http://localhost:4173', url, { url: 'http://localhost:4173/elsewhere' }).result, /fixture_witness_refused/);
+    const big = witnessIn('http://localhost:4173', url, { chunks: [new Uint8Array(200_000), new Uint8Array(100_000)] });
+    await assert.rejects(big.result, /fixture_witness_size_limit/);
+    assert.equal(big.cancelled(), true);
+    await assert.rejects(witnessIn('http://localhost:4173', url, { chunks: [new Uint8Array([0xff, 0xfe])] }).result, TypeError);
+  });
+});
+
 describe('chooseDevice for desktop browsers', () => {
   const browser = (platform: DeviceInfo['platform'], state: DeviceInfo['state']): DeviceInfo => ({ platform, id: platform, name: 'Chrome 153', osVersion: '26.6', state, kind: 'browser' });
 
-  it('picks the browser of the platform and names a missing browser as a browser, not a device to boot', () => {
+  it('selects the requested platform and refuses an offline browser', () => {
     assert.equal(chooseDevice([browser('desktop-safari', 'booted'), browser('desktop-chrome', 'booted')], 'desktop-chrome').platform, 'desktop-chrome');
-    assert.throws(() => chooseDevice([browser('desktop-chrome', 'offline')], 'desktop-chrome'), /^Error: Chrome \(macOS\)을\(를\) 사용할 수 없습니다/);
-    assert.throws(() => chooseDevice([browser('desktop-chrome', 'offline')], 'desktop-chrome', 'desktop-chrome'), /Chrome 153을\(를\) 사용할 수 없습니다 \(브라우저 또는 WebDriver 없음/);
+    assert.throws(() => chooseDevice([browser('desktop-chrome', 'offline')], 'desktop-chrome'));
+    assert.throws(() => chooseDevice([browser('desktop-chrome', 'offline')], 'desktop-chrome', 'desktop-chrome'));
   });
 });

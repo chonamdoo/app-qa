@@ -3,13 +3,16 @@
 import { globSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { crc32, inflateRawSync } from 'node:zlib';
 import ExcelJS from 'exceljs';
 import mammoth from 'mammoth';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { parse as parseYaml } from 'yaml';
 import { expandHome, ROOT } from '../core/config.ts';
 import { sha256 } from '../core/fsx.ts';
+import { SourceLedger, textSourceLedger, unsupportedSourceLedger } from '../core/product.ts';
 import { slugify } from './segment.ts';
+import { jsonSourceLedger } from '../core/source-json.ts';
 
 export type DocKind = 'md' | 'txt' | 'csv' | 'tsv' | 'json' | 'yaml' | 'xlsx' | 'docx' | 'pdf';
 
@@ -254,7 +257,200 @@ function parseDelimited(text: string, delimiter: string): Sheet['rows'] {
   return rows;
 }
 
+class WorkbookBudgetError extends Error {}
+
+const WORKBOOK_ENTRY_BYTES = 8 * 1024 * 1024;
+const WORKBOOK_EXPANDED_BYTES = 32 * 1024 * 1024;
+const WORKBOOK_STRUCTURE_LIMIT = 100_000;
+
+function workbookXMLBudget(text: string, budget: { nodes: number; cells: number; rows: number; columns: number; merges: number; mergeCells: number; ranges: number; sheets: number }): void {
+  if (/<!DOCTYPE|<!ENTITY/i.test(text)) throw new WorkbookBudgetError('XLSX XML declarations are outside the structural budget');
+  let position = 0;
+  let depth = 0;
+  let maximumRow = 0;
+  let rowCount = 0;
+  const rowWidths = new Map<number, number>();
+  const coordinate = (value: string): { row: number; column: number } => {
+    const match = /^\$?([A-Z]{1,3})\$?([1-9]\d{0,5})$/.exec(value);
+    if (!match) throw new WorkbookBudgetError('XLSX cell reference exceeds structural budget');
+    let column = 0;
+    for (const character of match[1]!) column = column * 26 + character.charCodeAt(0) - 64;
+    const row = Number(match[2]);
+    if (row > WORKBOOK_STRUCTURE_LIMIT || column > 16_384) throw new WorkbookBudgetError('XLSX cell reference exceeds structural budget');
+    return { row, column };
+  };
+  const integer = (value: string, maximum = WORKBOOK_STRUCTURE_LIMIT): number => {
+    if (!/^[0-9]{1,6}$/.test(value) || Number(value) > maximum) throw new WorkbookBudgetError('XLSX index exceeds structural budget');
+    return Number(value);
+  };
+  while ((position = text.indexOf('<', position)) !== -1) {
+    if (text.startsWith('<!--', position) || text.startsWith('<![CDATA[', position) || text.startsWith('<?', position)) {
+      const terminator = text.startsWith('<!--', position) ? '-->' : text.startsWith('<![CDATA[', position) ? ']]>' : '?>';
+      const end = text.indexOf(terminator, position + 2);
+      if (end === -1) throw new Error('Invalid XLSX XML');
+      position = end + terminator.length;
+      continue;
+    }
+    let end = position + 1;
+    let quote = '';
+    for (; end < text.length; end++) {
+      const character = text[end]!;
+      if (quote) { if (character === quote) quote = ''; }
+      else if (character === '"' || character === "'") quote = character;
+      else if (character === '>') break;
+      if (end - position > 1_000_000) throw new WorkbookBudgetError('XLSX XML token exceeds structural budget');
+    }
+    if (end === text.length) throw new Error('Invalid XLSX XML');
+    const token = text.slice(position + 1, end);
+    position = end + 1;
+    if (token.startsWith('/')) { if (--depth < 0) throw new Error('Invalid XLSX XML'); continue; }
+    const element = /^([A-Za-z_][\w.:-]*)/.exec(token);
+    const tag = element?.[1]?.split(':').at(-1);
+    if (!element || !tag) throw new Error('Invalid XLSX XML');
+    if (++budget.nodes > 500_000 || (!token.endsWith('/') && ++depth > 128)) throw new WorkbookBudgetError('XLSX XML node or depth limit');
+    const attributes = new Map<string, string>();
+    const attribute = /\s+([A-Za-z_][\w.:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/y;
+    let attributePosition = element[0].length;
+    for (;;) {
+      attribute.lastIndex = attributePosition;
+      const match = attribute.exec(token);
+      if (!match) break;
+      if (attributes.has(match[1]!)) throw new Error('Duplicate XLSX XML attribute');
+      attributes.set(match[1]!, match[2] ?? match[3]!);
+      attributePosition = attribute.lastIndex;
+    }
+    const closing = token.slice(attributePosition).trim();
+    if (closing !== '' && closing !== '/') throw new Error('Invalid XLSX XML attributes');
+    for (const name of ['count', 'sheetId', 'fontId', 'fillId', 'borderId', 'xfId', 'numFmtId', 'dxfId', 's']) {
+      const value = attributes.get(name);
+      if (value !== undefined) integer(value);
+    }
+    if (tag === 'sheet' && ++budget.sheets > 100) throw new WorkbookBudgetError('XLSX worksheet limit');
+    if (tag === 'row') {
+      const value = attributes.get('r');
+      if (value !== undefined) maximumRow = Math.max(maximumRow, integer(value));
+      if (++rowCount > WORKBOOK_STRUCTURE_LIMIT) throw new WorkbookBudgetError('XLSX row limit');
+    }
+    if (tag === 'c') {
+      if (++budget.cells > WORKBOOK_STRUCTURE_LIMIT) throw new WorkbookBudgetError('XLSX cell limit');
+      const reference = attributes.get('r');
+      if (reference !== undefined) {
+        const { row, column } = coordinate(reference);
+        maximumRow = Math.max(maximumRow, row);
+        const width = rowWidths.get(row) ?? 0;
+        budget.columns += Math.max(0, column - width);
+        rowWidths.set(row, Math.max(width, column));
+      } else budget.columns++;
+    }
+    if (tag === 'col' && (attributes.has('min') || attributes.has('max'))) {
+      const minimum = integer(attributes.get('min') ?? '', 16_384);
+      const maximum = integer(attributes.get('max') ?? '', 16_384);
+      if (!minimum || maximum < minimum) throw new WorkbookBudgetError('XLSX column range limit');
+      budget.columns += maximum - minimum + 1;
+    }
+    for (const name of ['ref', 'sqref']) {
+      const reference = attributes.get(name);
+      if (reference === undefined) continue;
+      for (const range of reference.trim().split(/\s+/)) {
+        const parts = range.split(':');
+        if (parts.length > 2) throw new WorkbookBudgetError('XLSX range limit');
+        const first = coordinate(parts[0]!);
+        const last = parts[1] === undefined ? first : coordinate(parts[1]);
+        const area = (Math.abs(last.row - first.row) + 1) * (Math.abs(last.column - first.column) + 1);
+        budget.ranges += area;
+        if (area > WORKBOOK_STRUCTURE_LIMIT || budget.ranges > 1_000_000) throw new WorkbookBudgetError('XLSX expanded range limit');
+        if (tag === 'mergeCell') {
+          budget.mergeCells += area;
+          if (++budget.merges > 1000 || budget.mergeCells > WORKBOOK_STRUCTURE_LIMIT) throw new WorkbookBudgetError('XLSX merge expansion limit');
+        }
+      }
+    }
+    if (budget.columns > WORKBOOK_STRUCTURE_LIMIT) throw new WorkbookBudgetError('XLSX expanded cell storage limit');
+  }
+  if (depth !== 0) throw new Error('Invalid XLSX XML');
+  budget.rows += Math.max(maximumRow, rowCount);
+  if (budget.rows > WORKBOOK_STRUCTURE_LIMIT) throw new WorkbookBudgetError('XLSX sparse row storage limit');
+}
+
+function preflightWorkbook(bytes: Buffer): void {
+  if (bytes.length > 50 * 1024 * 1024) throw new WorkbookBudgetError('XLSX compressed byte limit');
+  let end = bytes.length - 22;
+  for (; end >= Math.max(0, bytes.length - 65_557); end--) {
+    if (bytes.readUInt32LE(end) === 0x06054b50 && end + 22 + bytes.readUInt16LE(end + 20) === bytes.length) break;
+  }
+  if (end < 0 || end < bytes.length - 65_557) throw new Error('Invalid XLSX ZIP directory');
+  const entries = bytes.readUInt16LE(end + 10);
+  const start = bytes.readUInt32LE(end + 16);
+  if (bytes.readUInt16LE(end + 4) || bytes.readUInt16LE(end + 6) || bytes.readUInt16LE(end + 8) !== entries
+      || start + bytes.readUInt32LE(end + 12) !== end) throw new Error('Unsupported XLSX ZIP directory');
+  if (entries > 2048) throw new WorkbookBudgetError('XLSX ZIP entry limit');
+  const budget = { nodes: 0, cells: 0, rows: 0, columns: 0, merges: 0, mergeCells: 0, ranges: 0, sheets: 0 };
+  const names = new Set<string>();
+  const ranges: { start: number; end: number }[] = [];
+  let expanded = 0;
+  let position = start;
+  for (let index = 0; index < entries; index++) {
+    if (position + 46 > end || bytes.readUInt32LE(position) !== 0x02014b50) throw new Error('Invalid XLSX ZIP entry');
+    const flags = bytes.readUInt16LE(position + 8);
+    const method = bytes.readUInt16LE(position + 10);
+    const checksum = bytes.readUInt32LE(position + 16);
+    const compressedSize = bytes.readUInt32LE(position + 20);
+    const size = bytes.readUInt32LE(position + 24);
+    const nameLength = bytes.readUInt16LE(position + 28);
+    const next = position + 46 + nameLength + bytes.readUInt16LE(position + 30) + bytes.readUInt16LE(position + 32);
+    const local = bytes.readUInt32LE(position + 42);
+    if (next > end || bytes.readUInt16LE(position + 34) || (flags & 1) || ![0, 8].includes(method)) throw new Error('Unsupported XLSX ZIP entry');
+    if (size > WORKBOOK_ENTRY_BYTES || (expanded += size) > WORKBOOK_EXPANDED_BYTES) throw new WorkbookBudgetError('XLSX ZIP expansion byte limit');
+    const nameBytes = bytes.subarray(position + 46, position + 46 + nameLength);
+    const name = new TextDecoder('utf-8', { fatal: true }).decode(nameBytes);
+    if (!name || name.includes('\\') || name.startsWith('/') || name.split('/').some(part => part === '.' || part === '..') || names.has(name)) throw new Error('Ambiguous XLSX ZIP entry');
+    names.add(name);
+    if (local + 30 > start || bytes.readUInt32LE(local) !== 0x04034b50
+        || bytes.readUInt16LE(local + 6) !== flags || bytes.readUInt16LE(local + 8) !== method
+        || bytes.readUInt16LE(local + 26) !== nameLength) throw new Error('Invalid XLSX ZIP local entry');
+    const dataStart = local + 30 + nameLength + bytes.readUInt16LE(local + 28);
+    if (dataStart + compressedSize > start || !bytes.subarray(local + 30, local + 30 + nameLength).equals(nameBytes)) throw new Error('Invalid XLSX ZIP entry bounds');
+    for (const [extraStart, extraEnd] of [
+      [position + 46 + nameLength, position + 46 + nameLength + bytes.readUInt16LE(position + 30)],
+      [local + 30 + nameLength, dataStart],
+    ]) {
+      let extra = extraStart!;
+      while (extra < extraEnd!) {
+        if (extra + 4 > extraEnd!) throw new Error('Invalid XLSX ZIP metadata');
+        const id = bytes.readUInt16LE(extra);
+        const length = bytes.readUInt16LE(extra + 2);
+        const finish = extra + 4 + length;
+        if (finish > extraEnd!) throw new Error('Invalid XLSX ZIP metadata');
+        if (id === 0x7075 && !(flags & 0x0800) && length >= 5 && bytes[extra + 4] === 1
+            && bytes.readUInt32LE(extra + 5) === crc32(nameBytes)
+            && new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(extra + 9, finish)) !== name) throw new Error('Ambiguous XLSX ZIP filename');
+        extra = finish;
+      }
+    }
+    if (!(flags & 8) && (bytes.readUInt32LE(local + 14) !== checksum || bytes.readUInt32LE(local + 18) !== compressedSize || bytes.readUInt32LE(local + 22) !== size)) throw new Error('Inconsistent XLSX ZIP sizes');
+    ranges.push({ start: local, end: dataStart + compressedSize });
+    const compressed = bytes.subarray(dataStart, dataStart + compressedSize);
+    let content: Buffer;
+    try { content = method === 0 ? compressed : inflateRawSync(compressed, { maxOutputLength: WORKBOOK_ENTRY_BYTES }); }
+    catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ERR_BUFFER_TOO_LARGE') throw new WorkbookBudgetError('XLSX actual ZIP expansion byte limit');
+      throw error;
+    }
+    if (content.length !== size || crc32(content) !== checksum) throw new Error('Invalid XLSX ZIP expanded entry');
+    // ExcelJS dispatches some XML entries with unanchored filename patterns.
+    if (/\.(xml|rels|vml)$/i.test(name)
+        || /xl\/(?:worksheets\/(?:_rels\/)?sheet\d+[.]xml|drawings\/(?:_rels\/)?[a-zA-Z0-9]+[.](?:xml|vml)|comments\d+[.]xml|tables\/table\d+[.]xml)/.test(name)) {
+      workbookXMLBudget(new TextDecoder('utf-8', { fatal: true }).decode(content), budget);
+    }
+    position = next;
+  }
+  if (position !== end) throw new Error('Invalid XLSX ZIP directory length');
+  ranges.sort((first, second) => first.start - second.start);
+  for (let index = 1; index < ranges.length; index++) if (ranges[index]!.start < ranges[index - 1]!.end) throw new Error('Overlapping XLSX ZIP entries');
+}
+
 async function readWorkbook(bytes: Buffer): Promise<Sheet[]> {
+  preflightWorkbook(bytes);
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(bytes as unknown as Parameters<typeof wb.xlsx.load>[0]);
   const sheets: Sheet[] = [];
@@ -338,4 +534,109 @@ function htmlToMarkdown(html: string): string {
   }
   flush();
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/** Product source inventory never infers headers, assertions or a new run result from document contents. */
+export async function ingestSourceLedger(bytes: Buffer, name: string): Promise<SourceLedger> {
+  const kind = KINDS[extname(name).toLowerCase()];
+  if (!kind) return unsupportedSourceLedger('지원하지 않는 문서 형식입니다. 원본 bytes와 파일 위치를 보존했습니다.');
+  if (kind === 'json') return jsonSourceLedger(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes));
+  if (['md', 'txt', 'yaml'].includes(kind)) {
+    return textSourceLedger(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+  }
+  const ledger: SourceLedger = { segments: [], issues: [] };
+  const add = (locator: string, text: string, kind: SourceLedger['segments'][number]['kind']) => {
+    for (const [index, line] of text.split(/\r\n|\n|\r/).entries()) {
+      if (!line.trim()) continue;
+      const position = `${locator}/line:${index + 1}`;
+      ledger.segments.push({ id: position, locator: position, text: line, kind });
+      if (ledger.segments.length > 100_000) throw new Error('source segment limit');
+    }
+  };
+  if (kind === 'csv' || kind === 'tsv') {
+    const rows = parseDelimited(new TextDecoder('utf-8', { fatal: true }).decode(bytes), kind === 'tsv' ? '\t' : ',');
+    for (const row of rows) row.cells.forEach((cell, index) => add(`record:${row.line}/column:${index + 1}`, cell, 'cell'));
+  } else if (kind === 'xlsx') {
+    try { preflightWorkbook(bytes); }
+    catch (error) {
+      return {
+        segments: [{ id: 'file', locator: 'file', text: '', kind: 'unparsed' }],
+        issues: [{ code: error instanceof WorkbookBudgetError ? 'source_xlsx_limit' : 'source_xlsx_unreadable', locator: 'file',
+          message: 'XLSX 압축·확장·구조를 안전 한도 안에서 확인하지 못했습니다. 원본 bytes는 보존하며 일부 행을 전체 원문으로 표시하지 않습니다.' }],
+      };
+    }
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(bytes as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+    workbook.eachSheet(sheet => {
+      ledger.segments.push({ id: `sheet:${sheet.id}`, locator: `sheet:${sheet.id}`, text: sheet.name, kind: 'metadata' });
+      sheet.eachRow({ includeEmpty: false }, row => {
+        row.eachCell({ includeEmpty: false }, cell => {
+          if (cell.isMerged && cell.master.address !== cell.address) return;
+          const merges = sheet.model.merges ?? [];
+          const range = merges.find(merge => merge.split(':')[0] === cell.address);
+          const locator = `sheet:${sheet.id}!${range ?? cell.address}`;
+          add(locator, cell.text, 'cell');
+          if (cell.type === ExcelJS.ValueType.Formula) {
+            ledger.issues.push({ code: 'source_formula_unverified', locator, message: '수식과 계산 결과는 원본에 보존됩니다. 재계산/외부 참조 의미는 검증하지 않았습니다.' });
+          }
+          if (cell.note) add(`${locator}/note`, typeof cell.note === 'string' ? cell.note : JSON.stringify(cell.note), 'metadata');
+        });
+      });
+      const addImage = (locator: string, imageId: string, range?: Partial<ExcelJS.ImageRange & ExcelJS.ImagePosition> & {
+        editAs?: string; hyperlinks?: ExcelJS.ImageHyperlinkValue;
+      }) => {
+        const media = workbook.getImage(Number(imageId));
+        const [tl, br] = [range?.tl, range?.br].map(anchor => anchor ? {
+          col: anchor.col, row: anchor.row,
+          nativeCol: anchor.nativeCol, nativeRow: anchor.nativeRow,
+          nativeColOff: anchor.nativeColOff, nativeRowOff: anchor.nativeRowOff,
+        } : null);
+        const metadata = {
+          imageId: String(imageId), extension: media?.extension ?? null,
+          range: range ? {
+            tl, br,
+            ext: range.ext ? { width: range.ext.width, height: range.ext.height } : null,
+            editAs: range.editAs ?? null,
+            hyperlinks: range.hyperlinks ? { hyperlink: range.hyperlinks.hyperlink, tooltip: range.hyperlinks.tooltip } : null,
+          } : null,
+        };
+        ledger.segments.push({ id: locator, locator, text: JSON.stringify(metadata), kind: 'image' });
+        ledger.issues.push({ code: 'source_image_uninterpreted', locator, message: '원본 그림의 의미를 해석하지 않았습니다. 텍스트 기대값으로 대체하지 않습니다.' });
+      };
+      for (const [index, image] of sheet.getImages().entries()) {
+        addImage(`sheet:${sheet.id}/image:${index + 1}`, image.imageId, image.range);
+      }
+      const backgroundId = sheet.getBackgroundImageId();
+      if (backgroundId !== undefined) addImage(`sheet:${sheet.id}/background-image`, backgroundId);
+    });
+  } else {
+    let body: DocBody;
+    if (kind === 'docx') {
+      let imageIndex = 0;
+      const converted = await mammoth.convertToHtml({ buffer: bytes }, {
+        externalFileAccess: false,
+        convertImage: mammoth.images.imgElement(async image => {
+          const locator = `extracted-image:${++imageIndex}`;
+          ledger.segments.push({ id: locator, locator, text: image.contentType, kind: 'image' });
+          ledger.issues.push({ code: 'source_image_uninterpreted', locator, message: '원본 그림의 의미는 해석되지 않았습니다. 원본 DOCX에서 확인하세요.' });
+          return { src: `qautra-original:${locator}` };
+        }),
+      });
+      body = { type: 'markdown', text: htmlToMarkdown(converted.value), lines: false };
+      for (const message of converted.messages) ledger.issues.push({ code: 'source_parser_issue', locator: 'file', message: message.message });
+    } else {
+      body = await readBody(kind, bytes, name);
+    }
+    if (body.type === 'markdown') {
+      for (const [index, paragraph] of body.text.split(/\n\s*\n/).entries()) add(`extracted-block:${index + 1}`, paragraph, 'paragraph');
+    }
+    ledger.issues.push({
+      code: 'source_structure_unverified', locator: 'file',
+      message: kind === 'pdf' ? 'PDF 텍스트 레이어만 추출했습니다. 원본 페이지/그림/표 전체의 의미는 확인되지 않아 실행 정의로 발행할 수 없습니다.'
+        : 'DOCX 추출 텍스트를 보존했습니다. 원본 그림/표/문단 전체와의 대조가 확인되지 않아 실행 정의로 발행할 수 없습니다.',
+    });
+    ledger.segments.push({ id: 'original-structure', locator: 'file', text: '', kind: 'unparsed' });
+  }
+  if (!ledger.segments.length) ledger.issues.push({ code: 'source_empty', locator: 'file', message: '검토 가능한 원문 구간이 없습니다.' });
+  return SourceLedger.parse(ledger);
 }

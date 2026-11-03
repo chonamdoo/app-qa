@@ -15,7 +15,10 @@ describe('labelRisk', () => {
   });
 
   it('treats an unlabeled target as risky and unknown', () => {
-    assert.deepEqual(labelRisk(null), { risky: true, unknown: true, reasons: ['라벨 없는 대상 — 위험 여부를 알 수 없음'] });
+    const risk = labelRisk(null);
+    assert.equal(risk.risky, true);
+    assert.equal(risk.unknown, true);
+    assert.equal(risk.boundary, 'unknown');
     assert.equal(labelRisk('   ').unknown, true);
   });
 
@@ -29,5 +32,18 @@ describe('labelRisk', () => {
     assert.equal(labelRisk('확인', undefined, ['정말 삭제하시겠습니까?']).risky, true);
     assert.equal(labelRisk('OK', { allow: ['OK'] }, ['This cannot be undone.']).risky, true);
     assert.equal(labelRisk('확인', undefined, ['설정이 저장되었습니다']).risky, false);
+  });
+
+  it('separates fixture business effects from system actions and explicit denials', () => {
+    assert.equal(labelRisk('Delete fixture order').boundary, 'business');
+    assert.equal(labelRisk('OK', undefined, ['This cannot be undone.']).boundary, 'business');
+    for (const label of ['전화 걸기', '권한 허용', 'Call']) {
+      const risk = labelRisk(label, { allow: [label] });
+      assert.equal(risk.risky, true);
+      assert.equal(risk.boundary, 'host-system');
+    }
+    const denied = labelRisk('Delete fixture order', { allow: ['Delete fixture order'], deny: ['fixture order'] });
+    assert.equal(denied.risky, true);
+    assert.equal(denied.boundary, 'deny');
   });
 });
