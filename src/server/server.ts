@@ -1,23 +1,31 @@
 // Engine HTTP server (`qa serve`): 127.0.0.1 only, bearer-token auth on every route, SSE events, job queue, file views.
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { closeSync, createReadStream, existsSync, fstatSync, openSync, statSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { closeSync, createReadStream, existsSync } from 'node:fs';
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { basename, extname, join } from 'node:path';
-import { pipeline } from 'node:stream';
+import { userInfo } from 'node:os';
+import { basename, extname, join, relative } from 'node:path';
+import { pipeline, Transform } from 'node:stream';
+import { AgentRequestSchema, type AgentCallContext, type AgentService } from '../core/agent.ts';
 import { PATHS } from '../core/config.ts';
 import { EventBus } from '../core/events.ts';
 import { writeSecure } from '../core/fsx.ts';
 import { PLATFORM_INFO, PLATFORMS } from '../core/platform.ts';
 import type { DeviceInfo, Platform } from '../core/types.ts';
+import type { SourceIngestor } from '../core/product.ts';
+import type { ProductAuthoringAdapter } from '../core/product-authoring.ts';
+import { ProductEvidenceError, type PortableEvidenceRenderer, type RunEvidenceReader } from '../core/product-evidence.ts';
 import { loadAppProfile } from '../spec/load.ts';
 import { profilePlatforms, type AppProfile } from '../spec/schema.ts';
 import { JobQueue, JobRequest, type JobHandlers } from './jobs.ts';
+import { ProductStore, ProductStoreError } from './product-store.ts';
+import { ProductAuthoringService } from './product-authoring.ts';
+import { ProductEvidenceService, type ProductEvidencePolicy } from './product-evidence.ts';
 import { SseHub } from './sse.ts';
 import { DOC_EXTENSIONS, listAppProfiles, listPlans, listRuns, PathRejected, readPlanView, resolveInside, resolvePlanDocs, runDirFor } from './store.ts';
 
 export interface ServerHandlers extends JobHandlers {
+  agent: AgentService;
   devices(): Promise<DeviceInfo[]>;
   /** PNG of the device screen (Android px, iOS pixels). */
   screen(platform: Platform, deviceId: string): Promise<Uint8Array>;
@@ -42,6 +50,13 @@ export interface ServerOptions {
   paths?: Partial<ServerPaths>;
   bus?: EventBus;
   token?: string;
+  /** Operator review secret delivered only by the launching app; absent → every operator-only action is refused. */
+  reviewToken?: string;
+  ingestSource?: SourceIngestor;
+  authoringAdapter?: ProductAuthoringAdapter;
+  evidenceAuthorityRoot?: string;
+  evidencePolicy?: () => ProductEvidencePolicy;
+  evidenceHtml?: PortableEvidenceRenderer;
   ringSize?: number;
   heartbeatMs?: number;
   maxUploadBytes?: number;
@@ -49,6 +64,7 @@ export interface ServerOptions {
 
 export interface QaServer {
   readonly token: string;
+  readonly startedAt: string;
   readonly bus: EventBus;
   readonly jobs: JobQueue;
   readonly paths: ServerPaths;
@@ -152,6 +168,20 @@ export function createServer(opts: ServerOptions): QaServer {
   };
   const token = opts.token ?? randomBytes(32).toString('base64url');
   const expected = Buffer.from(`Bearer ${token}`);
+  const reviewToken = opts.reviewToken;
+  if (reviewToken !== undefined && (!reviewToken || reviewToken === token)) throw new Error('로컬 검토 권한은 일반 API 인증과 분리해야 합니다');
+  const expectedReview = reviewToken === undefined ? undefined : Buffer.from(reviewToken);
+  const principal = userInfo();
+  const reviewer = Object.freeze({ principalId: `local-user:${principal.uid}:${principal.username}`, channel: 'local-ui' as const });
+  const operatorReview = (req: IncomingMessage): AgentCallContext['operatorReview'] => {
+    const header = req.headers['x-qautra-review-token'];
+    if (header === undefined) return undefined;
+    if (typeof header !== 'string') throw new HttpError(403, '단일 로컬 검토 권한이 필요합니다');
+    if (!expectedReview) throw new HttpError(403, '이 엔진에는 로컬 검토 채널이 없습니다. QAutra 앱이 시작한 엔진에서만 검토 작업을 할 수 있습니다');
+    const supplied = Buffer.from(header);
+    if (supplied.length !== expectedReview.length || !timingSafeEqual(supplied, expectedReview)) throw new HttpError(403, '유효한 로컬 검토 권한이 필요합니다');
+    return reviewer;
+  };
   const bus = opts.bus ?? new EventBus();
   const handlers = opts.handlers;
   const profileOf = (app: string): AppProfile | null => {
@@ -162,14 +192,80 @@ export function createServer(opts: ServerOptions): QaServer {
     }
   };
   const jobs = new JobQueue(handlers, bus, profileOf);
+  const product = new ProductStore(paths, { ingestSource: opts.ingestSource });
+  const authoring = new ProductAuthoringService({ root: paths.root, apps: paths.apps, store: product, adapter: opts.authoringAdapter });
+  const evidence = new ProductEvidenceService({ root: paths.root, runsDir: paths.runs, query: handlers.agent, authorityRoot: opts.evidenceAuthorityRoot, policy: opts.evidencePolicy, renderPortableHtml: opts.evidenceHtml });
   const hub = new SseHub(bus, { capacity: opts.ringSize ?? 5000, heartbeatMs: opts.heartbeatMs ?? 15_000 });
   const maxUpload = opts.maxUploadBytes ?? 50 * 1024 * 1024;
   const startedAt = new Date().toISOString();
   /** `<platform>:<deviceId>` → recording file. */
   const recordings = new Map<string, { platform: Platform; deviceId: string; file: string; startedAt: string }>();
+  let stopping = false;
+  let closing: Promise<void> | null = null;
+  const agentCalls = new Set<AbortController>();
 
   const routes: Route[] = [
-    { method: 'GET', pattern: /^\/api\/health$/, handle: (_req, res) => sendJson(res, 200, { ok: true, pid: process.pid, startedAt, root: paths.root }) },
+    { method: 'GET', pattern: /^\/api\/health$/, handle: (_req, res) => sendJson(res, 200, { ok: true, pid: process.pid, startedAt, root: paths.root, productProtocol: 'qautra/product/v2' }) },
+    { method: 'GET', pattern: /^\/api\/product$/, handle: async (_req, res) => sendJson(res, 200, await product.read()) },
+    {
+      method: 'POST',
+      pattern: /^\/api\/product\/authoring$/,
+      handle: async (req, res) => {
+        if (stopping) throw new HttpError(503, 'Engine is stopping');
+        sendJson(res, 200, await authoring.dispatch(await readJson(req), { operatorReview: operatorReview(req) }));
+      },
+    },
+    {
+      method: 'POST',
+      pattern: /^\/api\/product\/evidence$/,
+      handle: async (req, res) => {
+        if (stopping) throw new HttpError(503, 'Engine is stopping');
+        sendJson(res, 200, await evidence.dispatch(await readJson(req), { operatorReview: operatorReview(req) }));
+      },
+    },
+    {
+      method: 'GET',
+      pattern: /^\/api\/product\/evidence\/exports\/([a-fA-F0-9-]{36})$/,
+      handle: (req, res, [exportID]) => {
+        const download = evidence.openDownload(exportID!, { operatorReview: operatorReview(req) });
+        streamOwnedFile(res, download, 'application/x-tar', download.filename);
+      },
+    },
+    ...(['scenarios', 'documents', 'document-rows', 'environments', 'settings'] as const).map((kind): Route => ({
+      method: 'POST',
+      pattern: new RegExp(`^/api/product/${kind}$`),
+      handle: async (req, res) => {
+        const snapshot = await product.update(kind, await readJson(req), { reviewer: operatorReview(req) });
+        bus.emit({ type: 'log', level: 'info', source: 'workspace', message: `작업 공간 저장 · ${kind} · revision ${snapshot.revision}` });
+        sendJson(res, kind === 'settings' ? 200 : 201, snapshot);
+      },
+    })),
+    {
+      method: 'POST',
+      pattern: /^\/api\/agent$/,
+      handle: async (req, res) => {
+        const parsed = AgentRequestSchema.safeParse(await readJson(req));
+        if (!parsed.success) throw new HttpError(400, 'Agent request does not match the shared schema');
+        if (stopping) throw new HttpError(503, 'Engine is stopping');
+        const review = operatorReview(req);
+        const controller = new AbortController();
+        const abort = () => controller.abort();
+        req.once('aborted', abort);
+        res.once('close', abort);
+        if (req.aborted || res.destroyed) controller.abort();
+        agentCalls.add(controller);
+        try {
+          const reply = await handlers.agent.call(parsed.data, { signal: controller.signal, operatorReview: review });
+          if (!res.destroyed) sendJson(res, 200, reply);
+        } catch {
+          throw new HttpError(500, 'Agent service failed; reconcile the request before retrying');
+        } finally {
+          agentCalls.delete(controller);
+          req.off('aborted', abort);
+          res.off('close', abort);
+        }
+      },
+    },
     { method: 'GET', pattern: /^\/api\/events$/, handle: (req, res) => hub.attach(req, res) },
     { method: 'GET', pattern: /^\/api\/jobs$/, handle: (_req, res) => sendJson(res, 200, { jobs: jobs.list() }) },
     {
@@ -200,6 +296,18 @@ export function createServer(opts: ServerOptions): QaServer {
       },
     },
     {
+      method: 'GET',
+      pattern: /^\/api\/jobs\/([^/]+)\/output$/,
+      handle: (_req, res, [id]) => {
+        const job = jobs.get(id!);
+        if (!job) throw new HttpError(404, '작업을 찾을 수 없습니다');
+        if (job.state !== 'succeeded') throw new HttpError(409, '성공한 작업의 결과만 조회할 수 있습니다');
+        const output = jobs.output(id!);
+        if (!output) throw new HttpError(404, '이 작업에는 별도 화면 조회·캡처 결과가 없습니다');
+        sendJson(res, 200, output);
+      },
+    },
+    {
       method: 'POST',
       pattern: /^\/api\/jobs\/([^/]+)\/cancel$/,
       handle: (_req, res, [id]) => {
@@ -214,7 +322,7 @@ export function createServer(opts: ServerOptions): QaServer {
       method: 'GET',
       pattern: /^\/api\/devices\/([^/]+)\/([^/]+)\/screen$/,
       handle: async (_req, res, [platform, id]) => {
-        const png = await handlers.screen(platformParam(platform, '데스크톱 브라우저는 실시간 화면이 없습니다 — 실행 중에는 스텝 스크린샷을 보세요'), id!);
+        const png = await handlers.screen(platformParam(platform), id!);
         res.writeHead(200, { 'content-type': 'image/png', 'content-length': png.byteLength, 'cache-control': 'no-store' });
         res.end(png);
       },
@@ -279,19 +387,19 @@ export function createServer(opts: ServerOptions): QaServer {
     {
       method: 'GET',
       pattern: /^\/api\/runs\/([^/]+)$/,
-      handle: async (_req, res, [runId]) => {
-        const summary = join(existingRunDir(runId!), 'summary.json');
-        if (!existsSync(summary)) throw new HttpError(404, 'summary.json 이 없습니다 (실행 중이거나 중단된 실행)');
-        sendJson(res, 200, JSON.parse(await readFile(summary, 'utf8')));
+      handle: (_req, res, [runId]) => {
+        const directory = existingRunDir(runId!);
+        if (!existsSync(join(directory, 'summary.json'))) throw new HttpError(404, 'summary.json 이 없습니다 (실행 중이거나 중단된 실행)');
+        streamOwnedFile(res, evidence.openRunFile(runId!, 'summary.json', 16 * 1024 ** 2), 'application/json; charset=utf-8');
       },
     },
     {
       method: 'GET',
       pattern: /^\/api\/runs\/([^/]+)\/events$/,
       handle: (_req, res, [runId]) => {
-        const file = join(existingRunDir(runId!), 'events.jsonl');
-        if (!existsSync(file)) throw new HttpError(404, 'events.jsonl 이 없습니다');
-        streamFile(res, file);
+        const directory = existingRunDir(runId!);
+        if (!existsSync(join(directory, 'events.jsonl'))) throw new HttpError(404, 'events.jsonl 이 없습니다');
+        streamOwnedFile(res, evidence.openRunFile(runId!, 'events.jsonl'), CONTENT_TYPES['.jsonl']!);
       },
     },
     {
@@ -299,9 +407,11 @@ export function createServer(opts: ServerOptions): QaServer {
       pattern: /^\/api\/runs\/([^/]+)\/files\/(.+)$/,
       rawParams: true,
       handle: (_req, res, [runId, rest]) => {
-        const file = resolveInside(existingRunDir(decodeURIComponent(runId!)), rest!);
-        if (!existsSync(file) || !statSync(file).isFile()) throw new HttpError(404, '파일이 없습니다');
-        streamFile(res, file);
+        const decodedRunID = decodeURIComponent(runId!);
+        const runRoot = existingRunDir(decodedRunID);
+        const file = resolveInside(runRoot, rest!);
+        const path = relative(runRoot, file);
+        streamOwnedFile(res, evidence.openRunFile(decodedRunID, path), CONTENT_TYPES[extname(path).toLowerCase()] ?? 'application/octet-stream');
       },
     },
     {
@@ -333,42 +443,34 @@ export function createServer(opts: ServerOptions): QaServer {
     return dir;
   }
 
-  /**
-   * Opens first and sizes the response from the open descriptor, so a delete/rename after the existence check cannot
-   * crash the stream, and a file still being appended to (events.jsonl during a run) is sent exactly up to that size.
-   */
-  function streamFile(res: ServerResponse, file: string): void {
-    let fd: number;
+  /** Keep the verified descriptor alive until every buffered chunk has passed the current read authority. */
+  function streamOwnedFile(res: ServerResponse, reader: RunEvidenceReader, contentType: string, filename?: string): void {
+    let closed = false;
+    let source: ReturnType<typeof createReadStream> | undefined;
+    const close = (): void => {
+      if (closed) return;
+      closed = true;
+      if (source) source.close(); else closeSync(reader.fd);
+    };
     try {
-      fd = openSync(file, 'r');
-    } catch (err) {
-      if (err instanceof Error && 'code' in err && err.code === 'ENOENT') throw new HttpError(404, '파일이 없습니다');
-      throw err;
-    }
-    let size: number;
-    try {
-      const stat = fstatSync(fd);
-      if (!stat.isFile()) throw new HttpError(404, '파일이 없습니다');
-      size = stat.size;
-    } catch (err) {
-      closeSync(fd);
-      throw err;
-    }
-    res.writeHead(200, {
-      'content-type': CONTENT_TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
-      'content-length': size,
-      'cache-control': 'no-store',
-      'x-content-type-options': 'nosniff',
-    });
-    if (size === 0) {
-      closeSync(fd);
-      res.end();
-      return;
-    }
-    // pipeline destroys both sides on failure: a read error closes the connection instead of an unhandled 'error'.
-    pipeline(createReadStream(file, { fd, start: 0, end: size - 1 }), res, (err) => {
-      if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE') bus.emit({ type: 'log', level: 'error', source: 'server', message: `${basename(file)} 전송 실패: ${err.message}` });
-    });
+      reader.assertUnchanged();
+      res.writeHead(200, {
+        'content-type': contentType, 'content-length': reader.bytes, 'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff', ...(filename ? { 'content-disposition': `attachment; filename="${filename}"` } : {}),
+      });
+      if (reader.bytes === 0) { close(); res.end(); return; }
+      source = createReadStream('', { fd: reader.fd, autoClose: false, start: 0, end: reader.bytes - 1 });
+      const gate = new Transform({
+        transform(chunk, _encoding, callback) {
+          try { reader.assertUnchanged(); callback(null, chunk); }
+          catch (error) { callback(error instanceof Error ? error : new Error('증거 읽기 권위를 확인하지 못했습니다')); }
+        },
+      });
+      pipeline(source, gate, res, error => {
+        close();
+        if (error) res.destroy(error);
+      });
+    } catch (error) { close(); throw error; }
   }
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -377,6 +479,9 @@ export function createServer(opts: ServerOptions): QaServer {
       res.setHeader('www-authenticate', 'Bearer');
       throw new HttpError(401, '인증 토큰이 필요합니다');
     }
+    if (stopping) throw new HttpError(503, 'Engine is stopping');
+    if (!/^127\.0\.0\.1(?::\d+)?$/.test(req.headers.host ?? '')) throw new HttpError(403, 'Loopback Host is required');
+    if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`) throw new HttpError(403, 'Cross-origin requests are not allowed');
     // Match on the raw path: WHATWG URL parsing would silently collapse `..` segments before the traversal check.
     const rawPath = (req.url ?? '/').split('?', 1)[0]!;
     const url = new URL(req.url ?? '/', 'http://127.0.0.1');
@@ -397,19 +502,20 @@ export function createServer(opts: ServerOptions): QaServer {
 
   const server: Server = createHttpServer((req, res) => {
     handle(req, res).catch((err: unknown) => {
-      const status = err instanceof HttpError ? err.status : err instanceof PathRejected || err instanceof URIError ? 400 : 500;
+      const status = err instanceof HttpError || err instanceof ProductStoreError || err instanceof ProductEvidenceError ? err.status : err instanceof PathRejected || err instanceof URIError ? 400 : 500;
       const message = err instanceof Error ? err.message : String(err);
       if (status === 500) bus.emit({ type: 'log', level: 'error', source: 'server', message: `${req.method} ${req.url?.split('?', 1)[0]}: ${message}` });
       if (res.headersSent) {
         res.destroy();
         return;
       }
-      sendJson(res, status, { error: message, ...(err instanceof HttpError && err.details !== undefined ? { details: err.details } : {}) });
+      sendJson(res, status, { error: message, ...(err instanceof ProductEvidenceError ? { code: err.code } : {}), ...(err instanceof HttpError && err.details !== undefined ? { details: err.details } : {}) });
     });
   });
 
   return {
     token,
+    startedAt,
     bus,
     jobs,
     paths,
@@ -422,17 +528,27 @@ export function createServer(opts: ServerOptions): QaServer {
       });
       return promise;
     },
-    async close() {
+    close() {
+      if (closing) return closing;
+      stopping = true;
+      for (const controller of agentCalls) controller.abort();
+      const agentStopped = handlers.agent.shutdown();
       hub.close();
-      await jobs.shutdown();
-      await Promise.allSettled(
-        [...recordings.values()].map(({ platform, deviceId, file }) => handlers.stopRecording(platform, deviceId, file)),
-      );
-      recordings.clear();
-      const { promise, resolve } = Promise.withResolvers<void>();
-      server.close(() => resolve());
-      server.closeAllConnections();
-      await promise;
+      closing = (async () => {
+        try {
+          await Promise.all([agentStopped, jobs.shutdown(), authoring.close()]);
+          await Promise.allSettled(
+            [...recordings.values()].map(({ platform, deviceId, file }) => handlers.stopRecording(platform, deviceId, file)),
+          );
+          recordings.clear();
+        } finally {
+          const { promise, resolve } = Promise.withResolvers<void>();
+          server.close(() => resolve());
+          server.closeAllConnections();
+          await promise;
+        }
+      })();
+      return closing;
     },
   };
 }

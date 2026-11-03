@@ -94,19 +94,19 @@ export function pdfBytes(lines: string[]): Buffer {
 export interface FakeLlm {
   /** Environment for createLlm/generatePlan (QA_CLAUDE_BIN / QA_CODEX_BIN point at the fake). */
   env: NodeJS.ProcessEnv;
-  /** Every invocation: argv and stdin. */
+  /** Model requests only; authentication probes never contain source text. */
   calls(): { args: string[]; stdin: string }[];
 }
 
 /**
  * Fake `claude` / `codex` CLI (a Node script). Replies are served in order; `codex` mode writes the reply to `-o`.
- * `rejectSchema` makes codex fail like the real API when `--output-schema` is passed; `sleepMs` delays every reply;
- * `printEnv` replies with the sorted names of the CLI's environment; `floodBytes` prints that many bytes to stdout first.
+ * `rejectSchema` makes codex fail like the real API when `--output-schema` is passed; `sleepMs` delays model replies;
+ * `authStatus` simulates the CLI's effective credential; `floodBytes` prints that many bytes to stdout first.
  */
 export function fakeLlm(
   mode: 'claude' | 'codex',
   replies: string[],
-  opts: { rejectSchema?: boolean; sleepMs?: number; claudeError?: boolean; printEnv?: boolean; floodBytes?: number } = {},
+  opts: { rejectSchema?: boolean; sleepMs?: number; claudeError?: boolean; authStatus?: unknown; floodBytes?: number } = {},
 ): FakeLlm {
   const dir = tempDir('qa-fake-llm-');
   const script = join(dir, mode);
@@ -120,6 +120,12 @@ const dir = ${JSON.stringify(dir)};
 const cfg = JSON.parse(fs.readFileSync(path.join(dir, 'script.json'), 'utf8'));
 const stdin = fs.readFileSync(0, 'utf8');
 const args = process.argv.slice(2);
+const apiRoute = Object.keys(process.env).some(name => name.startsWith('ANTHROPIC_') || name.startsWith('CLAUDE_CODE_USE_'));
+if (cfg.mode === 'claude' && args.includes('auth') && args.includes('status')) {
+  console.log(JSON.stringify(Object.hasOwn(cfg, 'authStatus') ? cfg.authStatus : { loggedIn: true, authMethod: apiRoute ? 'api_key' : 'claude.ai', apiProvider: 'firstParty' }));
+  process.exit(0);
+}
+if (cfg.mode === 'claude' && apiRoute) { process.stderr.write('unexpected API billing route'); process.exit(78); }
 fs.appendFileSync(path.join(dir, 'calls.jsonl'), JSON.stringify({ args, stdin }) + '\\n');
 const counter = path.join(dir, 'count');
 const n = fs.existsSync(counter) ? Number(fs.readFileSync(counter, 'utf8')) : 0;
@@ -130,7 +136,7 @@ const finish = () => {
   }
   fs.writeFileSync(counter, String(n + 1));
   if (cfg.floodBytes) process.stdout.write('x'.repeat(cfg.floodBytes));
-  const reply = cfg.printEnv ? JSON.stringify(Object.keys(process.env).sort()) : cfg.replies[Math.min(n, cfg.replies.length - 1)];
+  const reply = cfg.replies[Math.min(n, cfg.replies.length - 1)];
   if (cfg.mode === 'claude') {
     process.stdout.write(JSON.stringify(cfg.claudeError ? { type: 'result', subtype: 'error_during_execution', is_error: true, result: 'boom' } : { type: 'result', subtype: 'success', is_error: false, result: reply }));
   } else {

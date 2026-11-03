@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { after, before, describe, it } from 'node:test';
 import { actionStatusOf, AppiumClient, AppiumProtocolError, AppiumTransportError, parseW3CError } from '../../src/appium/client.ts';
+import { chromeOwnerReplySignature } from '../../src/core/chrome-owner-auth.ts';
 import { CommandError, shq } from '../../src/appium/exec.ts';
 import { crashBlocks, imeVisible } from '../../src/drivers/android.ts';
 import { failureStatus, RefusedError, StepError, typeVerdict, xmlMaxDepth } from '../../src/drivers/base.ts';
@@ -179,6 +181,67 @@ describe('AppiumClient over HTTP', () => {
     assert.equal(await c.activeElement(), 'E1');
   });
 });
+
+describe('authenticated native Chrome WebDriver', () => {
+  type Mode = 'valid' | 'unsigned' | 'bearer-forgery' | 'wrong-nonce' | 'changed-body' | 'changed-status' | 'forged-refusal' | 'invalid-utf8' | 'declared-overflow' | 'chunked-overflow' | 'redirect' | 'replayed-reply';
+  async function native(mode: Mode) {
+    const token = randomBytes(32).toString('hex'), replyKey = randomBytes(32).toString('hex');
+    let calls = 0, priorSignature: string | null = null, url = '';
+    const server = createServer((request, response) => {
+      calls++; request.resume();
+      let status = mode === 'forged-refusal' ? 404 : mode === 'redirect' ? 302 : 200;
+      let text = mode === 'forged-refusal' ? '{"value":{"error":"invalid session id","message":"gone"}}' : '{"value":null}';
+      if (mode === 'declared-overflow' || mode === 'chunked-overflow') text += ' '.repeat(256);
+      const bytes = mode === 'invalid-utf8' ? Buffer.from([0xc3, 0x28]) : Buffer.from(text);
+      const nonce = mode === 'wrong-nonce' ? 'different-request' : String(request.headers['x-qautra-owner-request']);
+      let signature = chromeOwnerReplySignature(mode === 'bearer-forgery' || mode === 'forged-refusal' ? token : replyKey, nonce, mode === 'changed-status' ? 201 : status, bytes);
+      if (mode === 'replayed-reply') { const original = priorSignature; priorSignature ??= signature; if (original) signature = original; }
+      if (mode !== 'unsigned') response.setHeader('x-qautra-owner-signature', signature);
+      if (mode === 'redirect') response.setHeader('location', `${url}/escaped`);
+      response.setHeader('content-type', 'application/json');
+      if (mode === 'declared-overflow') response.setHeader('content-length', bytes.length);
+      response.writeHead(status);
+      if (mode === 'chunked-overflow') { response.write(bytes.subarray(0, 64)); response.end(bytes.subarray(64)); }
+      else response.end(mode === 'changed-body' ? ` ${text}` : bytes);
+    });
+    await new Promise<void>((resolveListen, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', () => { server.off('error', reject); resolveListen(); }); });
+    const address = server.address() as AddressInfo;
+    url = `http://127.0.0.1:${address.port}/webdriver`;
+    const client = new AppiumClient(url, { nativeOwner: { token, replyKey }, responseByteLimit: 128 });
+    client.sessionId = 'original-owned-session';
+    return { client, calls: () => calls, close: async () => { server.closeAllConnections(); await new Promise<void>(done => server.close(() => done())); } };
+  }
+  for (const mode of ['unsigned', 'bearer-forgery', 'wrong-nonce', 'changed-body', 'changed-status', 'forged-refusal', 'invalid-utf8', 'declared-overflow', 'chunked-overflow', 'redirect'] as const) {
+    it(`${mode}: does not confirm deletion, retransmit it, or adopt a new session`, async () => {
+      const fixture = await native(mode);
+      try {
+        await assert.rejects(fixture.client.deleteSession(), error => error instanceof AppiumTransportError && actionStatusOf(error) === 'uncertain');
+        assert.equal(fixture.client.sessionId, 'original-owned-session');
+        await assert.rejects(fixture.client.deleteSession(), error => error instanceof AppiumTransportError);
+        await assert.rejects(fixture.client.createSession({ browserName: 'chrome' }), error => error instanceof AppiumTransportError);
+        assert.equal(fixture.calls(), 1);
+      } finally { await fixture.close(); }
+    });
+  }
+  it('only a nonce/status/body-authenticated null confirms the original W3C session deletion', async () => {
+    const fixture = await native('valid');
+    try {
+      await fixture.client.deleteSession();
+      assert.equal(fixture.client.sessionId, null);
+      await fixture.client.deleteSession();
+      assert.equal(fixture.calls(), 1);
+    } finally { await fixture.close(); }
+  });
+  it('a valid prior action reply cannot confirm a different later action', async () => {
+    const fixture = await native('replayed-reply');
+    try {
+      await fixture.client.performActions([]);
+      await assert.rejects(fixture.client.performActions([]), error => error instanceof AppiumTransportError && error.kind === 'malformed' && actionStatusOf(error) === 'uncertain');
+      assert.equal(fixture.calls(), 2);
+    } finally { await fixture.close(); }
+  });
+});
+
 
 describe('typed-text verification', () => {
   it('match ignores NFC form and whitespace differences', () => {

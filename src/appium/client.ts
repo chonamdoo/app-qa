@@ -1,8 +1,10 @@
 // Thin W3C WebDriver / Appium HTTP client. No retries: a lost response means the outcome is unknown.
 // Every 2xx body is decoded as a W3C envelope and every typed command checks the value shape it promises;
 // anything else is transport-class (`uncertain`), never a silent success.
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { ActionStatus, Point, Rect } from '../core/types.ts';
+import { authenticChromeOwnerReply, readChromeOwnerResponse, type ChromeOwnerCredentials } from '../core/chrome-owner-auth.ts';
 
 export const W3C_ELEMENT_KEY = 'element-6066-11e4-a52e-4f735466cecf';
 
@@ -310,16 +312,31 @@ export interface Locator {
 export interface ClientOptions {
   /** Default per-request timeout. */
   timeoutMs?: number;
+  beforeCommand?: (method: 'GET' | 'POST' | 'DELETE', path: string) => void;
+  responseByteLimit?: number;
+  nativeOwner?: ChromeOwnerCredentials;
 }
 
 export class AppiumClient {
   readonly baseUrl: string;
   readonly timeoutMs: number;
   sessionId: string | null = null;
+  readonly #beforeCommand: ClientOptions['beforeCommand'];
+  readonly #nativeOwner: ChromeOwnerCredentials | undefined;
+  readonly #responseByteLimit: number | undefined;
+  #endUnconfirmed = false;
 
   constructor(baseUrl: string, opts: ClientOptions = {}) {
     this.baseUrl = baseUrl.replace(/\/+$/, '');
     this.timeoutMs = opts.timeoutMs ?? 30_000;
+    this.#beforeCommand = opts.beforeCommand;
+    this.#nativeOwner = opts.nativeOwner;
+    this.#responseByteLimit = opts.responseByteLimit ?? (this.#nativeOwner ? 16 * 1024 * 1024 : undefined);
+    if (this.#responseByteLimit !== undefined && (!Number.isSafeInteger(this.#responseByteLimit) || this.#responseByteLimit < 1 || this.#responseByteLimit > 16 * 1024 * 1024)) throw new RangeError('Invalid WebDriver response byte bound');
+    if (this.#nativeOwner) {
+      const url = new URL(this.baseUrl);
+      if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.pathname !== '/webdriver' || url.username || url.password || url.search || url.hash || !/^[a-f0-9]{64}$/.test(this.#nativeOwner.token) || !/^[a-f0-9]{64}$/.test(this.#nativeOwner.replyKey)) throw new AppiumTransportError('malformed', 'Native owner transport identity is invalid');
+    }
   }
 
   /**
@@ -328,14 +345,17 @@ export class AppiumClient {
    * started with a verbose log level.
    */
   async request(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown, timeoutMs = this.timeoutMs): Promise<unknown> {
+    if (method !== 'GET') this.#beforeCommand?.(method, path);
     const url = `${this.baseUrl}${path}`;
+    const nativeRequestId = this.#nativeOwner ? randomUUID() : null;
     let res: Response;
     try {
       res = await fetch(url, {
         method,
-        headers: { 'x-appium-is-sensitive': 'true', ...(body === undefined ? {} : { 'content-type': 'application/json; charset=utf-8' }) },
+        headers: { 'x-appium-is-sensitive': 'true', ...(body === undefined ? {} : { 'content-type': 'application/json; charset=utf-8' }), ...(this.#nativeOwner ? { 'x-qautra-owner-token': this.#nativeOwner.token, 'x-qautra-owner-request': nativeRequestId!, 'x-qautra-owner-timeout': String(timeoutMs) } : {}) },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: AbortSignal.timeout(timeoutMs),
+        ...(this.#responseByteLimit !== undefined ? { redirect: 'error' as const } : {}),
       });
     } catch (err) {
       const name = (err as { name?: string }).name;
@@ -345,11 +365,12 @@ export class AppiumClient {
     }
     let text: string;
     try {
-      text = await res.text();
+      text = this.#responseByteLimit === undefined ? await res.text() : await readChromeOwnerResponse(res, this.#responseByteLimit);
     } catch (err) {
       const name = (err as { name?: string }).name;
       throw new AppiumTransportError(name === 'TimeoutError' || name === 'AbortError' ? 'timeout' : 'transport', `${method} ${path}: response body lost`, { cause: err });
     }
+    if (this.#nativeOwner && !authenticChromeOwnerReply(this.#nativeOwner.replyKey, nativeRequestId!, res.status, text, res.headers.get('x-qautra-owner-signature'))) throw new AppiumTransportError('malformed', 'Native owner response authentication failed');
     if (!res.ok) throw parseW3CError(res.status, text);
     return decodeW3CResponse(res.status, text, `${method} ${path}`);
   }
@@ -369,6 +390,7 @@ export class AppiumClient {
   }
 
   async createSession(capabilities: Record<string, unknown>, timeoutMs = 240_000): Promise<Record<string, unknown>> {
+    if (this.#endUnconfirmed) throw new AppiumTransportError('transport', 'Previous session end is unconfirmed — no new session or retry');
     const value = await this.request('POST', '/session', { capabilities: { alwaysMatch: capabilities, firstMatch: [{}] } }, timeoutMs);
     const session = decode(NewSessionValue, value, 'POST /session');
     this.sessionId = session.sessionId;
@@ -377,10 +399,13 @@ export class AppiumClient {
 
   /** Ends the session; completes only with W3C `null` (a failed, timed-out or garbled DELETE throws — the session may live on). */
   async deleteSession(timeoutMs = 30_000): Promise<void> {
+    if (this.#endUnconfirmed) throw new AppiumTransportError('transport', 'Previous session end is unconfirmed — no retry');
     if (!this.sessionId) return;
     const id = this.sessionId;
-    this.sessionId = null;
+    this.#endUnconfirmed = true;
     decode(Done, await this.request('DELETE', `/session/${id}`, undefined, timeoutMs), 'DELETE /session');
+    this.sessionId = null;
+    this.#endUnconfirmed = false;
   }
 
   async source(): Promise<string> {

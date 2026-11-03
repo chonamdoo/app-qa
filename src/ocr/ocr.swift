@@ -1,4 +1,3 @@
-// qa-ocr: Apple Vision text recognition for app-qa.
 // Usage: qa-ocr <image.png>
 // Prints JSON {secs, width, height, items: [{text, confidence, box: [x, y, w, h]}]} where box is normalized (0…1)
 // with a top-left origin. Exit codes: 64 usage, 65 unreadable image, 70 recognition failure.

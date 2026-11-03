@@ -4,6 +4,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PATHS } from '../core/config.ts';
 import { writeAtomic } from '../core/fsx.ts';
+import { assertProductEvidenceRead } from '../core/product-evidence.ts';
 import { renderHtml } from './html.ts';
 import { renderJunit } from './junit.ts';
 import { updateManifest } from './manifest.ts';
@@ -19,6 +20,7 @@ type SummaryV1 = Omit<RunSummary, '$schema' | 'qaCounts' | 'tests'> & { $schema:
 /** Writes report.html (+ junit.xml) for a run and records them in the manifest; returns absolute paths. `qa report`
  * rewrites them, so both are replaced atomically. */
 export function writeReports(runDir: string, summary: RunSummary, opts: { junit: boolean; root?: string }): { reportPath: string; junitPath: string | null } {
+  assertProductEvidenceRead(opts.root ?? PATHS.root, summary.runId, 'report.html');
   const traces = buildTraceability(summary, opts.root ?? PATHS.root);
   const reportPath = join(runDir, 'report.html');
   writeAtomic(reportPath, renderHtml(summary, traces, runDir));

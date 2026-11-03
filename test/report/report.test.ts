@@ -58,7 +58,7 @@ describe('report', () => {
     assert.match(html, /<img loading="lazy" src="departures\/android\/step-01\/before\.png"/);
 
     const junit = readFileSync(result.junitPath!, 'utf8');
-    assert.match(junit, /<testsuite name="app-qa android" tests="2" failures="1" errors="0" skipped="0"/);
+    assert.match(junit, /<testsuite[^>]* tests="2" failures="1" errors="0" skipped="0"/);
 
     // The document is restored: regeneration from summary.json drops the change marker.
     writeFileSync(join(root, 'docs/context.md'), DOC_V1);

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.qautra.guest-agent</string>
+  <key>ProgramArguments</key>
+  <array><string>/nonexistent/QAutraGuestAgent</string><string>--serve</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><false/>
+  <key>LimitLoadToSessionType</key><string>Aqua</string>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>StandardOutPath</key><string>/dev/null</string>
+  <key>StandardErrorPath</key><string>/dev/null</string>
+  <key>Umask</key><integer>63</integer>
+</dict>
+</plist>

@@ -3,6 +3,7 @@ node_modules/
 .qa/
 .env
 reports/
+.build/
 .agent-flow/
 .agent-flow/local-skills/
 .codex/

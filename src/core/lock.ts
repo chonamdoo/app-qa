@@ -1,10 +1,10 @@
-// Exclusive owner lock file = {pid, startedAt, acquiredAt, token}, taken by hard-linking a complete temp file into place
-// (O_EXCL semantics without a torn read). A dead (or pid-reused) owner is reclaimed; reclaiming never deletes a lock
-// that changed since it was judged stale.
+// A process mutex is not evidence that native resources or effects are clean; admission owns that quarantine.
+// Hard-link installation and generation-guarded removal acknowledge only committed bytes and directory entries.
 import { randomUUID } from 'node:crypto';
-import { closeSync, fstatSync, linkSync, openSync, readFileSync, rmSync, unlinkSync } from 'node:fs';
+import { closeSync, constants, fstatSync, fsyncSync, linkSync, openSync, readFileSync, unlinkSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { z } from 'zod';
-import { sha256, writeSecure } from './fsx.ts';
+import { commitDirectory, sha256, writeAtomic } from './fsx.ts';
 import { isProcessAlive, PROCESS_STARTED_AT_MS, systemProbe, type ProcessProbe } from './process.ts';
 
 /** The lock file as written by `acquireFileLock`; anything else on disk is an unreadable record. */
@@ -28,7 +28,7 @@ export class FileLockedError extends Error {
   constructor(purpose: string, file: string, reason: LockConflict, owner: LockRecord | null) {
     super(
       reason === 'reclaiming'
-        ? `${purpose}: 오래된 잠금을 다른 qa 프로세스가 회수하는 중입니다. 계속 실패하면 ${file}.*.reclaim 파일을 지우세요.`
+        ? `${purpose}: 오래된 잠금을 다른 qa 프로세스가 회수하는 중입니다. 소유권과 미확인 작업을 확인한 뒤 다시 시도하세요.`
         : owner
           ? `${purpose}: 다른 qa 프로세스(pid ${owner.pid}, ${owner.acquiredAt}부터)가 잠금을 갖고 있습니다.`
           : `${purpose}: 잠금을 얻지 못했습니다 (다른 qa 프로세스와 경합).`,
@@ -51,6 +51,7 @@ export function isStale(record: LockRecord | null, probe: ProcessProbe): boolean
 
 /** One lock file generation as read from disk: inode + exact bytes (tokens make every generation's bytes unique). */
 interface LockFile {
+  dev: bigint;
   ino: bigint;
   bytes: Buffer;
 }
@@ -58,16 +59,24 @@ interface LockFile {
 function readLockFile(file: string): LockFile | null {
   let fd: number;
   try {
-    fd = openSync(file, 'r');
+    fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw err;
   }
   try {
-    return { ino: fstatSync(fd, { bigint: true }).ino, bytes: readFileSync(fd) };
+    const stat = fstatSync(fd, { bigint: true });
+    if (!stat.isFile() || stat.uid !== BigInt(process.geteuid!())) {
+      throw Object.assign(new Error('Expected an owned regular lock file'), { code: 'ERR_FILE_LOCK_UNSAFE' });
+    }
+    return { dev: stat.dev, ino: stat.ino, bytes: readFileSync(fd) };
   } finally {
     closeSync(fd);
   }
+}
+
+function sameGeneration(first: LockFile, second: LockFile): boolean {
+  return first.dev === second.dev && first.ino === second.ino && first.bytes.equals(second.bytes);
 }
 
 /** The recorded owner, or null when the bytes are not a whole valid record (then the lock counts as unreadable). */
@@ -91,25 +100,32 @@ export interface LockHooks {
 /**
  * Deletes `file` only if it is still exactly generation `seen` (same inode and bytes). The compare-and-delete runs
  * under an O_EXCL guard named after that generation, so two removers of one generation never both act, and a
- * remover holding an older judgement never matches — and so never deletes — a newer lock. The guard is never removed
- * by anyone but its creator: a guard left by a crashed process makes the lock `busy` until a human removes it.
+ * remover holding an older judgement never matches — and so never deletes — a newer lock. A leftover guard
+ * blocks removal; reclaiming a process mutex never resolves uncertain native ownership or effects.
  */
 function removeGeneration(file: string, seen: LockFile, hooks: LockHooks): 'removed' | 'changed' | 'busy' {
+  commitDirectory(dirname(file));
   const guard = `${file}.${sha256(seen.bytes).slice(0, 16)}.reclaim`;
+  let fd: number;
   try {
-    closeSync(openSync(guard, 'wx', 0o600));
+    fd = openSync(guard, 'wx', 0o600);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'EEXIST') return 'busy';
     throw err;
   }
   try {
+    try { fsyncSync(fd); }
+    finally { closeSync(fd); }
+    commitDirectory(dirname(file));
     hooks.onGuard?.();
     const now = readLockFile(file);
-    if (!now || now.ino !== seen.ino || !now.bytes.equals(seen.bytes)) return 'changed';
+    if (!now || !sameGeneration(now, seen)) return 'changed';
     unlinkSync(file);
+    commitDirectory(dirname(file));
     return 'removed';
   } finally {
-    rmSync(guard, { force: true });
+    unlinkSync(guard);
+    commitDirectory(dirname(file));
   }
 }
 
@@ -117,7 +133,7 @@ function removeGeneration(file: string, seen: LockFile, hooks: LockHooks): 'remo
 function writeTemp(tmp: string, data: string): void {
   for (let attempt = 0; ; attempt++) {
     try {
-      writeSecure(tmp, data);
+      writeAtomic(tmp, data);
       return;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT' || attempt === 2) throw err;
@@ -142,9 +158,9 @@ export interface FileLockOptions {
 }
 
 /**
- * Acquires `file` atomically (write temp file, hard-link into place); never waits.
- * Throws FileLockedError when a live process holds it or another process is reclaiming it.
- * Released on `release()` or process exit.
+ * Acquires `file` atomically and durably; never waits.
+ * Throws FileLockedError on contention. A commit failure may leave an installed mutex; it grants no dispatch authority.
+ * `release()` commits removal before acknowledging and remains retryable after a failed commit.
  */
 export function acquireFileLock(file: string, opts: FileLockOptions): FileLock {
   const probe = opts.probe ?? systemProbe;
@@ -156,8 +172,13 @@ export function acquireFileLock(file: string, opts: FileLockOptions): FileLock {
     token: randomUUID(),
   };
   const tmp = `${file}.${record.token}.tmp`;
-  writeTemp(tmp, `${JSON.stringify(record)}\n`);
+  const data = `${JSON.stringify(record)}\n`;
+  const bytes = Buffer.from(data);
+  let generation: LockFile | null = null;
   try {
+    writeTemp(tmp, data);
+    generation = readLockFile(tmp);
+    if (!generation || !generation.bytes.equals(bytes)) throw new Error('Lock staging generation changed');
     // link → (stale) reclaim → link; one more round reports whoever won a concurrent reclaim.
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -172,20 +193,26 @@ export function acquireFileLock(file: string, opts: FileLockOptions): FileLock {
         if (removeGeneration(file, seen, hooks) === 'busy') throw new FileLockedError(opts.purpose, file, 'reclaiming', owner);
         continue;
       }
-      let held = true;
-      const release = () => {
-        if (!held) return;
-        held = false;
-        process.removeListener('exit', release);
-        const now = readLockFile(file);
-        if (now && parseRecord(now.bytes)?.token === record.token) removeGeneration(file, now, {});
-      };
-      process.once('exit', release);
-      return { path: file, record, release };
+      commitDirectory(dirname(file));
+      break;
     }
     const now = readLockFile(file);
-    throw new FileLockedError(opts.purpose, file, 'contended', now && parseRecord(now.bytes));
+    if (!now || !sameGeneration(now, generation)) throw new FileLockedError(opts.purpose, file, 'contended', now && parseRecord(now.bytes));
   } finally {
-    rmSync(tmp, { force: true });
+    const staged = readLockFile(tmp);
+    if (staged) {
+      if (!staged.bytes.equals(bytes) || (generation && !sameGeneration(staged, generation))) throw new Error('Refusing to remove a changed lock staging generation');
+      if (removeGeneration(tmp, staged, {}) === 'busy') throw new FileLockedError(opts.purpose, file, 'reclaiming', record);
+    }
   }
+  let held = true;
+  const owned = generation;
+  const release = () => {
+    if (!held) return;
+    if (removeGeneration(file, owned, {}) === 'busy') throw new FileLockedError(opts.purpose, file, 'reclaiming', record);
+    held = false;
+    process.removeListener('exit', release);
+  };
+  process.once('exit', release);
+  return { path: file, record, release };
 }

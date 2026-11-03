@@ -14,7 +14,7 @@ export function outputJsonSchema(): object {
   return z.toJSONSchema(LlmOutput, { io: 'input', unrepresentable: 'any', reused: 'ref' });
 }
 
-const RULES = `You write end-to-end tests for a mobile app or a website in the app-qa DSL from requirement documents.
+const RULES = `You write end-to-end tests for a mobile app or a website in the QAutra DSL from requirement documents.
 
 # OUTPUT
 Return ONLY one JSON object, no prose and no code fences:

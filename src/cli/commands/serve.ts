@@ -1,32 +1,35 @@
-// `qa serve`: engine server for the macOS app. Runner/planner/drivers are imported lazily at use time, so the server
-// starts even while those modules are missing and the affected job/route fails with a clear message instead.
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import type { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { loadEnv, PATHS } from '../../core/config.ts';
-import type { EventSink } from '../../core/events.ts';
+import { EventBus, type EventSink } from '../../core/events.ts';
 import { writeJsonAtomic } from '../../core/fsx.ts';
 import { PLATFORM_INFO } from '../../core/platform.ts';
 import type { DeviceInfo, Platform, Verdict } from '../../core/types.ts';
+import { createAgentService, type AgentExecutionService, type CaptureResult, type InspectResult, type RunnerDeps } from '../../runner/index.ts';
 import type { JobContext, JobOutcome, SmokeParams } from '../../server/jobs.ts';
 import { createServer, HttpError, type ServerHandlers } from '../../server/server.ts';
+import { ProductStore } from '../../server/product-store.ts';
 import { loadAppProfile } from '../../spec/load.ts';
 import { profilePlatforms } from '../../spec/schema.ts';
-import { smokeEach } from '../smoke-each.ts';
+import { ingestSourceLedger } from '../../plan/ingest.ts';
+import { ClaudeProductAuthoringAdapter } from '../../plan/product-authoring.ts';
+import { renderPortableEvidenceHtml } from '../../report/html.ts';
 
 /** §10 RunResult fields the queue reports. */
 interface RunResultLike {
   runId: string;
   counts: Record<Verdict, number>;
-  tests: { code: string | null }[];
   reportPath: string;
 }
 
 interface RunnerModule {
-  runTests(opts: { paths: string[]; platform: Platform | 'all'; deviceIds?: Partial<Record<Platform, string>>; tags?: string[]; junit?: boolean; events?: EventSink; signal?: AbortSignal }): Promise<RunResultLike>;
-  runSmoke(opts: { app: string; platform: Platform; deviceId?: string; crawl?: 'tabs'; events?: EventSink; signal?: AbortSignal }): Promise<RunResultLike>;
-  captureScreen(opts: { app: string; platform: Platform; deviceId?: string; name: string; events?: EventSink; signal?: AbortSignal }): Promise<unknown>;
+  runTests(opts: { paths: string[]; platform: Platform | 'all'; deviceIds?: Partial<Record<Platform, string>>; tags?: string[]; junit?: boolean; events?: EventSink; signal?: AbortSignal }, deps?: Partial<RunnerDeps>): Promise<RunResultLike>;
+  runSmoke(opts: { app: string; platform: Platform; deviceId?: string; crawl?: 'tabs'; events?: EventSink; signal?: AbortSignal }, deps?: Partial<RunnerDeps>): Promise<RunResultLike>;
+  captureScreen(opts: { app: string; platform: Platform; deviceId?: string; name: string; events?: EventSink; signal?: AbortSignal }, deps?: Partial<RunnerDeps>): Promise<CaptureResult>;
+  inspectScreen(opts: { app: string; platform: Platform; deviceId?: string; events?: EventSink; signal?: AbortSignal }, deps?: Partial<RunnerDeps>): Promise<InspectResult>;
 }
 
 interface PlannerModule {
@@ -73,9 +76,8 @@ async function load<T>(specifier: string, label: string, exportsNeeded: string[]
   return mod as T;
 }
 
-/** Job outcome of runner results; each `notRun` reason is one platform never started, counted as ERROR. */
-function runOutcome(results: RunResultLike[], notRun: readonly string[] = []): JobOutcome {
-  const counts: Record<Verdict, number> = { PASS: 0, FAIL: 0, INCONCLUSIVE: 0, ERROR: notRun.length, SKIPPED: 0 };
+function runOutcome(results: RunResultLike[]): JobOutcome {
+  const counts: Record<Verdict, number> = { PASS: 0, FAIL: 0, INCONCLUSIVE: 0, ERROR: 0, SKIPPED: 0 };
   for (const result of results) for (const verdict of VERDICT_ORDER) counts[verdict] += result.counts[verdict] ?? 0;
   const executed = VERDICT_ORDER.reduce((sum, v) => sum + counts[v], 0);
   const summary = VERDICT_ORDER.filter((v) => counts[v] > 0)
@@ -84,38 +86,33 @@ function runOutcome(results: RunResultLike[], notRun: readonly string[] = []): J
   return {
     // Fail-closed: anything but PASS/SKIPPED (or nothing executed) is not a successful job.
     ok: executed > 0 && counts.FAIL + counts.ERROR + counts.INCONCLUSIVE === 0,
-    message: [summary || '실행된 테스트가 없습니다', ...notRun].join(' · '),
+    message: summary || '실행된 테스트가 없습니다',
     resultPath: results.at(-1)?.reportPath ?? null,
   };
 }
 
-/** Smoke job over `platforms` in order, with the runner's `runSmoke` passed in (see `smokeEach`). */
-export async function smokeJob(runSmoke: RunnerModule['runSmoke'], platforms: readonly Platform[], params: SmokeParams, { events, signal }: JobContext): Promise<JobOutcome> {
+async function smokeJob(runSmoke: RunnerModule['runSmoke'], platforms: readonly Platform[], params: SmokeParams, { events, signal }: JobContext): Promise<JobOutcome> {
   const results: RunResultLike[] = [];
-  const notRun: string[] = [];
-  const each = smokeEach(platforms, (platform) => {
+  for (const platform of platforms) {
     signal.throwIfAborted();
-    return runSmoke({ app: params.app, platform, deviceId: params.deviceIds[platform], crawl: params.crawl, events, signal });
-  });
-  for await (const smoke of each) {
-    if (smoke.result) results.push(smoke.result);
-    else notRun.push(`${PLATFORM_INFO[smoke.platform].label}: ${smoke.notRun}`);
+    results.push(await runSmoke({ app: params.app, platform, deviceId: params.deviceIds[platform], crawl: params.crawl, events, signal }));
   }
-  return runOutcome(results, notRun);
+  return runOutcome(results);
 }
 
-function realHandlers(): ServerHandlers {
-  const runner = () => load<RunnerModule>('../../runner/index.ts', '러너', ['runTests', 'runSmoke', 'captureScreen']);
+function realHandlers(agent: AgentExecutionService): ServerHandlers {
+  const runner = () => load<RunnerModule>('../../runner/index.ts', '러너', ['runTests', 'runSmoke', 'captureScreen', 'inspectScreen']);
   const drivers = () => load<DriversModule>('../../drivers/index.ts', '드라이버', ['listDevices', 'listApps']);
   const screen = () => load<ScreenModule>('../../drivers/screen.ts', '화면 캡처', ['grabScreen', 'startRecording', 'stopRecording']);
   return {
+    agent,
     async run(params, { events, signal }) {
       const { runTests } = await runner();
-      return runOutcome([await runTests({ ...params, events, signal })]);
+      return runOutcome([await runTests({ ...params, events, signal }, agent.runnerDeps)]);
     },
     async smoke(params, ctx) {
       const { runSmoke } = await runner();
-      return smokeJob(runSmoke, params.platform === 'all' ? profilePlatforms(loadAppProfile(params.app)) : [params.platform], params, ctx);
+      return smokeJob(opts => runSmoke(opts, agent.runnerDeps), params.platform === 'all' ? profilePlatforms(loadAppProfile(params.app)) : [params.platform], params, ctx);
     },
     async plan(params, { events, signal }) {
       const { generatePlan } = await load<PlannerModule>('../../plan/index.ts', '플래너', ['generatePlan']);
@@ -137,25 +134,84 @@ function realHandlers(): ServerHandlers {
     },
     async capture(params, { events, signal }) {
       const { captureScreen } = await runner();
-      await captureScreen({ ...params, events, signal });
-      return { ok: true, message: `화면 캡처 저장: ${params.name}`, resultPath: null };
+      const files = await captureScreen({ ...params, events, signal }, agent.runnerDeps);
+      return { ok: true, message: `화면 캡처 저장: ${params.name}`, resultPath: null, output: { kind: 'capture', files } };
     },
-    devices: async () => (await drivers()).listDevices(),
-    apps: async (platform, deviceId) => (await drivers()).listApps(platform, deviceId),
-    screen: async (platform, deviceId) => (await screen()).grabScreen(platform, deviceId),
-    startRecording: async (platform, deviceId, file) => (await screen()).startRecording(platform, deviceId, file),
-    stopRecording: async (platform, deviceId, file) => (await screen()).stopRecording(platform, deviceId, file),
+    async inspect(params, { events, signal }) {
+      const { inspectScreen } = await runner();
+      const { table, model } = await inspectScreen({ ...params, events, signal }, agent.runnerDeps);
+      return { ok: true, message: `화면 조회 완료: ${params.app}`, resultPath: null,
+        output: { kind: 'inspect', table, candidates: model.candidates, texts: model.texts, occluded: model.occludedNodeIds.length } };
+    },
+    devices: () => agent.devices(),
+    apps: async (platform, deviceId) => {
+      if (PLATFORM_INFO[platform].host === 'desktop') throw new HttpError(400, '브라우저 웹 대상은 등록한 앱 프로필로 선택하세요. 호스트 앱 목록으로 대체하지 않습니다.');
+      return (await drivers()).listApps(platform, deviceId);
+    },
+    screen: async (platform, deviceId) => PLATFORM_INFO[platform].host === 'desktop' ? agent.frame(platform, deviceId) : (await screen()).grabScreen(platform, deviceId),
+    startRecording: async (platform, deviceId, file) => {
+      if (PLATFORM_INFO[platform].host === 'desktop') throw new HttpError(400, '브라우저 녹화는 승인된 실행의 증거 수집 경로를 사용하세요. 호스트 화면을 녹화하지 않습니다.');
+      return (await screen()).startRecording(platform, deviceId, file);
+    },
+    stopRecording: async (platform, deviceId, file) => {
+      if (PLATFORM_INFO[platform].host === 'desktop') throw new HttpError(400, '브라우저 녹화는 해당 실행에서 종료·확정해야 합니다. 호스트 화면을 녹화하지 않습니다.');
+      return (await screen()).stopRecording(platform, deviceId, file);
+    },
   };
 }
 
+const REVIEW_TOKEN = /^[A-Za-z0-9_-]{43,256}$/;
+
 /**
- * Starts the engine server and publishes its connection info (port, token): the 0600 temp file is renamed into place,
- * so the token is never readable by others nor torn. `close()` stops the server and removes the file while it is ours.
+ * Reads the operator review secret that the launching app writes as the first line of the engine's stdin pipe.
+ * The secret never reaches `.qa/server.json`, the environment or the log, so bearer-only callers cannot learn it.
  */
-export async function startEngine(opts: { port: number; infoFile: string; handlers: ServerHandlers }): Promise<{ port: number; close(): Promise<void> }> {
-  const server = createServer({ handlers: opts.handlers });
-  const port = await server.listen(opts.port);
-  writeJsonAtomic(opts.infoFile, { port, token: server.token, pid: process.pid, startedAt: new Date().toISOString() });
+export function readReviewToken(input: Readable, timeoutMs = 5000): Promise<string> {
+  const { promise, resolve, reject } = Promise.withResolvers<string>();
+  let buffered = '';
+  const finish = (outcome: { token: string } | { error: string }) => {
+    clearTimeout(timer);
+    input.off('data', onData);
+    input.off('end', onEnd);
+    input.off('error', onEnd);
+    input.pause();
+    if ('token' in outcome) resolve(outcome.token);
+    else reject(new Error(outcome.error));
+  };
+  const onData = (chunk: Buffer | string) => {
+    buffered += chunk.toString();
+    const newline = buffered.indexOf('\n');
+    if (newline === -1) {
+      if (buffered.length > 256) finish({ error: '로컬 검토 권한 값이 올바르지 않습니다' });
+      return;
+    }
+    const token = buffered.slice(0, newline);
+    finish(REVIEW_TOKEN.test(token) ? { token } : { error: '로컬 검토 권한 값이 올바르지 않습니다' });
+  };
+  const onEnd = () => finish({ error: '로컬 검토 권한을 받기 전에 입력이 닫혔습니다' });
+  const timer = setTimeout(() => finish({ error: '로컬 검토 권한을 제한 시간 안에 받지 못했습니다' }), timeoutMs);
+  input.on('data', onData);
+  input.once('end', onEnd);
+  input.once('error', onEnd);
+  input.resume();
+  return promise;
+}
+
+/**
+ * Starts the engine server and publishes its connection info (port, bearer token): the 0600 temp file is renamed into
+ * place, so the token is never readable by others nor torn. The operator review secret is never published; without
+ * `reviewToken` the engine refuses every operator-only action. `close()` stops the server and removes the file while it is ours.
+ */
+export async function startEngine(opts: { port: number; infoFile: string; handlers: ServerHandlers; bus?: EventBus; reviewToken?: string }): Promise<{ port: number; close(): Promise<void> }> {
+  const server = createServer({ handlers: opts.handlers, bus: opts.bus, reviewToken: opts.reviewToken, ingestSource: ingestSourceLedger, authoringAdapter: new ClaudeProductAuthoringAdapter(), evidenceHtml: renderPortableEvidenceHtml });
+  let port: number;
+  try {
+    port = await server.listen(opts.port);
+    writeJsonAtomic(opts.infoFile, { port, token: server.token, pid: process.pid, startedAt: server.startedAt });
+  } catch (error) {
+    await server.close();
+    throw error;
+  }
   return {
     port,
     async close() {
@@ -177,6 +233,8 @@ export async function cmdServe(argv: string[]): Promise<number> {
       port: { type: 'string', default: '0' },
       /** Exit when stdin closes — the macOS app holds the pipe, so a crashed app never leaves an orphan engine. */
       'exit-with-stdin': { type: 'boolean', default: false },
+      /** The launching app writes the operator review secret as the first stdin line; without it operator actions are refused. */
+      'review-token-stdin': { type: 'boolean', default: false },
     },
     strict: true,
   });
@@ -185,9 +243,25 @@ export async function cmdServe(argv: string[]): Promise<number> {
     console.error(`qa serve: 잘못된 포트 ${values.port}`);
     return 2;
   }
+  let reviewToken: string | undefined;
+  if (values['review-token-stdin']) {
+    try {
+      reviewToken = await readReviewToken(process.stdin);
+    } catch (error) {
+      console.error(`qa serve: ${error instanceof Error ? error.message : String(error)}`);
+      return 2;
+    }
+  }
   loadEnv();
   const infoFile = join(PATHS.state, 'server.json');
-  const engine = await startEngine({ port, infoFile, handlers: realHandlers() });
+  const bus = new EventBus();
+  const product = new ProductStore({ root: PATHS.root, apps: PATHS.apps, uploads: join(PATHS.state, 'uploads'), generated: join(PATHS.tests, 'generated') });
+  const agent = createAgentService({
+    instanceProfiles: async () => (await product.read()).environments.flatMap(environment =>
+      environment.platform === 'desktop-chrome' || environment.platform === 'desktop-safari'
+        ? [{ id: environment.id, name: environment.name, platform: environment.platform }] : []),
+  }, bus);
+  const engine = await startEngine({ port, infoFile, bus, handlers: realHandlers(agent), reviewToken });
   console.log(`qa serve: http://127.0.0.1:${engine.port} (접속 정보 ${relative(PATHS.root, infoFile)})`);
 
   const { promise: stopped, resolve: stop } = Promise.withResolvers<string>();

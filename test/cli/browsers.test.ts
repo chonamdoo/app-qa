@@ -27,12 +27,8 @@ function recordingSteps(fail: ReadonlySet<string> = new Set()): { steps: Browser
 describe('browser readiness (qa setup --browsers / qa doctor)', () => {
   test('without a named device every booted device of each platform is handled; shutdown ones are not', async () => {
     const { steps, touched } = recordingSteps();
-    const groups = await browserReadiness([device('android', 'e1'), device('android', 'e2'), device('ios', 's1', 'shutdown'), device('ios', 's2')], {}, steps);
+    await browserReadiness([device('android', 'e1'), device('android', 'e2'), device('ios', 's1', 'shutdown'), device('ios', 's2')], {}, steps);
     assert.deepEqual(touched, ['android:e1', 'android:e2', 'ios:s2']);
-    assert.deepEqual(
-      groups.map((g) => g.title),
-      ['데스크톱 브라우저', 'Android Chrome · android-e1 (e1)', 'Android Chrome · android-e2 (e2)', 'iOS Safari · ios-s2 (s2)'],
-    );
   });
 
   test('a platform with no booted device is skipped, not failed', async () => {

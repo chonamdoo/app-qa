@@ -1,13 +1,30 @@
 // Driver actions over a scripted Appium server: lost or garbled answers are `uncertain`, never `completed`/`rejected`.
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
-import { W3C_ELEMENT_KEY } from '../../src/appium/client.ts';
+import { AppiumTransportError, W3C_ELEMENT_KEY } from '../../src/appium/client.ts';
 import type { ActionOutcome } from '../../src/core/types.ts';
+import { RefusedError } from '../../src/drivers/base.ts';
 import { AndroidDriver } from '../../src/drivers/android.ts';
 import { IosDriver } from '../../src/drivers/ios.ts';
 import { scriptOf, startAppiumStub, type AppiumStub, type Reply } from './stubs.ts';
 
 const APP = { kind: 'app' as const, platform: 'ios' as const, appId: 'kr.tteonam.app' };
+
+describe('unconfirmed native session startup', () => {
+  it('does not confirm closure or create a replacement after losing the new-session response', async () => {
+    const stub = await startAppiumStub((req) => req.method === 'POST' && req.path === '/session' ? 'destroy' : undefined);
+    const driver = new AndroidDriver('emulator-5554', { serverUrl: stub.url });
+    const target = { kind: 'app' as const, platform: 'android' as const, appId: 'kr.tteonam.app' };
+    try {
+      await assert.rejects(driver.open(target), AppiumTransportError);
+      await assert.rejects(driver.close(), AppiumTransportError);
+      await assert.rejects(driver.open(target), RefusedError);
+      assert.equal(stub.requests.filter((request) => request.method === 'POST' && request.path === '/session').length, 1);
+    } finally {
+      stub.close();
+    }
+  });
+});
 
 describe('iOS hideKeyboard outcome', () => {
   /** Keyboard shown until a hideKeyboard answer arrives that `dismisses`; the hideKeyboard reply is scripted. */
