@@ -119,6 +119,12 @@ node bin/qa.ts report latest
 
 `.qa/runs/<runId>/`에 `report.html`, `summary.json`, `junit.xml`, 스텝별 스크린샷·화면 원본(마스킹됨)이 남는다. 웹 대상이 있으면 `web-qa/{plan,result}.json`도 쓴다(web-qa-skill `check-run.mjs`로 검사 가능). 결과마다 원래 판정과 함께 `qaStatus`(PASS/FAIL/BLOCKED/NOT_RUN/SKIPPED)를 적는다.
 
+### 이미지 처리 옵션
+
+Rust 이미지 모듈은 선택 사항이다. 기본 `npm ci`·`qa setup`은 Rust를 설치하거나 빌드하지 않는다. Rust 1.94 이상과 C 링커가 준비된 환경에서 `npm run build:image-native`를 실행하면 scanline/RGB 복원·dHash와 실측 작업량 이상의 색상 통계에 native 모듈을 사용한다.
+
+모듈이 없으면 기존 JavaScript로 실행한다. `APP_QA_IMAGE_BACKEND=js`로 JavaScript를 강제하거나 `native`로 모듈을 필수화할 수 있다. 설치된 모듈의 손상·버전 불일치·실행 오류는 숨기지 않는다. [검증 플랫폼·벤치마크·재현 방법](docs/performance/rust-image.md)을 확인한다.
+
 ## Mac 앱
 
 ```sh

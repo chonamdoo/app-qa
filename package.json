@@ -13,7 +13,10 @@
   "scripts": {
     "qa": "node bin/qa.ts",
     "test": "node --test --test-reporter=spec \"test/**/*.test.ts\"",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "build:image-native": "node scripts/build-image-native.mjs",
+    "bench:image": "node scripts/benchmark-image.mjs",
+    "test:image": "node scripts/check-image-equivalence.mjs"
   },
   "dependencies": {
     "appium": "3.8.0",

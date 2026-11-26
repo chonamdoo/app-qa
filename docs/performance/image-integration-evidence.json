@@ -1,0 +1,91 @@
+{
+  "baseline": "86d5685651ede2bec57000c9b36e32d4ac5ea217",
+  "checkoutHead": "86d5685651ede2bec57000c9b36e32d4ac5ea217",
+  "sourceHashes": {
+    "src/runner/image.ts": "af5c90ff07bd366a066205f2ef57bec4ce873b9056b7f015849684f08bbd48bc",
+    "src/runner/image-native.ts": "7d912ffff05cd52d1ee8b1b3cbace9caafdfa7bed85e3dac5293c812620eb98a",
+    "src/runner/engine.ts": "145af8e5d901609c584defa7d7306871e377211d502f0643e114b022f8ce7f04",
+    "native/image/src/lib.rs": "39c104aafca44a8cebf419e7daf6c29cbb8f41a6b45bfcbe44836caf2a0f809f",
+    "native/image/Cargo.toml": "09cf00dadb7f4f4fb46826eeed303d4f3defe43eccc7dd1b67e1502904fd00be",
+    "native/image/Cargo.lock": "b5878a6759249c950c2240364660f68fe905f932c4d93127e3af0e50e6c70a4b",
+    "native/image/build.rs": "fcbd1ff3f627a7553fa1704dc6f558998daff8bc256015c37aace62cc49ce584"
+  },
+  "versions": {
+    "node": "24.19.0",
+    "acorn": "8.17.0",
+    "ada": "3.4.4",
+    "amaro": "1.1.10",
+    "ares": "1.34.6",
+    "brotli": "1.2.0",
+    "cldr": "48.0",
+    "icu": "78.3",
+    "llhttp": "9.4.3",
+    "merve": "1.2.2",
+    "modules": "137",
+    "napi": "10",
+    "nbytes": "0.1.4",
+    "ncrypto": "0.0.1",
+    "nghttp2": "1.69.0",
+    "nghttp3": "",
+    "ngtcp2": "",
+    "openssl": "3.5.7",
+    "simdjson": "4.6.4",
+    "simdutf": "6.4.0",
+    "sqlite": "3.53.3",
+    "tz": "2026b",
+    "undici": "7.29.0",
+    "unicode": "17.0",
+    "uv": "1.52.1",
+    "uvwasi": "0.0.23",
+    "v8": "13.6.233.17-node.51",
+    "zlib": "1.3.2.1-motley-3246f1b",
+    "zstd": "1.5.7"
+  },
+  "platform": "linux",
+  "arch": "x64",
+  "cpuQuota": "400000 100000",
+  "rounds": 7,
+  "percentileDefinition": "nearest rank of per-worker batch elapsed / n; not individual request latency",
+  "inputs": [
+    {
+      "name": "fixtures/desktop-chrome/web-calib-holdout/claim-en.png",
+      "width": 1280,
+      "height": 800,
+      "pngBytes": 39038,
+      "pngSha256": "0b156dccbe8444675954f5823cb64bdde561af3b25219e26fe335f802b91bf21"
+    },
+    {
+      "name": "fixtures/android/easyway/launch.png",
+      "width": 1080,
+      "height": 2400,
+      "pngBytes": 108077,
+      "pngSha256": "20d21042c34f928586553ec94832bcea4801cea30723698f2a14232f1cf321b3"
+    },
+    {
+      "name": "fixtures/ios/expo-go/launch.png",
+      "width": 1206,
+      "height": 2622,
+      "pngBytes": 234168,
+      "pngSha256": "9da1f8a2b1c9a046c8a21815e517c11be83dcdd8a62cbb82a5434caaaaa5330d"
+    }
+  ],
+  "at": "2026-10-31T03:51:15.469Z",
+  "implementationCommit": "468d34c3cde735c7a5c9d2a54297ebc5cd52e206",
+  "tests": {
+    "baselineFullPassed": 585,
+    "nativeFullPassed": 608,
+    "absentFullPassed": 607,
+    "absentFullSkipped": 1,
+    "nativeDifferentialChecks": 1737,
+    "absentDifferentialChecks": 1737,
+    "typecheck": "passed",
+    "rustfmt": "passed"
+  },
+  "nativeManifestAtVerification": {
+    "apiVersion": 1,
+    "platform": "linux",
+    "arch": "x64",
+    "sourceHash": "fa67654486aa874859d12dcaccbe00cc051eeaa43dbe5b48ceeece06da2e1a39",
+    "binaryHash": "ea5636612a4aca9bb16f4713d942b278dc1a7ca81b6bf21635f1ffe4023eddfa"
+  }
+}

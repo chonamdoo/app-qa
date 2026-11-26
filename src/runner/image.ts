@@ -1,6 +1,15 @@
-// Screenshot analysis without dependencies: PNG decode (zlib inflate of IDAT + scanline unfilter), difference hash
+// Screenshot analysis with optional native kernels: PNG decode (zlib inflate of IDAT + scanline unfilter), difference hash
 // for the settle fallback, and colour statistics for blank-screen / RedBox detection.
 import { inflateSync } from 'node:zlib';
+import { loadImageNative, nativeBytes, nativeColorRaster, nativeRaster } from './image-native.ts';
+
+const backend = loadImageNative();
+const EMPTY_PALETTE = new Uint8Array();
+
+/** Capability diagnostics; selection is fixed for this module/worker lifetime. */
+export function imageBackendInfo(): { name: 'javascript' | 'native'; reason: string } {
+  return { name: backend.native ? 'native' : 'javascript', reason: backend.reason };
+}
 
 export interface Raster {
   width: number;
@@ -47,6 +56,10 @@ export function decodePng(png: Uint8Array): Raster | null {
   const bpp = channels * (depth / 8);
   const stride = width * bpp;
   if (raw.length < height * (stride + 1)) return null;
+  if (backend.native) {
+    const rgb = backend.native.decodeRgb(width, height, depth, colorType, raw, nativeBytes(palette ?? EMPTY_PALETTE));
+    return rgb === null ? null : { width, height, rgb };
+  }
   const rgb = new Uint8Array(width * height * 3);
   let prev = new Uint8Array(stride);
   let line = new Uint8Array(stride);
@@ -118,6 +131,7 @@ export function decodePng(png: Uint8Array): Raster | null {
  * brighter than its right neighbour. Robust to caret blinks and compression noise; used only when the tree is unchanged.
  */
 export function dHash(r: Raster): string {
+  if (backend.native && nativeRaster(r)) return backend.native.dHash(r.width, r.height, nativeBytes(r.rgb));
   const cols = 9;
   const rows = 8;
   const sums = new Float64Array(cols * rows);
@@ -161,6 +175,7 @@ export interface ColorStats {
 }
 
 export function colorStats(r: Raster): ColorStats {
+  if (backend.native && nativeColorRaster(r)) return backend.native.colorStats(r.width, r.height, nativeBytes(r.rgb));
   const buckets = new Map<number, number>();
   let total = 0;
   let red = 0;
@@ -179,4 +194,16 @@ export function colorStats(r: Raster): ColorStats {
   let top = 0;
   for (const n of buckets.values()) if (n > top) top = n;
   return { dominantShare: total ? top / total : 0, redShare: total ? red / total : 0 };
+}
+
+// Same screenshot-object identity cache used by engine settle; backend selection does not change cache hits.
+const hashCache = new WeakMap<Uint8Array, string | null>();
+
+export function pngHash(png: Uint8Array | null): string | null {
+  if (!png) return null;
+  if (hashCache.has(png)) return hashCache.get(png)!;
+  const raster = decodePng(png);
+  const h = raster ? dHash(raster) : null;
+  hashCache.set(png, h);
+  return h;
 }
