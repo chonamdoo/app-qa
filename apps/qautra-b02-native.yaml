@@ -1,0 +1,18 @@
+id: qautra-b02-native
+name: QAutra B02 Native Fixture
+build: dev
+android:
+  package: dev.qautra.fixture.android
+  activity: .FixtureActivity
+  apk: .qa/b02-fixtures/native/android/build/qautra-b02-fixture.apk
+ios:
+  bundleId: dev.qautra.fixture.ios
+  app: .qa/b02-fixtures/native/ios/build/QAutraB02Fixture.app
+agent:
+  data: synthetic-fixture
+  screenshots: true
+  deviceIds:
+    - emulator-5580
+    - CDF4D3C8-8C4D-46AB-9ECB-22492FBA4552
+  mutations: [tap, type, clear]
+  coordinates: false

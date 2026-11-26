@@ -6,18 +6,16 @@ import { AppiumClient } from '../../appium/client.ts';
 import { appiumPort } from '../../appium/server.ts';
 import { checkAdb, checkXcode, installedDriverVersions, PINNED_DRIVERS, printChecks, type Check } from '../../appium/setup.ts';
 import { loadEnv, PATHS } from '../../core/config.ts';
-import { PLATFORM_INFO } from '../../core/platform.ts';
 import type { DeviceInfo } from '../../core/types.ts';
-import { androidChromeChecks, desktopBrowserChecks, iosSafariChecks, listDevices } from '../../drivers/index.ts';
+import { androidChromeChecks, iosSafariChecks, listDevices } from '../../drivers/index.ts';
 import { JEV_MODEL, loadCalibration, loadJevConfig, QUESTION_VERSION } from '../../jev/index.ts';
 import { listAppProfiles } from '../../server/store.ts';
-import { browserReadiness } from '../browsers.ts';
-import { displayStateCheck } from '../display.ts';
+import { browserReadiness, desktopBrowserChecks, MOBILE_APPIUM_DRIVERS } from '../browsers.ts';
 
 const USAGE = `사용법: qa doctor
-  Node·의존성·Appium 드라이버·OCR 도우미·adb·Xcode·디바이스·Jev 키·보정 기록과 웹 브라우저(데스크톱 Chrome/Safari,
-  데스크톱 화면 "알 수 없음" 표시, Android Chrome, iOS Safari) 준비 상태를 점검합니다. 읽기만 하며 기기 설정은 바꾸지
-  않습니다 (준비: qa setup --browsers).
+  Node·의존성·모바일 Appium 드라이버·OCR 도우미·adb·Xcode·디바이스·Jev 키·보정 기록과 웹 브라우저(엔진 소유 guest,
+  Android Chrome, iOS Safari) 준비 상태를 점검합니다. 읽기만 하며 guest를 부팅하거나 브라우저를 probe하지 않습니다.
+  호스트 Safari 권한과 전역 OS 설정은 바꾸지 않습니다 (모바일 준비: qa setup --browsers).
   웹 항목은 apps/에 웹 프로필이 있을 때만 종료 코드에 반영됩니다.
 종료 코드: 0 = 모두 정상, 1 = 하나 이상 실패, 2 = 사용법 오류`;
 
@@ -43,10 +41,10 @@ function depsCheck(): Check {
 
 function driversCheck(): Check {
   const installed = installedDriverVersions();
-  const parts = Object.entries(PINNED_DRIVERS).map(([name, { version }]) => ({ name, version, got: installed[name] ?? null }));
+  const parts = MOBILE_APPIUM_DRIVERS.map((name) => ({ name, version: PINNED_DRIVERS[name]!.version, got: installed[name] ?? null }));
   const ok = parts.every((p) => p.got === p.version);
   return {
-    label: 'Appium 드라이버',
+    label: '모바일 Appium 드라이버',
     ok,
     detail: parts.map((p) => `${p.name} ${p.got ?? '없음'}${p.got === p.version ? '' : ` (필요: ${p.version})`}`).join(', '),
     hint: '`qa setup` 실행',
@@ -64,15 +62,12 @@ function ocrCheck(): Check {
 }
 
 function devicesCheck(devices: DeviceInfo[] | Error): Check {
-  if (devices instanceof Error) return { label: '디바이스', ok: false, detail: devices.message };
+  if (devices instanceof Error) return { label: '모바일 디바이스', ok: false, detail: devices.message };
   const booted = devices.filter((d) => d.state === 'booted');
-  const mobile = booted.filter((d) => PLATFORM_INFO[d.platform].host !== 'desktop');
   return {
-    label: '디바이스',
+    label: '모바일 디바이스',
     ok: booted.length > 0,
-    detail: mobile.length
-      ? mobile.map((d) => `${d.platform} ${d.name} (${d.id})`).join(', ')
-      : `부팅된 에뮬레이터/시뮬레이터 없음${booted.length ? ' (데스크톱 브라우저만 사용 가능)' : ''}`,
+    detail: booted.length ? booted.map((d) => `${d.platform} ${d.name} (${d.id})`).join(', ') : '부팅된 에뮬레이터/시뮬레이터 없음',
     hint: 'Android 에뮬레이터 또는 iOS 시뮬레이터를 부팅하세요',
   };
 }
@@ -103,9 +98,9 @@ async function appiumServerCheck(): Promise<Check> {
   const port = appiumPort();
   try {
     const s = await new AppiumClient(`http://127.0.0.1:${port}`).status(1500);
-    return { label: 'Appium 서버', ok: true, detail: `포트 ${port} 실행 중 (${s.build?.version ?? '버전 미상'})` };
+    return { label: '모바일 Appium 서버', ok: true, detail: `포트 ${port} 실행 중 (${s.build?.version ?? '버전 미상'})` };
   } catch {
-    return { label: 'Appium 서버', ok: true, detail: `포트 ${port} 꺼져 있음 (실행 시 자동 시작)` };
+    return { label: '모바일 Appium 서버', ok: true, detail: `포트 ${port} 꺼져 있음 (모바일 실행 시 자동 시작)` };
   }
 }
 
@@ -129,14 +124,16 @@ export async function cmdDoctor(argv: string[]): Promise<number> {
     appiumServerCheck(),
     listAppProfiles(PATHS.apps),
   ]);
-  const checks = [nodeCheck(), depsCheck(), driversCheck(), ocrCheck(), adb, xcode, devicesCheck(devices), ...jevChecks(), server];
+  const checks = [nodeCheck(), depsCheck(), driversCheck(), ocrCheck(), adb, xcode, devicesCheck(devices), server];
   console.log('qa doctor');
   const coreOk = printChecks(checks);
+  console.log('\n선택 기능: Jev 모델·보정 — 직접 QA 실행의 필수 조건이 아닙니다.');
+  printChecks(jevChecks());
 
   const webRequired = profiles.profiles.some((p) => p.web !== undefined);
   console.log(`\n웹 (브라우저)${webRequired ? '' : ' — apps/에 웹 프로필이 없어 참고용'}`);
   const groups = await browserReadiness(devices instanceof Error ? [] : devices, {}, {
-    desktop: async () => [...(await desktopBrowserChecks()), displayStateCheck()],
+    desktop: desktopBrowserChecks,
     mobile: { android: androidChromeChecks, ios: iosSafariChecks },
   });
   let webOk = true;
@@ -146,6 +143,6 @@ export async function cmdDoctor(argv: string[]): Promise<number> {
   }
 
   const ok = coreOk && (webOk || !webRequired);
-  console.log(ok ? (webOk ? '\n모든 항목 정상.' : '\n필수 항목 정상 (웹 항목은 웹 테스트 전에 `qa setup --browsers`로 준비하세요).') : '\n실패한 항목을 위 안내에 따라 수정하세요.');
+  console.log(ok ? (webOk ? '\n모든 항목 정상.' : '\n필수 항목 정상 (guest는 QAutra 인스턴스 화면에서, 모바일 웹은 qa setup --browsers로 준비하세요).') : '\n실패한 항목을 위 안내에 따라 수정하세요.');
   return ok ? 0 : 1;
 }

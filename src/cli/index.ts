@@ -52,13 +52,15 @@ const COMMANDS: Record<string, CommandInfo> = {
     usage: `qa capture --app <id> --platform ${PLATFORM_LIST} --name <이름>`,
   },
   report: { module: './commands/report.ts', fn: 'cmdReport', summary: '실행 리포트 다시 생성', usage: 'qa report <실행ID|latest>' },
-  serve: { module: './commands/serve.ts', fn: 'cmdServe', summary: 'macOS 앱용 엔진 서버 (127.0.0.1)', usage: 'qa serve [--port <n>] [--exit-with-stdin]' },
+  serve: { module: './commands/serve.ts', fn: 'cmdServe', summary: 'macOS 앱용 엔진 서버 (127.0.0.1)', usage: 'qa serve [--port <n>] [--exit-with-stdin] [--review-token-stdin]' },
+  agent: { module: './commands/agent.ts', fn: 'cmdAgent', summary: '기존 엔진의 명시적 세션·스크립트 제어', usage: 'qa agent <명령> [--root <project>] [--session <id>]' },
+  mcp: { module: './commands/mcp.ts', fn: 'cmdMcp', summary: '기존 엔진에 연결하는 MCP stdio 서버', usage: 'qa mcp [--root <project>]' },
 };
 
 export function helpText(): string {
   const width = Math.max(...Object.keys(COMMANDS).map((n) => n.length)) + 2;
   return [
-    'app-qa — 문서 → 테스트 → 실기기 실행 → 판정 → 추적 리포트',
+    'QAutra — 문서 → 테스트 → 실기기 실행 → 판정 → 추적 리포트',
     '',
     '사용법: qa <명령> [옵션]   (명령별 도움말: qa <명령> --help)',
     '',

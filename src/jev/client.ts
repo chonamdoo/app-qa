@@ -166,7 +166,7 @@ export class JevClient {
         authorization: `Bearer ${this.config.apiKey}`,
         'content-type': 'application/json',
         accept: 'application/json',
-        'user-agent': 'app-qa/0.1.0',
+        'user-agent': 'QAutra/0.1.0',
       };
       if (attempt > 0) headers['x-typesafe-retry-count'] = String(attempt);
       let res: Response;

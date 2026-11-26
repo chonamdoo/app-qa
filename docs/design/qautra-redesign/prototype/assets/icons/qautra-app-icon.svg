@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="qautra-surface" x1="512" y1="64" x2="512" y2="960" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6688F4"/>
+      <stop offset="0.48" stop-color="#4266E8"/>
+      <stop offset="1" stop-color="#3454CC"/>
+    </linearGradient>
+    <linearGradient id="qautra-edge" x1="512" y1="64" x2="512" y2="960" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#172C8A" stop-opacity="0.24"/>
+    </linearGradient>
+    <filter id="qautra-shadow" x="0" y="0" width="1024" height="1024" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#18265F" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="url(#qautra-surface)" filter="url(#qautra-shadow)"/>
+  <rect x="66" y="66" width="892" height="892" rx="206" fill="none" stroke="url(#qautra-edge)" stroke-width="4"/>
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="480" cy="480" r="220" stroke-width="76"/>
+    <path d="M636 636 740 740" stroke-width="76"/>
+    <path d="m408 480 72 72 128-136" stroke-width="56"/>
+  </g>
+</svg>

@@ -1,11 +1,12 @@
 // Shared Appium session driver: W3C gestures, snapshot, typed-text verification, outcome mapping.
 import { existsSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
-import { actionStatusOf, AppiumClient, swipeGesture, tapGesture } from '../appium/client.ts';
+import { actionStatusOf, AppiumClient, AppiumTransportError, swipeGesture, tapGesture } from '../appium/client.ts';
 import { CommandError } from '../appium/exec.ts';
 import { ensureAppium } from '../appium/server.ts';
 import type { Check } from '../appium/setup.ts';
 import { PLATFORM_INFO } from '../core/platform.ts';
+import { ProjectFixtureError, ProjectFixtureNativeIdentitySchema, projectFixtureCanonical, type ProjectFixtureNativeBootstrap, type ProjectFixtureNativeClaim, type ProjectFixtureNativeIdentity, type ProjectFixtureNativeClient } from '../core/project-fixture.ts';
 import type { ActionOutcome, ActionStatus, AppTarget, Driver, Platform, Point, RawNode, Rect, ResetMode, Snapshot, TypeOutcome } from '../core/types.ts';
 import { targetProblem } from './appid.ts';
 import { readinessProblem } from './browser-prep.ts';
@@ -122,7 +123,13 @@ export function afterInput(o: ActionOutcome): ActionOutcome {
   return o.status === 'rejected' ? { ...o, status: 'uncertain', error: `탭(클릭)은 이미 전달된 뒤 거부됨 — 행동의 효과를 알 수 없음: ${o.error ?? '이유 없음'}` } : o;
 }
 
-export abstract class AppiumDriver implements Driver {
+export interface NativeFixtureMailbox {
+  write(name: string, value: string): Promise<void>;
+  read(name: string): Promise<string | null>;
+  close(): Promise<void>;
+}
+
+export abstract class AppiumDriver implements Driver, ProjectFixtureNativeClient {
   abstract readonly platform: Platform;
   readonly deviceId: string;
   protected readonly opts: DriverOptions;
@@ -133,10 +140,62 @@ export abstract class AppiumDriver implements Driver {
   protected logTarget: { app: AppTarget; sanitize: (line: string) => string } | null = null;
   /** Target of the open session: web targets make snapshots `surface: 'web'` with the address bar's page URL. */
   protected opened: AppTarget | null = null;
+  private mutationGuard: (() => void) | undefined;
+  private openingUnconfirmed = false;
+  #nativeFixture: { identity: ProjectFixtureNativeIdentity; mailbox: NativeFixtureMailbox; bootstrap: ProjectFixtureNativeBootstrap; consumedClaims: Set<string>; mailboxClosed: boolean } | undefined;
+  protected abstract nativeFixtureBuildSha256(applicationId: string): Promise<string>;
+  protected abstract openNativeFixtureMailbox(identity: ProjectFixtureNativeIdentity): Promise<NativeFixtureMailbox>;
+
+  async nativeProjectFixtureIdentity(): Promise<ProjectFixtureNativeIdentity> {
+    if (!this.opened || this.opened.kind === 'web' || !['android', 'ios'].includes(this.platform)) throw new ProjectFixtureError('fixture_native_bootstrap_unsupported');
+    const sessionId = this.api.sessionId;
+    const raw = await this.api.cmd('GET', '');
+    if (!raw || typeof raw !== 'object') throw new ProjectFixtureError('fixture_client_unverified');
+    const caps = raw as Record<string, unknown>;
+    if ((caps['appium:udid'] ?? caps.udid) !== this.deviceId || String(caps.platformName).toLowerCase() !== this.platform || !sessionId || sessionId !== this.api.sessionId) throw new ProjectFixtureError('fixture_client_unverified');
+    const buildSha256 = await this.nativeFixtureBuildSha256(this.opened.appId);
+    if (sessionId !== this.api.sessionId) throw new ProjectFixtureError('fixture_client_unverified');
+    return ProjectFixtureNativeIdentitySchema.parse({ platform: this.platform, deviceId: this.deviceId, applicationId: this.opened.appId, buildSha256, sessionId });
+  }
+
+  async applyNativeProjectFixture(payload: ProjectFixtureNativeBootstrap): Promise<void> {
+    if (this.#nativeFixture) throw new ProjectFixtureError('fixture_request_reused');
+    const identity = await this.nativeProjectFixtureIdentity();
+    if (projectFixtureCanonical(identity) !== projectFixtureCanonical(payload.nativeClient) || Date.parse(payload.lease.expiresAt) <= Date.now()) throw new ProjectFixtureError('fixture_client_unverified');
+    const mailbox = await this.openNativeFixtureMailbox(identity);
+    this.#nativeFixture = { identity, mailbox, bootstrap: structuredClone(payload), consumedClaims: new Set(), mailboxClosed: false };
+    await mailbox.write('bootstrap.json', JSON.stringify({ ...payload }));
+  }
+
+  async nativeProjectFixtureWitness(claim: ProjectFixtureNativeClaim, signal?: AbortSignal): Promise<unknown> {
+    const fixture = this.#nativeFixture;
+    if (!fixture || projectFixtureCanonical(claim.nativeClient) !== projectFixtureCanonical(fixture.identity) || claim.token !== fixture.bootstrap.token || projectFixtureCanonical(await this.nativeProjectFixtureIdentity()) !== projectFixtureCanonical(fixture.identity)) throw new ProjectFixtureError('fixture_client_unverified');
+    const name = claim.challenge;
+    if (!/^[a-f0-9]{64}$/.test(name)) throw new ProjectFixtureError('fixture_input_invalid');
+    if (signal?.aborted) throw new ProjectFixtureError('fixture_client_unverified');
+    if (fixture.mailboxClosed || fixture.consumedClaims.has(name)) throw new ProjectFixtureError('fixture_request_reused');
+    fixture.consumedClaims.add(name);
+    await fixture.mailbox.write(`${name}.request.json`, JSON.stringify(claim));
+    for (const deadline = performance.now() + 5000; performance.now() < deadline;) {
+      if (signal?.aborted) throw new ProjectFixtureError('fixture_client_unverified', 'unknown');
+      if (this.api.sessionId !== fixture.identity.sessionId) throw new ProjectFixtureError('fixture_client_unverified', 'unknown');
+      const response = await fixture.mailbox.read(`${name}.response.json`);
+      if (response !== null) {
+        if (projectFixtureCanonical(await this.nativeProjectFixtureIdentity()) !== projectFixtureCanonical(fixture.identity)) throw new ProjectFixtureError('fixture_client_unverified', 'unknown');
+        try { return JSON.parse(response) as unknown; } catch { throw new ProjectFixtureError('fixture_response_invalid', 'unknown'); }
+      }
+      await delay(50);
+    }
+    throw new ProjectFixtureError('fixture_client_unverified', 'unknown');
+  }
 
   constructor(deviceId: string, opts: DriverOptions = {}) {
     this.deviceId = deviceId;
     this.opts = opts;
+  }
+
+  setMutationGuard(guard: () => void): void {
+    this.mutationGuard = guard;
   }
 
   protected abstract capabilities(app: AppTarget): Record<string, unknown>;
@@ -172,6 +231,7 @@ export abstract class AppiumDriver implements Driver {
 
   protected get api(): AppiumClient {
     if (!this.client?.sessionId) throw new Error('드라이버 세션이 열려 있지 않습니다. open()을 먼저 호출하세요.');
+    if (this.#nativeFixture && this.client.sessionId !== this.#nativeFixture.identity.sessionId) throw new ProjectFixtureError('fixture_client_unverified');
     return this.client;
   }
 
@@ -184,14 +244,17 @@ export abstract class AppiumDriver implements Driver {
 
   async open(app: AppTarget): Promise<void> {
     this.appId(app);
+    if (this.client || this.#nativeFixture) throw new RefusedError('기존 세션과 native mailbox의 종료를 확인하기 전에는 새 세션을 열 수 없습니다');
     if (app.kind === 'web') {
       const problem = readinessProblem(PLATFORM_INFO[this.platform].webLabel, await this.browserChecks(this.deviceId));
       if (problem) throw new RefusedError(problem);
     }
     const url = this.opts.serverUrl ?? (await ensureAppium()).url;
-    const client = new AppiumClient(url);
-    await client.createSession(this.capabilities(app));
+    const client = new AppiumClient(url, { beforeCommand: () => this.mutationGuard?.() });
     this.client = client;
+    this.openingUnconfirmed = true;
+    await client.createSession(this.capabilities(app));
+    this.openingUnconfirmed = false;
     this.opened = app;
     try {
       await client.updateSettings(this.settings());
@@ -205,9 +268,23 @@ export abstract class AppiumDriver implements Driver {
   async close(): Promise<void> {
     await this.logs?.stop();
     this.logs = null;
-    const client = this.client;
-    this.client = null;
-    await client?.deleteSession().catch(() => undefined);
+    if (this.openingUnconfirmed) throw new AppiumTransportError('transport', '세션 시작 응답이 미확인이므로 종료를 확인할 수 없습니다');
+    const fixture = this.#nativeFixture;
+    let mailboxProblem: unknown;
+    if (fixture) {
+      if (this.client && this.client.sessionId !== fixture.identity.sessionId) throw new ProjectFixtureError('fixture_client_unverified');
+      if (!fixture.mailboxClosed) {
+        try { await fixture.mailbox.close(); fixture.mailboxClosed = true; }
+        catch (error) { mailboxProblem = error; }
+      }
+    }
+    try { await this.client?.deleteSession(); this.client = null; }
+    catch (error) {
+      if (mailboxProblem) throw new AggregateError([mailboxProblem, error], 'Native mailbox와 원 Appium session 종료를 확인하지 못했습니다');
+      throw error;
+    }
+    if (fixture?.mailboxClosed) this.#nativeFixture = undefined;
+    if (mailboxProblem) throw mailboxProblem;
   }
 
   async snapshot(opts: { screenshot?: boolean } = {}): Promise<Snapshot> {
@@ -250,6 +327,8 @@ export abstract class AppiumDriver implements Driver {
   protected async act(fn: () => Promise<void>): Promise<ActionOutcome> {
     const t0 = performance.now();
     try {
+      if (this.#nativeFixture && this.client?.sessionId !== this.#nativeFixture.identity.sessionId) throw new RefusedError('원 native fixture driver session이 변경되어 입력하지 않습니다');
+      this.mutationGuard?.();
       await fn();
       return { status: 'completed', ms: elapsed(t0) };
     } catch (err) {

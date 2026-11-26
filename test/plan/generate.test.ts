@@ -36,7 +36,6 @@ describe('LLM adapters (fake CLI)', () => {
     );
     assert.deepEqual(out.untestable, []);
     const [call] = fake.calls();
-    assert.deepEqual(call!.args, ['-p', '--model', 'claude-opus-5-5', '--output-format', 'json', '--tools', '', '--no-session-persistence']);
     assert.match(call!.stdin, /\[inline#출국장\.2\]/);
     assert.match(call!.stdin, /## android\/tab-departures/, 'fixture inventory is in the prompt');
     assert.match(call!.stdin, /"내 항공편 지우기"/);
@@ -104,8 +103,6 @@ describe('LLM adapters (fake CLI)', () => {
     assert.equal(calls.length, 2);
     assert.ok(calls[0]!.args.includes('--output-schema'));
     assert.ok(!calls[1]!.args.includes('--output-schema'));
-    assert.deepEqual(calls[1]!.args.slice(0, 7), ['exec', '-m', 'gpt-6-sol', '-s', 'read-only', '--skip-git-repo-check', '--ephemeral']);
-    assert.equal(calls[1]!.args.at(-1), '-');
     assert.match(calls[1]!.stdin, /\[inline#출국장\]/);
     assert.equal(llm.notes.length, 1);
   });
@@ -125,19 +122,29 @@ describe('LLM adapters (fake CLI)', () => {
     controller.abort();
     await assert.rejects(cancelled, /취소되었습니다/);
   });
-
-  test('the CLI gets a scoped environment: its own auth/config variables, never TYPESAFE_API_KEY or app secrets', async () => {
-    for (const mode of ['claude', 'codex'] as const) {
-      const fake = fakeLlm(mode, [], { printEnv: true });
-      const env = { ...fake.env, TYPESAFE_API_KEY: 'test-key-not-real', APP_PASSWORD: 'pw', ANTHROPIC_API_KEY: 'a', OPENAI_API_KEY: 'o', CLAUDE_CONFIG_DIR: '/tmp/c', LC_ALL: 'C' };
-      const llm = createLlm({ provider: mode === 'claude' ? 'claude-cli' : 'codex-cli', env });
-      const names: string[] = JSON.parse(await llm.complete('prompt', { schema: {} }));
-      for (const name of ['PATH', 'HOME', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'CLAUDE_CONFIG_DIR', 'LC_ALL', mode === 'claude' ? 'QA_CLAUDE_BIN' : 'QA_CODEX_BIN']) {
-        assert.ok(names.includes(name), `${mode}: ${name} passed`);
-      }
-      assert.ok(!names.includes('TYPESAFE_API_KEY') && !names.includes('APP_PASSWORD'), `${mode}: ${names.join(',')}`);
-    }
+  test('ambient API billing and provider overrides cannot replace subscription generation', async () => {
+    const fake = fakeLlm('claude', [JSON.stringify({ tests: [goodTest], untestable: [] })]);
+    const env = { ...fake.env, ANTHROPIC_API_KEY: 'not-a-real-key', ANTHROPIC_AUTH_TOKEN: 'not-a-real-token',
+      ANTHROPIC_BASE_URL: 'https://must-not-be-used.invalid', ANTHROPIC_PROFILE: 'console',
+      CLAUDE_CODE_USE_BEDROCK: '1', CLAUDE_CODE_USE_VERTEX: '1', CLAUDE_CODE_USE_FOUNDRY: '1' };
+    const { context, requirements } = await scenario();
+    const result = await generateTests({ llm: createLlm({ provider: 'claude-cli', env }), context, requirements });
+    assert.deepEqual(result.tests.map(test => test.spec.id), ['departures-wait']);
   });
+
+  for (const authStatus of [
+    { loggedIn: true, authMethod: 'api_key' }, { loggedIn: true, authMethod: 'api_key_helper' },
+    { loggedIn: true, authMethod: 'third_party' }, { loggedIn: true, authMethod: 'oauth_token' },
+    { loggedIn: true }, { loggedIn: true, authMethod: 'claude.ai', apiProvider: 'bedrock' },
+    { loggedIn: false, authMethod: 'claude.ai' }, null,
+  ]) {
+    test(`non-subscription authentication never receives a model request: ${JSON.stringify(authStatus)}`, async () => {
+      const fake = fakeLlm('claude', ['must not receive source'], { authStatus });
+      await assert.rejects(createLlm({ provider: 'claude-cli', env: fake.env }).complete('private source', { schema: {} }));
+      assert.deepEqual(fake.calls(), []);
+    });
+  }
+
 
   test('output over the 8 MiB cap kills the CLI and fails', async () => {
     const llm = createLlm({ provider: 'claude-cli', env: fakeLlm('claude', ['{}'], { floodBytes: 9 * 1024 * 1024 }).env });

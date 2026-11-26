@@ -1,17 +1,20 @@
 // iOS simulator (XCUITest/WDA) driver. Host-side work (privacy, reset, url, location, logs) goes through simctl.
-import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, statSync, lstatSync, mkdirSync, realpathSync, rmdirSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { createServer } from 'node:net';
 import { isAbsolute, join, resolve } from 'node:path';
 import { swipeGesture, unexpectedResponse } from '../appium/client.ts';
 import { xcrun } from '../appium/exec.ts';
 import { PLATFORM_INFO } from '../core/platform.ts';
+import { ProjectFixtureError, type ProjectFixtureNativeIdentity } from '../core/project-fixture.ts';
 import type { ActionOutcome, AppTarget, Point, RawNode, Rect, TypeOutcome } from '../core/types.ts';
 import { parseIosSource } from '../observe/ios.ts';
 import { navigationProblem } from './appid.ts';
 import { iosAppExecutable } from './apps.ts';
-import { AppiumDriver, assertNoWebLaunchOptions, IOS_PRIVACY_SERVICES, PERMISSION_GROUPS, RefusedError, type FieldValue, type Key, type LaunchOptions } from './base.ts';
+import { AppiumDriver, assertNoWebLaunchOptions, IOS_PRIVACY_SERVICES, PERMISSION_GROUPS, RefusedError, type FieldValue, type Key, type LaunchOptions, type NativeFixtureMailbox } from './base.ts';
 import { iosSafariChecks } from './browser-prep.ts';
 import { iosLogArgs, LogCapture } from './logs.ts';
+import { nativeBundleSha256, readNativeMailboxFile, writeNativeMailboxFile } from './native-fixture-mailbox.ts';
 
 /** Characters XCTest typeText maps to hardware keys. */
 const WDA_KEYS: Record<Key, string | null> = { enter: '\n', tab: '\t', delete: '\b', escape: null, back: null };
@@ -52,6 +55,108 @@ export class IosDriver extends AppiumDriver {
   protected readonly keyboardInSource = true;
   protected readonly browserChecks = iosSafariChecks;
   protected readonly addressBarId = 'TabBarItemTitle';
+  #recordingPorts: { wda: number; mjpeg: number } | null = null;
+
+  protected async nativeFixtureBuildSha256(applicationId: string): Promise<string> {
+    const path = (await xcrun(['simctl', 'get_app_container', this.deviceId, applicationId, 'app'], { timeoutMs: 10000 })).trim();
+    if (!isAbsolute(path) || realpathSync(path) !== path || !path.endsWith('.app')) throw new ProjectFixtureError('fixture_native_bootstrap_unsupported');
+    return nativeBundleSha256(path);
+  }
+
+  protected async openNativeFixtureMailbox(identity: ProjectFixtureNativeIdentity): Promise<NativeFixtureMailbox> {
+    const container = (await xcrun(['simctl', 'get_app_container', this.deviceId, identity.applicationId, 'data'], { timeoutMs: 10000 })).trim();
+    if (!isAbsolute(container) || realpathSync(container) !== container) throw new ProjectFixtureError('fixture_native_bootstrap_unsupported');
+    const root = join(container, 'Library', 'Application Support', 'qautra-fixture');
+    if (realpathSync(root) !== root || !lstatSync(root).isDirectory() || (lstatSync(root).mode & 0o077) !== 0) throw new ProjectFixtureError('fixture_native_bootstrap_unsupported');
+    const ready: unknown = JSON.parse(readNativeMailboxFile(join(root, 'ready.json')));
+    if (!ready || typeof ready !== 'object' || !('schema' in ready) || ready.schema !== 'qautra/native-private-mailbox/v1' || !('applicationId' in ready) || ready.applicationId !== identity.applicationId) throw new ProjectFixtureError('fixture_native_bootstrap_unsupported');
+    const directory = join(root, identity.sessionId);
+    mkdirSync(directory, { mode: 0o700 });
+    const directoryIdentity = lstatSync(directory);
+    const owned = new Set<string>(['bootstrap.json']);
+    let closed = false;
+    const path = (name: string) => {
+      const current = lstatSync(directory);
+      if (closed || !/^(?:bootstrap\.json|[a-f0-9]{64}\.(?:request|claimed|response)\.json)$/.test(name) || realpathSync(directory) !== directory || current.dev !== directoryIdentity.dev || current.ino !== directoryIdentity.ino) throw new ProjectFixtureError('fixture_input_invalid');
+      return join(directory, name);
+    };
+    return {
+      async write(name, value) {
+        const target = path(name);
+        owned.add(name);
+        if (name.endsWith('.request.json')) { owned.add(name.replace('.request.', '.claimed.')); owned.add(name.replace('.request.', '.response.')); }
+        writeNativeMailboxFile(target, value);
+      },
+      async read(name) {
+        try { return readNativeMailboxFile(path(name)); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error; }
+      },
+      async close() {
+        if (closed) throw new ProjectFixtureError('fixture_state_invalid');
+        for (const name of owned) {
+          try { unlinkSync(path(name)); }
+          catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+        }
+        rmdirSync(directory);
+        closed = true;
+      },
+    };
+  }
+
+  async prepareRecordingTarget(): Promise<void> {
+    if (this.opts.serverUrl) throw new RefusedError('iOS 영상에는 제품이 소유한 Appium session이 필요합니다');
+    if (this.#recordingPorts) return;
+    const reserve = async (): Promise<number> => {
+      const server = createServer();
+      const listening = Promise.withResolvers<void>();
+      server.once('error', listening.reject);
+      server.listen(0, '127.0.0.1', listening.resolve);
+      await listening.promise;
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new RefusedError('WDA port 준비 실패');
+      const closed = Promise.withResolvers<void>();
+      server.close(error => error ? closed.reject(error) : closed.resolve());
+      await closed.promise;
+      return address.port;
+    };
+    const wda = await reserve();
+    let mjpeg = await reserve();
+    while (mjpeg === wda) mjpeg = await reserve();
+    this.#recordingPorts = { wda, mjpeg };
+  }
+
+  async ownedRecordingSource(): Promise<{ url: string; assertIdentity(): Promise<void> }> {
+    const ports = this.#recordingPorts;
+    const sessionId = this.api.sessionId;
+    if (!ports || !sessionId) throw new RefusedError('선택한 기기의 WDA/MJPEG session을 먼저 준비해야 합니다');
+    let wdaSession: string | null = null;
+    const assertIdentity = async (): Promise<void> => {
+      if (this.api.sessionId !== sessionId || this.#recordingPorts !== ports) throw new RefusedError('iOS 녹화 session이 변경되었습니다');
+      const raw = await this.api.cmd('GET', '');
+      if (!raw || typeof raw !== 'object') throw new RefusedError('Appium 녹화 identity를 확인하지 못했습니다');
+      const caps = raw as Record<string, unknown>;
+      if ((caps['appium:udid'] ?? caps.udid) !== this.deviceId || (caps['appium:wdaLocalPort'] ?? caps.wdaLocalPort) !== ports.wda || (caps['appium:mjpegServerPort'] ?? caps.mjpegServerPort) !== ports.mjpeg) throw new RefusedError('Appium UDID·WDA/MJPEG port가 소유 기기와 다릅니다');
+      const response = await fetch(`http://127.0.0.1:${ports.wda}/status`, { redirect: 'error', signal: AbortSignal.timeout(3000) });
+      if (!response.ok || !response.body) throw new RefusedError('소유 WDA status를 확인하지 못했습니다');
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let size = 0;
+      try {
+        while (true) {
+          const part = await reader.read();
+          if (part.done) break;
+          size += part.value.length;
+          if (size > 65536) throw new RefusedError('WDA status 응답 한도 초과');
+          chunks.push(part.value);
+        }
+      } finally { await reader.cancel(); }
+      const status = JSON.parse(Buffer.concat(chunks, size).toString('utf8')) as { sessionId?: unknown };
+      if (typeof status.sessionId !== 'string' || !status.sessionId || wdaSession !== null && status.sessionId !== wdaSession) throw new RefusedError('WDA session identity가 없거나 변경되었습니다');
+      wdaSession = status.sessionId;
+    };
+    await assertIdentity();
+    return { url: `http://127.0.0.1:${ports.mjpeg}`, assertIdentity };
+  }
 
   protected capabilities(_app: AppTarget): Record<string, unknown> {
     return {
@@ -61,6 +166,7 @@ export class IosDriver extends AppiumDriver {
       'appium:noReset': true,
       'appium:newCommandTimeout': 600,
       'appium:wdaLaunchTimeout': 240_000,
+      ...(this.#recordingPorts ? { 'appium:wdaLocalPort': this.#recordingPorts.wda, 'appium:mjpegServerPort': this.#recordingPorts.mjpeg } : {}),
     };
   }
 

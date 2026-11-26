@@ -1,21 +1,22 @@
 // `qa smoke --app <id> --platform <platform>|all [--device <id>] [--crawl tabs]`
 import { parseArgs } from 'node:util';
+import { connectEngineClient } from '../../core/agent-client.ts';
 import { PLATFORM_INFO } from '../../core/platform.ts';
 import type { Platform, Verdict } from '../../core/types.ts';
-import { consoleSink, exitCodeFor, formatCounts, formatQaCounts } from '../../report/console.ts';
-import { QA_STATUSES, qaStatus, type QaStatus } from '../../report/status.ts';
-import { runSmoke } from '../../runner/index.ts';
+import { exitCodeFor, formatCounts, formatQaCounts } from '../../report/console.ts';
+import { QA_STATUSES, type QaStatus } from '../../report/status.ts';
 import { loadAppProfile } from '../../spec/load.ts';
 import { profilePlatforms } from '../../spec/schema.ts';
+import { CliJobCancelled, readJobRunSummary, runEngineJob } from '../engine.ts';
 import { parseDevices, parsePlatform, PLATFORM_CHOICE_LIST } from '../platforms.ts';
-import { smokeEach } from '../smoke-each.ts';
 
 const USAGE = `사용법: qa smoke --app <id> [--platform ${PLATFORM_CHOICE_LIST}] [--device <id>] [--crawl tabs]
   기본: 앱(웹 프로필은 시작 URL) 실행 → 안정화 → 상태 점검(크래시·RedBox·LogBox·빈 화면·페이지 오류) → 스크린샷·인벤토리 (관찰만)
   --platform all(기본): 앱 프로필이 가진 플랫폼 전부 (앱: android/ios, 웹: 프로필 web.platforms)
   --crawl tabs: 역할로 식별된 탭바 항목만 순회(위험 항목 제외) 후 첫 탭으로 복귀
   Jev 판단은 참고용 열로만 기록되며 판정에 쓰이지 않습니다.
-종료 코드: 0 = 통과, 1 = 실패·판정 불가·오류, 2 = 사용법·환경 오류`;
+  이 프로젝트의 qa serve가 실행 중이어야 합니다. 데스크톱은 엔진 소유 guest에서만 실행합니다.
+종료 코드: 0 = 통과, 1 = 실패·판정 불가·오류, 2 = 사용법·환경 오류, 130 = 취소`;
 
 export async function cmdSmoke(argv: string[]): Promise<number> {
   let values;
@@ -59,24 +60,23 @@ export async function cmdSmoke(argv: string[]): Promise<number> {
     const app = values.app;
     const profile = loadAppProfile(app);
     const platforms: Platform[] = choice === 'all' ? profilePlatforms(profile) : [choice];
-    const each = smokeEach(platforms, (platform) =>
-      runSmoke({ app, platform, deviceId: deviceIds[platform], crawl: values.crawl === 'tabs' ? 'tabs' : undefined, events: consoleSink() }),
-    );
-    for await (const { platform, result: r, notRun } of each) {
-      const label = profile.web ? PLATFORM_INFO[platform].webLabel : PLATFORM_INFO[platform].label;
-      if (r === null) {
-        total.ERROR++;
-        qa[qaStatus({ verdict: 'ERROR', code: 'display_unknown' })]++;
-        console.log(`[${label}] ERROR: ${notRun}`);
-        continue;
+    const client = await connectEngineClient();
+    for (const platform of platforms) {
+      const job = await runEngineJob({ kind: 'smoke', params: { app, platform, deviceIds, crawl: values.crawl === 'tabs' ? 'tabs' : undefined } }, { client });
+      const result = await readJobRunSummary(client, job);
+      if (!result) {
+        console.error(job.message ?? '엔진이 스모크 실행 요약을 남기지 않았습니다.');
+        return 2;
       }
-      for (const v of Object.keys(total) as Verdict[]) total[v] += r.counts[v];
-      for (const s of QA_STATUSES) qa[s] += r.qaCounts[s];
-      console.log(`[${label}] 리포트: ${r.reportPath}`);
+      const label = profile.web ? PLATFORM_INFO[platform].webLabel : PLATFORM_INFO[platform].label;
+      for (const verdict of Object.keys(total) as Verdict[]) total[verdict] += result.counts[verdict];
+      for (const status of QA_STATUSES) qa[status] += result.qaCounts[status];
+      console.log(`[${label}] ${formatCounts(result.counts) || '실행된 테스트 없음'}`);
+      console.log(`[${label}] 리포트: ${job.resultPath}`);
     }
   } catch (err) {
     console.error(`스모크를 실행할 수 없습니다: ${err instanceof Error ? err.message : String(err)}`);
-    return 2;
+    return err instanceof CliJobCancelled ? 130 : 2;
   }
   console.log(`결과: ${formatCounts(total)}`);
   console.log(`QA 상태: ${formatQaCounts(qa)}`);

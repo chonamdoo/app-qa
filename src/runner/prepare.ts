@@ -1,11 +1,7 @@
-// Action preparation (architecture §5 위험 정책, §11, invariants 4–5): a mutation is approved only on the final fresh
-// observation, never a truncated one — refind + hit-test (after scroll/swipe/back: the target must hold still) →
-// deterministic policy on the fresh target and screen → mandatory Jev commit check for deterministically safe targets
-// without `allowRisky` → after that wait, a new observation must show the same screen and target, hit-tested again at
-// its tap point on that observation, and (drivers with element identity) the same element at that point — for Enter,
-// the same focused element → one explicit approval result carrying that target. Nothing here dispatches; the session
-// acts only on `approved`.
+// Preparation keeps policy and freshness shared across explicitly scoped direct execution and Jev-assisted tests.
+// Neither authority can approve a different final element or turn an unknown effect into permission to retry.
 import type { Candidate, ClaimDecision, Point, Rect, ScreenModel } from '../core/types.ts';
+import type { ActionKind } from '../core/events.ts';
 import { isUnoccludedAt, refind } from '../observe/index.ts';
 import { assessRisk, DESTRUCTIVE_CONTEXT, type RiskAssessment } from '../policy/risk.ts';
 import type { DecisionSummary } from '../report/types.ts';
@@ -34,6 +30,15 @@ export type Refusal = 'blocked_by_policy' | 'commit_check_unavailable' | 'stale_
 
 export type Approval<T extends object> = ({ status: 'approved' } & T) | { status: Refusal; reason: string };
 
+export interface ScopedAuthority {
+  prepare?(): Promise<void>;
+  /** Undoes `prepare` when the approval that ran it ends without a dispatch, so no later dispatch reuses its proof. */
+  release?(): void;
+  target(target: Candidate | null, obs: Obs, mutation: Mutation, risk: RiskAssessment, action: ActionKind): Approval<object>;
+  label(risk: RiskAssessment): Approval<object>;
+  elementIdentity(target: Candidate): string | null | undefined;
+}
+
 /**
  * A target-based mutation is never approved on a truncated observation (`depthCapped`: the web node cap, the iOS depth
  * cap): the cut part may hold a target of the same name (uniqueness) or destructive text (the policy).
@@ -47,6 +52,7 @@ export type Resolution = { ok: true; candidate: Candidate; source: TargetSource;
 export interface PrepareHost<Ctx> {
   readonly profile: AppProfile;
   readonly clock: { now(): number; sleep(ms: number): Promise<void> };
+  readonly authority?: ScopedAuthority;
   /** A fresh observation; `screenshot` takes the screen image with it (the settle baseline after a commit check). */
   observe(ocr: 'force' | 'never', screenshot: boolean): Promise<Obs>;
   /** The previous mutation was a scroll/swipe/back (`back` or `press: back`)/hideKeyboard: content may still be moving. */
@@ -84,7 +90,10 @@ type Fresh = { ok: true; candidate: Candidate; obs: Obs } | { ok: false; reason:
 function submitRisk(field: Candidate | null, model: ScreenModel, profile: AppProfile): RiskAssessment {
   const risk = assessRisk(field, model, profile);
   const hit = model.texts.map((t) => DESTRUCTIVE_CONTEXT.find((re) => re.test(t))).find((re) => re !== undefined);
-  if (hit) risk.reasons.push(`파괴적 확인 대화상자 문맥(${hit.source})에서 제출(Enter)`);
+  if (hit) {
+    risk.reasons.push(`파괴적 확인 대화상자 문맥(${hit.source})에서 제출(Enter)`);
+    if (risk.boundary === 'none') risk.boundary = 'business';
+  }
   risk.risky = risk.reasons.length > 0;
   return risk;
 }
@@ -131,6 +140,7 @@ export class ActionPreparer<Ctx> {
     mutation: Mutation,
     allowRisky: boolean,
     reresolve: ((obs: Obs) => Promise<Resolution>) | null,
+    action: ActionKind,
   ): Promise<Approval<{ candidate: Candidate; obs: Obs }>> {
     let source = resolved.source;
     let fresh = await this.freshen(resolved.candidate);
@@ -150,7 +160,7 @@ export class ActionPreparer<Ctx> {
     if (mutation === 'edit' && !isEditable(fresh.candidate, fresh.obs.model)) {
       return { status: 'not_editable', reason: `"${fresh.candidate.name}"(${fresh.candidate.role})은(는) 입력 필드가 아님 — 입력·지우기 대상은 편집 가능한 필드여야 합니다` };
     }
-    const verdict = await this.judge(ctx, fresh.candidate, source === 'jev', fresh.obs, mutation, allowRisky);
+    const verdict = await this.judge(ctx, fresh.candidate, source === 'jev', fresh.obs, mutation, allowRisky, action);
     return verdict.status === 'approved' ? { status: 'approved', candidate: verdict.target, obs: verdict.obs } : verdict;
   }
 
@@ -163,11 +173,12 @@ export class ActionPreparer<Ctx> {
     const cut = this.truncated(ctx, obs, '');
     if (cut) return cut;
     const field = obs.model.candidates.find((c) => c.state.includes('focused')) ?? null;
-    return this.judge(ctx, field, false, obs, 'submit', allowRisky);
+    return this.judge(ctx, field, false, obs, 'submit', allowRisky, 'press');
   }
 
   /** A target without a fresh screen element (`open` URL, `tapAt` coordinates): deterministic label policy only. */
   label(ctx: Ctx, risk: RiskAssessment, allowRisky: boolean): Approval<object> {
+    if (this.host.authority) return this.host.authority.label(risk);
     if (risk.risky && !allowRisky) return this.block(ctx, risk.reasons, false);
     this.host.policy(ctx, risk.risky, false, risk.reasons);
     return { status: 'approved' };
@@ -185,46 +196,62 @@ export class ActionPreparer<Ctx> {
    * newer observation with its screenshot (what the action's effect is measured from: a change while Jev answered is
    * not the action's) and the target as it shows it (its tap point recomputed around anything that appeared meanwhile).
    */
-  private judge(ctx: Ctx, target: Candidate, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean): Promise<Approval<{ obs: Obs; target: Candidate }>>;
-  private judge(ctx: Ctx, target: Candidate | null, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean): Promise<Approval<{ obs: Obs; target: Candidate | null }>>;
-  private async judge(ctx: Ctx, target: Candidate | null, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean): Promise<Approval<{ obs: Obs; target: Candidate | null }>> {
+  private judge(ctx: Ctx, target: Candidate, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean, action: ActionKind): Promise<Approval<{ obs: Obs; target: Candidate }>>;
+  private judge(ctx: Ctx, target: Candidate | null, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean, action: ActionKind): Promise<Approval<{ obs: Obs; target: Candidate | null }>>;
+  private async judge(ctx: Ctx, target: Candidate | null, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean, action: ActionKind): Promise<Approval<{ obs: Obs; target: Candidate | null }>> {
+    let approval: Approval<{ obs: Obs; target: Candidate | null }>;
+    try { approval = await this.approve(ctx, target, viaJev, obs, mutation, allowRisky, action); }
+    catch (error) { this.host.authority?.release?.(); throw error; }
+    if (approval.status !== 'approved') this.host.authority?.release?.();
+    return approval;
+  }
+
+  private async approve(ctx: Ctx, target: Candidate | null, viaJev: boolean, obs: Obs, mutation: Mutation, allowRisky: boolean, action: ActionKind): Promise<Approval<{ obs: Obs; target: Candidate | null }>> {
     const { model } = obs;
     const risk = mutation === 'submit' ? submitRisk(target, model, this.host.profile) : assessRisk(target, model, this.host.profile);
-    // Risky elements act only through selector/fast path: allowRisky never unlocks a Jev-grounded risky target.
-    if (risk.risky && viaJev) return this.block(ctx, [...risk.reasons, JEV_RISKY], allowRisky);
-    if (risk.risky && !allowRisky) return this.block(ctx, risk.reasons, false);
-    // Every target-based mutation of a deterministically safe target needs the commit check — an edit included: typing
-    // into or clearing a field can still auto-save or search, and only Jev can add that refusal.
-    if (!risk.risky && !allowRisky) {
-      // The element the action reaches, identified before Jev is asked: the target element at the tap point (by its own
-      // box: a child input reaches may outlive a replaced target), for Enter the focused one. A replacement with the same
-      // label, box, state and tree position (a re-rendered button or field) is another element, and the approval is not its.
+    const authority = this.host.authority;
+    if (authority) {
+      if (viaJev) return this.block(ctx, [JEV_RISKY], false);
+      await authority.prepare?.();
+      const grant = authority.target(target, obs, mutation, risk, action);
+      if (grant.status !== 'approved') return grant;
+    } else {
+      if (risk.risky && viaJev) return this.block(ctx, [...risk.reasons, JEV_RISKY], allowRisky);
+      if (risk.risky && !allowRisky) return this.block(ctx, risk.reasons, false);
+    }
+    if (authority || (!risk.risky && !allowRisky)) {
       const submit = mutation === 'submit';
       const before = !target ? undefined : submit ? await this.host.focusedElementId() : await this.host.elementIdAt(target.tapPoint, elementBox(target, model));
       if (target && before === null) return { status: 'stale_target', reason: submit ? `"${target.name}"이(가) 포커스된 요소로 확인되지 않음 — 실행하지 않음` : `"${target.name}" 탭 지점에 대상 요소가 없음 — 실행하지 않음` };
-      const commit: Pick<ClaimDecision, 'verdict' | 'reason'> = target ? await this.commit(ctx, model, target) : { verdict: 'error', reason: '대상 없음' };
-      // Refusal-add only: 'pass' (commits) blocks, 'fail' lets the deterministic verdict stand, anything else is no answer.
-      if (commit.verdict === 'pass') return this.block(ctx, [commit.reason], false);
-      if (commit.verdict !== 'fail' || !target) {
-        const reason = `Jev commit 확인 불가(${commit.reason}) — 확인 없이 실행하지 않음 (allowRisky로 사람이 승인 가능)`;
-        this.host.policy(ctx, false, true, [reason]);
-        return { status: 'commit_check_unavailable', reason };
+      if (authority && target) {
+        const expected = authority.elementIdentity(target);
+        if (expected !== undefined && before !== expected) return { status: 'stale_target', reason: '관찰한 DOM 요소가 교체됨 — 실행하지 않음' };
+      } else {
+        const commit: Pick<ClaimDecision, 'verdict' | 'reason'> = target ? await this.commit(ctx, model, target) : { verdict: 'error', reason: '대상 없음' };
+        if (commit.verdict === 'pass') return this.block(ctx, [commit.reason], false);
+        if (commit.verdict !== 'fail' || !target) {
+          const reason = `Jev commit 확인 불가(${commit.reason}) — 확인 없이 실행하지 않음 (allowRisky로 사람이 승인 가능)`;
+          this.host.policy(ctx, false, true, [reason]);
+          return { status: 'commit_check_unavailable', reason };
+        }
       }
-      // The screen may change while Jev answers: the approval holds only if a new observation still shows the same
-      // target and the deterministic policy still passes on it (a destructive dialog that appeared meanwhile blocks).
-      // A tapped target is hit-tested again at its new tap point: something drawn over part of it moves the point.
+      if (!target) return { status: 'stale_target', reason: '승인할 대상이 없음' };
+      // Identity queries and model checks may race a re-render: approval belongs to the same final element.
       const now = await this.host.observe(target.source === 'ocr' ? 'force' : 'never', true);
-      const cut = this.truncated(ctx, now, 'Jev commit 확인 후 ');
+      const cut = this.truncated(ctx, now, '승인 확인 후 ');
       if (cut) return cut;
       const same = targetNow(target, now.model);
-      if ('reason' in same) return { status: 'stale_target', reason: `Jev commit 확인 중 ${same.reason} — 실행하지 않음` };
+      if ('reason' in same) return { status: 'stale_target', reason: `승인 확인 중 ${same.reason} — 실행하지 않음` };
       const riskNow = mutation === 'submit' ? submitRisk(same.candidate, now.model, this.host.profile) : assessRisk(same.candidate, now.model, this.host.profile);
-      if (riskNow.risky) return this.block(ctx, [...riskNow.reasons, 'Jev commit 확인 중 화면이 바뀜'], false);
+      if (authority) {
+        const grant = authority.target(same.candidate, now, mutation, riskNow, action);
+        if (grant.status !== 'approved') return grant;
+      } else if (riskNow.risky) return this.block(ctx, [...riskNow.reasons, 'Jev commit 확인 중 화면이 바뀜'], false);
       const hit = mutation === 'submit' ? null : await this.hitProblem(same.candidate, now);
-      if (hit) return { status: 'stale_target', reason: `Jev commit 확인 중 ${hit} — 실행하지 않음` };
+      if (hit) return { status: 'stale_target', reason: `승인 확인 중 ${hit} — 실행하지 않음` };
       if (before !== undefined && (submit ? await this.host.focusedElementId() : await this.host.elementIdAt(same.candidate.tapPoint, elementBox(same.candidate, now.model))) !== before) {
         const what = submit ? `포커스된 "${target.name}"이(가)` : `"${target.name}" 탭 지점의 요소가`;
-        return { status: 'stale_target', reason: `Jev commit 확인 중 ${what} 다른 요소로 바뀜 — 실행하지 않음` };
+        return { status: 'stale_target', reason: `승인 확인 중 ${what} 다른 요소로 바뀜 — 실행하지 않음` };
       }
       this.host.policy(ctx, risk.risky, false, risk.reasons);
       return { status: 'approved', obs: now, target: same.candidate };

@@ -66,7 +66,7 @@ export interface FakeCall {
 
 export class FakeDriver implements Driver {
   readonly platform: Platform;
-  readonly deviceId = 'fake-device-1';
+  readonly deviceId: string;
   readonly clock: FakeClock;
   readonly calls: FakeCall[] = [];
   screen: Snapshot;
@@ -103,10 +103,11 @@ export class FakeDriver implements Driver {
   /** Identity of the element keys go to (desktop web `document.activeElement`); unset = the driver has none. */
   focusedElementId?: () => Promise<string | null>;
 
-  constructor(screen: Snapshot, clock = new FakeClock()) {
+  constructor(screen: Snapshot, clock = new FakeClock(), deviceId = 'fake-device-1') {
     this.platform = screen.platform;
     this.screen = screen;
     this.clock = clock;
+    this.deviceId = deviceId;
   }
 
   private record(method: string, ...args: unknown[]): void {

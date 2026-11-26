@@ -1,8 +1,8 @@
 {
-  "name": "app-qa",
+  "name": "qautra",
   "version": "0.1.0",
   "private": true,
-  "description": "App-agnostic Android/iOS QA automation: documents → tests, Appium execution, TypeSafe Jev typed decisions, fail-closed verdicts.",
+  "description": "QAutra: app-agnostic Android/iOS and web QA automation with Appium execution, typed decisions, and fail-closed verdicts.",
   "type": "module",
   "engines": {
     "node": ">=24"

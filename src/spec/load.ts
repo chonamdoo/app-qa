@@ -85,10 +85,10 @@ export function discoverTests(paths: readonly string[], opts: { root?: string } 
 }
 
 /** Loads and validates `apps/<id>.yaml` (or `.yml`). */
-export function loadAppProfile(id: string, dir: string = PATHS.apps): AppProfile {
+export function loadAppProfile(id: string, dir: string = PATHS.apps, readSource?: (file: string) => string): AppProfile {
   const file = [join(dir, `${id}.yaml`), join(dir, `${id}.yml`)].find((f) => existsSync(f));
   if (!file) throw new SpecError(join(dir, `${id}.yaml`), [{ path: '', line: null, message: `앱 프로필이 없습니다 (앱 id '${id}')` }]);
-  const profile = parseFile(file, AppProfile);
+  const profile = parseFile(file, AppProfile, readSource);
   if (profile.id !== id) throw new SpecError(file, [{ path: 'id', line: null, message: `프로필 id '${profile.id}'가 파일 이름 '${id}'와 다릅니다` }]);
   return profile;
 }
@@ -97,7 +97,7 @@ export function loadAppProfile(id: string, dir: string = PATHS.apps): AppProfile
  * Discovers and loads tests. Invalid files, missing profiles, broken subflows and duplicate ids become `errors`
  * (other tests still load). `tags` keeps tests having at least one of them.
  */
-export function loadTests(paths: readonly string[], opts: { root?: string; appsDir?: string; tags?: readonly string[] } = {}): LoadResult {
+export function loadTests(paths: readonly string[], opts: { root?: string; appsDir?: string; tags?: readonly string[]; readSource?: (file: string) => string } = {}): LoadResult {
   const profiles = new Map<string, AppProfile | SpecError>();
   const result: LoadResult = { tests: [], errors: [] };
   const seen = new Map<string, string>();
@@ -108,7 +108,7 @@ export function loadTests(paths: readonly string[], opts: { root?: string; appsD
         let p = profiles.get(app);
         if (!p) {
           try {
-            p = loadAppProfile(app, opts.appsDir);
+            p = loadAppProfile(app, opts.appsDir, opts.readSource);
           } catch (err) {
             if (!(err instanceof SpecError)) throw err;
             p = err;
@@ -117,7 +117,7 @@ export function loadTests(paths: readonly string[], opts: { root?: string; appsD
         }
         if (p instanceof SpecError) throw new SpecError(file, [{ path: 'app', line: null, message: p.message }]);
         return p;
-      });
+      }, opts.readSource);
     } catch (err) {
       if (!(err instanceof SpecError)) throw err;
       result.errors.push({ file, id: testIdOf(file, null), error: err });
@@ -137,8 +137,8 @@ export function loadTests(paths: readonly string[], opts: { root?: string; appsD
 }
 
 /** Loads one test file with its subflows; `profileOf` supplies the app profile (throws SpecError when missing). */
-export function loadTestFile(file: string, profileOf: (app: string) => AppProfile): LoadedTest {
-  const spec = parseFile(file, TestSpec);
+export function loadTestFile(file: string, profileOf: (app: string) => AppProfile, readSource?: (file: string) => string): LoadedTest {
+  const spec = parseFile(file, TestSpec, readSource);
   const flows = new Map<string, FlowSpec>();
   const lists: [string, StepSpec[] | undefined][] = [
     ['setup', spec.setup],
@@ -147,18 +147,18 @@ export function loadTestFile(file: string, profileOf: (app: string) => AppProfil
     ...(spec.when ?? []).map((w, i): [string, StepSpec[]] => [`when[${i}].do`, w.do]),
   ];
   const problems: SpecProblem[] = [];
-  for (const [path, steps] of lists) if (steps) collectFlows(file, steps, path, [file], flows, problems);
+  for (const [path, steps] of lists) if (steps) collectFlows(file, steps, path, [file], flows, problems, readSource);
   if (problems.length) throw new SpecError(file, problems);
   return { file, id: testIdOf(file, spec), spec, profile: profileOf(spec.app), flows };
 }
 
 /** Walks a step list (incl. nested repeat/which), loading every `use:` target relative to `file`. */
-function collectFlows(file: string, steps: readonly StepSpec[], path: string, stack: string[], flows: Map<string, FlowSpec>, problems: SpecProblem[]): void {
+function collectFlows(file: string, steps: readonly StepSpec[], path: string, stack: string[], flows: Map<string, FlowSpec>, problems: SpecProblem[], readSource?: (file: string) => string): void {
   steps.forEach((step, i) => {
     const here = `${path}[${i}]`;
-    if ('repeat' in step) collectFlows(file, step.repeat.steps as StepSpec[], `${here}.repeat.steps`, stack, flows, problems);
+    if ('repeat' in step) collectFlows(file, step.repeat.steps as StepSpec[], `${here}.repeat.steps`, stack, flows, problems, readSource);
     if ('which' in step) {
-      for (const [option, branch] of Object.entries(step.which)) collectFlows(file, branch as StepSpec[], `${here}.which.${option}`, stack, flows, problems);
+      for (const [option, branch] of Object.entries(step.which)) collectFlows(file, branch as StepSpec[], `${here}.which.${option}`, stack, flows, problems, readSource);
     }
     if (!('use' in step)) return;
     const problem = (message: string) => problems.push({ path: `${here}.use`, line: null, message });
@@ -171,7 +171,7 @@ function collectFlows(file: string, steps: readonly StepSpec[], path: string, st
     if (!flows.has(target)) {
       let flow: FlowSpec;
       try {
-        flow = parseFile(target, FlowSpec);
+        flow = parseFile(target, FlowSpec, readSource);
       } catch (err) {
         if (!(err instanceof SpecError)) throw err;
         return problem(err.message);
@@ -179,15 +179,15 @@ function collectFlows(file: string, steps: readonly StepSpec[], path: string, st
       flows.set(target, flow);
     }
     // Re-walked also when loaded through another route, so a cycle through this route is still detected.
-    collectFlows(target, flows.get(target)!.steps, 'steps', [...stack, target], flows, problems);
+    collectFlows(target, flows.get(target)!.steps, 'steps', [...stack, target], flows, problems, readSource);
   });
 }
 
 /** Parses YAML and validates it with `schema`, mapping every failure to a located Korean problem. */
-function parseFile<S extends z.ZodType>(file: string, schema: S): z.infer<S> {
+function parseFile<S extends z.ZodType>(file: string, schema: S, readSource?: (file: string) => string): z.infer<S> {
   let text: string;
   try {
-    text = readFileSync(file, 'utf8');
+    text = readSource ? readSource(file) : readFileSync(file, 'utf8');
   } catch (err) {
     throw new SpecError(file, [{ path: '', line: null, message: `파일을 읽을 수 없습니다: ${(err as Error).message}` }]);
   }

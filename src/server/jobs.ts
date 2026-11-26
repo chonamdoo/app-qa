@@ -1,10 +1,9 @@
-// Job queue: validated requests, per-resource serialization (FIFO per device, the one desktop display, and per app for
-// plan generation), cancellation via AbortController.
+// Validated jobs serialize conflicting device/context ownership and plan generation; cancellation is cooperative.
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { EventSink, JobKind } from '../core/events.ts';
 import { PLATFORM_INFO, PLATFORMS } from '../core/platform.ts';
-import type { Platform } from '../core/types.ts';
+import type { Platform, ScreenModel } from '../core/types.ts';
 import { profilePlatforms, type AppProfile } from '../spec/schema.ts';
 
 /** A platform, or `all` = every platform of the app profile. */
@@ -64,6 +63,13 @@ export const CaptureParams = z.strictObject({
 });
 export type CaptureParams = z.infer<typeof CaptureParams>;
 
+export const InspectParams = CaptureParams.omit({ name: true });
+export type InspectParams = z.infer<typeof InspectParams>;
+
+export type JobOutput =
+  | { kind: 'capture'; files: { xml: string; png: string; meta: string; inventory: string } }
+  | { kind: 'inspect'; table: string; candidates: ScreenModel['candidates']; texts: ScreenModel['texts']; occluded: number };
+
 const Title = z.string().min(1).max(200).optional();
 
 export const JobRequest = z.discriminatedUnion('kind', [
@@ -72,6 +78,7 @@ export const JobRequest = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('plan'), title: Title, params: PlanParams }),
   z.strictObject({ kind: z.literal('calibrate'), title: Title, params: CalibrateParams.default({}) }),
   z.strictObject({ kind: z.literal('capture'), title: Title, params: CaptureParams }),
+  z.strictObject({ kind: z.literal('inspect'), title: Title, params: InspectParams }),
 ]);
 export type JobRequest = z.infer<typeof JobRequest>;
 
@@ -89,6 +96,7 @@ export interface JobOutcome {
   resultPath: string | null;
   /** Generated test files (plan jobs) — used for the follow-up run. */
   paths?: string[];
+  output?: JobOutput;
 }
 
 /** DI boundary: the server calls these; `qa serve` binds them to runner/planner/jev. */
@@ -98,6 +106,7 @@ export interface JobHandlers {
   plan(params: PlanParams, ctx: JobContext): Promise<JobOutcome>;
   calibrate(params: CalibrateParams, ctx: JobContext): Promise<JobOutcome>;
   capture(params: CaptureParams, ctx: JobContext): Promise<JobOutcome>;
+  inspect(params: InspectParams, ctx: JobContext): Promise<JobOutcome>;
 }
 
 export type JobState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
@@ -121,25 +130,23 @@ export interface JobView {
 
 interface Job extends JobView {
   request: JobRequest;
-  /** Resources held while running: the device claims, `desktop:display` for desktop browsers, `plan:<app>` for plan jobs (one generation per app). */
+  output: JobOutput | null;
+  /** Device/context ownership and one plan generation per app; never the host display. */
   claims: string[];
   controller: AbortController | null;
 }
 
 const FINISHED_JOBS_KEPT = 500;
 
-/** Claim for one platform: the given device, else the platform's only browser (desktop, id = platform) or any device. */
+/** An omitted device is a wildcard until the runner selects an owned device/context. */
 function claimFor(platform: Platform, deviceId: string | undefined): string {
-  return `${platform}:${deviceId ?? (PLATFORM_INFO[platform].host === 'desktop' ? platform : '*')}`;
+  return `${platform}:${deviceId ?? '*'}`;
 }
-
-/** This Mac's one screen, pointer and keyboard: every desktop browser drives it, so desktop jobs never run side by side. */
-const DESKTOP_DISPLAY = 'desktop:display';
 
 /**
  * Claims of a request: `devices` (shown per job) and every resource held while it runs. `all` = the app profile's
  * platforms; without a profile (runs span apps unknown here, or the profile does not load) it claims every platform, so a
- * job never runs beside another on a device it may use. A desktop platform also claims `desktop:display`.
+ * job never runs beside another on a device it may use. Guest contexts do not claim host input.
  */
 export function jobClaims(req: JobRequest, profile: AppProfile | null = null): { devices: string[]; resources: string[] } {
   let platforms: { platform: Platform; deviceId: string | undefined }[];
@@ -152,6 +159,7 @@ export function jobClaims(req: JobRequest, profile: AppProfile | null = null): {
       break;
     }
     case 'capture':
+    case 'inspect':
       platforms = [{ platform: req.params.platform, deviceId: req.params.deviceId }];
       break;
     case 'plan':
@@ -160,8 +168,7 @@ export function jobClaims(req: JobRequest, profile: AppProfile | null = null): {
       break;
   }
   const devices = platforms.map(({ platform, deviceId }) => claimFor(platform, deviceId));
-  const display = platforms.some(({ platform }) => PLATFORM_INFO[platform].host === 'desktop') ? [DESKTOP_DISPLAY] : [];
-  return { devices, resources: [...devices, ...display, ...(req.kind === 'plan' ? [`plan:${req.params.app}`] : [])] };
+  return { devices, resources: [...devices, ...(req.kind === 'plan' ? [`plan:${req.params.app}`] : [])] };
 }
 
 /** `<resource>:<id>` claims conflict on the same resource with the same id or a `*`; ids may contain `:` (adb over Wi-Fi). */
@@ -192,6 +199,8 @@ function defaultTitle(req: JobRequest, profile: AppProfile | null): string {
       return `Jev 보정${req.params.mode ? ` · ${req.params.mode}` : ''}`;
     case 'capture':
       return `화면 캡처 · ${req.params.app} · ${choiceLabel(req.params.platform, profile)} · ${req.params.name}`;
+    case 'inspect':
+      return `화면 조회 · ${req.params.app} · ${choiceLabel(req.params.platform, profile)}`;
   }
 }
 
@@ -207,6 +216,8 @@ function dispatch(handlers: JobHandlers, req: JobRequest, ctx: JobContext): Prom
       return handlers.calibrate(req.params, ctx);
     case 'capture':
       return handlers.capture(req.params, ctx);
+    case 'inspect':
+      return handlers.inspect(req.params, ctx);
   }
 }
 
@@ -226,7 +237,7 @@ export class JobQueue {
   }
 
   enqueue(request: JobRequest, parentId: string | null = null): JobView {
-    const profile = request.kind === 'smoke' || request.kind === 'capture' ? this.profileOf(request.params.app) : null;
+    const profile = request.kind === 'smoke' || request.kind === 'capture' || request.kind === 'inspect' ? this.profileOf(request.params.app) : null;
     const { devices, resources } = jobClaims(request, profile);
     const job: Job = {
       id: randomUUID(),
@@ -245,6 +256,7 @@ export class JobQueue {
       resultPath: null,
       request,
       controller: null,
+      output: null,
     };
     this.jobs.set(job.id, job);
     this.events.emit({ type: 'job.queued', jobId: job.id, kind: job.kind, title: job.title });
@@ -260,6 +272,10 @@ export class JobQueue {
   get(id: string): JobView | undefined {
     const job = this.jobs.get(id);
     return job && this.view(job);
+  }
+
+  output(id: string): JobOutput | undefined {
+    return this.jobs.get(id)?.output ?? undefined;
   }
 
   /** Queued → cancelled immediately; running → signal aborted, state settles when the handler returns. */
@@ -290,7 +306,7 @@ export class JobQueue {
   }
 
   private view(job: Job): JobView {
-    const { request: _request, claims: _claims, controller: _controller, ...view } = job;
+    const { request: _request, claims: _claims, controller: _controller, output: _output, ...view } = job;
     return { ...view, devices: [...view.devices] };
   }
 
@@ -322,7 +338,8 @@ export class JobQueue {
     const signal = job.controller!.signal;
     let outcome: JobOutcome;
     try {
-      outcome = await dispatch(this.handlers, job.request, { jobId: job.id, events: this.events, signal });
+      const events: EventSink = { originJobID: job.id, emit: (event) => { this.events.emit(event); } };
+      outcome = await dispatch(this.handlers, job.request, { jobId: job.id, events, signal });
     } catch (err) {
       outcome = { ok: false, message: err instanceof Error ? err.message : String(err), resultPath: null };
     }
@@ -330,6 +347,7 @@ export class JobQueue {
       this.finish(job, 'cancelled', `취소됨 — ${outcome.message}`, outcome.resultPath);
       return;
     }
+    if (outcome.ok && outcome.output) job.output = outcome.output;
     this.finish(job, outcome.ok ? 'succeeded' : 'failed', outcome.message, outcome.resultPath);
     if (outcome.ok && job.request.kind === 'plan' && job.request.params.run) {
       if (outcome.paths?.length) {

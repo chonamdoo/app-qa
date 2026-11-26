@@ -1,0 +1,14 @@
+{
+  "scope": "Design-only structure comparison; not connected to QA engine",
+  "source": "redesign-components.js",
+  "sharedOriginal": ["tokens.css", "components.css", "components.js"],
+  "components": {
+    "DesignShell": {"variant": "A", "description": "세로 단계 목록 · 가운데 Space · 오른쪽 검증 정보"},
+    "ExecutionLayout": {"variants": ["A", "B", "C"], "regions": ["preview", "steps", "checks"]},
+    "ExecutionHeading": {"states": ["running", "failed", "unknown"]},
+    "SpacePreview": {"capture": "reconstructed sample page", "hostInputIsolation": "requirement, not verified"},
+    "StepList": {"states": ["passed", "running", "failed", "blocked", "unknown"]},
+    "CheckPanel": {"states": ["running", "failed", "unknown"]},
+    "ExecutionToolbar": {"states": ["running", "failed", "unknown"]}
+  }
+}

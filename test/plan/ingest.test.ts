@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { crc32, deflateRawSync } from 'node:zlib';
 import { describe, test } from 'node:test';
 import ExcelJS from 'exceljs';
 import { sha256 } from '../../src/core/fsx.ts';
 import { ingestDocuments, mapHeader, segmentRequirements } from '../../src/plan/index.ts';
-import { docxBytes, pdfBytes, tempDir } from './helpers.ts';
+import { ingestSourceLedger } from '../../src/plan/ingest.ts';
+import { docxBytes, pdfBytes, tempDir, zipStore } from './helpers.ts';
 
 describe('spreadsheets: one row = one test case', () => {
   test('header heuristics map Korean and English column names', () => {
@@ -184,5 +186,110 @@ describe('sources', () => {
     assert.equal(doc!.slug, 'spec-2');
     const [same] = await ingestDocuments([join(dir, 'spec.md')], { reservedSlugs: new Map([[doc!.path, 'spec-7']]) });
     assert.equal(same!.slug, 'spec-7');
+  });
+});
+
+function compressedZip(files: Record<string, string>, declaredSize?: number, unicodePath?: string): Buffer {
+  const parts: Buffer[] = [];
+  const central: Buffer[] = [];
+  let offset = 0;
+  for (const [name, text] of Object.entries(files)) {
+    const data = Buffer.from(text);
+    const compressed = deflateRawSync(data);
+    const nameBytes = Buffer.from(name);
+    const checksum = crc32(data);
+    const alternate = unicodePath === undefined ? Buffer.alloc(0) : Buffer.alloc(9 + Buffer.byteLength(unicodePath));
+    if (unicodePath !== undefined) {
+      alternate.writeUInt16LE(0x7075);
+      alternate.writeUInt16LE(alternate.length - 4, 2);
+      alternate[4] = 1;
+      alternate.writeUInt32LE(crc32(nameBytes), 5);
+      alternate.write(unicodePath, 9);
+    }
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(unicodePath === undefined ? 0x0800 : 0, 6);
+    local.writeUInt16LE(8, 8);
+    local.writeUInt32LE(checksum, 14);
+    local.writeUInt32LE(compressed.length, 18);
+    local.writeUInt32LE(declaredSize ?? data.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    local.writeUInt16LE(alternate.length, 28);
+    parts.push(local, nameBytes, alternate, compressed);
+    const entry = Buffer.alloc(46);
+    entry.writeUInt32LE(0x02014b50);
+    entry.writeUInt16LE(20, 4);
+    entry.writeUInt16LE(20, 6);
+    entry.writeUInt16LE(unicodePath === undefined ? 0x0800 : 0, 8);
+    entry.writeUInt16LE(8, 10);
+    entry.writeUInt32LE(checksum, 16);
+    entry.writeUInt32LE(compressed.length, 20);
+    entry.writeUInt32LE(declaredSize ?? data.length, 24);
+    entry.writeUInt16LE(nameBytes.length, 28);
+    entry.writeUInt16LE(alternate.length, 30);
+    entry.writeUInt32LE(offset, 42);
+    central.push(entry, nameBytes, alternate);
+    offset += local.length + nameBytes.length + alternate.length + compressed.length;
+  }
+  const directory = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50);
+  end.writeUInt16LE(Object.keys(files).length, 8);
+  end.writeUInt16LE(Object.keys(files).length, 10);
+  end.writeUInt32LE(directory.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...parts, directory, end]);
+}
+
+describe('XLSX pre-parse budgets', () => {
+  for (const [label, declaredSize] of [['declared expansion', undefined], ['dishonest expansion', 1]] as const) {
+    test(`${label} produces one unresolved source rather than attempting a workbook parse`, async () => {
+      const bytes = compressedZip({ 'xl/sharedStrings.xml': 'x'.repeat(8 * 1024 * 1024 + 1) }, declaredSize);
+      assert.ok(bytes.length < 100_000);
+      const ledger = await ingestSourceLedger(bytes, 'compressed.xlsx');
+      assert.deepEqual(ledger.segments, [{ id: 'file', locator: 'file', text: '', kind: 'unparsed' }]);
+      assert.equal(ledger.issues[0]!.code, 'source_xlsx_limit');
+    });
+  }
+
+  test('aggregate expansion is bounded across individually allowed entries', async () => {
+    const bytes = compressedZip(Object.fromEntries(Array.from({ length: 5 }, (_, index) => [`xl/media/${index}.bin`, 'x'.repeat(7 * 1024 * 1024)])));
+    const ledger = await ingestSourceLedger(bytes, 'aggregate.xlsx');
+    assert.deepEqual(ledger.segments, [{ id: 'file', locator: 'file', text: '', kind: 'unparsed' }]);
+    assert.equal(ledger.issues[0]!.code, 'source_xlsx_limit');
+  });
+
+  for (const name of ['xl/worksheets/sheet1.xml.backup', 'xl/drawings/vmlDrawing1.vml']) {
+    test(`${name} cannot bypass structural preflight through parser filename dispatch`, async () => {
+      const bytes = zipStore({ [name]: '<worksheet>' + '<node>'.repeat(129) + '</node>'.repeat(129) + '</worksheet>' });
+      const ledger = await ingestSourceLedger(bytes, 'alternate-extension.xlsx');
+      assert.deepEqual(ledger.segments, [{ id: 'file', locator: 'file', text: '', kind: 'unparsed' }]);
+      assert.equal(ledger.issues[0]!.code, 'source_xlsx_limit');
+    });
+  }
+
+  test('a ZIP Unicode filename override cannot change which entry receives structural preflight', async () => {
+    const bytes = compressedZip({ 'opaque.bin': '<worksheet><row r="100001"/></worksheet>' }, undefined, 'xl/worksheets/sheet1.xml');
+    const ledger = await ingestSourceLedger(bytes, 'unicode-path.xlsx');
+    assert.deepEqual(ledger.segments, [{ id: 'file', locator: 'file', text: '', kind: 'unparsed' }]);
+    assert.equal(ledger.issues[0]!.code, 'source_xlsx_unreadable');
+  });
+
+  for (const [label, structure] of [
+    ['sparse rows', '<sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Readable prefix</t></is></c></row><row r="100001"><c r="A100001" t="inlineStr"><is><t>Last row</t></is></c></row></sheetData>'],
+    ['merge expansion', '<mergeCells count="1"><mergeCell ref="A1:XFD1000"/></mergeCells>'],
+    ['column expansion', '<cols><col min="1" max="100000"/></cols>'],
+    ['XML depth', '<wrapper>'.repeat(129) + '</wrapper>'.repeat(129)],
+    ['XML node count', '<metadata/>'.repeat(500_001)],
+  ]) test(`${label} keeps the entire source unresolved, never just readable leading rows`, async () => {
+    const bytes = zipStore({ 'xl/worksheets/sheet1.xml': `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${structure}</worksheet>` });
+    const ledger = await ingestSourceLedger(bytes, 'structure.xlsx');
+    assert.deepEqual(ledger.segments, [{ id: 'file', locator: 'file', text: '', kind: 'unparsed' }]);
+    assert.equal(ledger.issues[0]!.code, 'source_xlsx_limit');
+    const dir = tempDir();
+    const path = join(dir, 'structure.xlsx');
+    writeFileSync(path, bytes);
+    await assert.rejects(ingestDocuments([path]), /XLSX.*(budget|limit)/);
   });
 });

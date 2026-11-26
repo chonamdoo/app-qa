@@ -1,14 +1,9 @@
-// LLM adapters for document → test generation. Both shell out to a locally installed, logged-in CLI; neither gets
-// tools or write access. The prompt goes in on stdin, the final message comes back as text for `extractJson`.
-//   claude-cli: `claude -p --model <m> --output-format json --tools "" --no-session-persistence` → `.result`
-//   codex-cli:  `codex exec -m <m> -s read-only --skip-git-repo-check --ephemeral --output-schema <file> -o <out> -`
-//               (falls back to prompt-only when the API rejects the JSON Schema; zod validation runs either way)
-// The child gets a scoped environment (system basics + the CLIs' own auth/config variables, never TYPESAFE_API_KEY or
-// app secrets from .env) and its stdout/stderr are capped.
+// Claude prompts are withheld unless the local CLI reports subscription-backed sign-in.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { CLAUDE_SUBSCRIPTION_FLAGS, isClaudeSubscriptionLogin } from './claude-subscription.ts';
 
 export type LlmProvider = 'claude-cli' | 'codex-cli';
 
@@ -30,15 +25,20 @@ const CLI_ENV_NAMES: Record<string, true> = Object.fromEntries(
     'NODE_EXTRA_CA_CERTS', 'SSL_CERT_FILE', 'SSL_CERT_DIR', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME', 'XDG_STATE_HOME',
   ].map((name) => [name, true]),
 );
-/** Prefixes of the CLIs' own auth/config variables (claude: CLAUDE_*, ANTHROPIC_*; codex: CODEX_*, OPENAI_*). */
-const CLI_ENV_PREFIXES = ['LC_', 'CLAUDE_', 'ANTHROPIC_', 'CODEX_', 'OPENAI_'];
 
 /** The CLI's environment: allow-listed names only, so project secrets (TYPESAFE_API_KEY, app passwords) never leak. */
-function cliEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+function cliEnv(env: NodeJS.ProcessEnv, provider: LlmProvider): NodeJS.ProcessEnv {
   const out: NodeJS.ProcessEnv = {};
   for (const [name, value] of Object.entries(env)) {
     if (value === undefined) continue;
-    if (CLI_ENV_NAMES[name] === true || CLI_ENV_PREFIXES.some((p) => name.startsWith(p)) || /^QA_[A-Z]+_BIN$/.test(name)) out[name] = value;
+    const providerVariable = provider === 'claude-cli'
+      ? name === 'CLAUDE_CONFIG_DIR'
+      : name.startsWith('CODEX_') || name.startsWith('OPENAI_');
+    if (CLI_ENV_NAMES[name] === true || name.startsWith('LC_') || providerVariable) out[name] = value;
+  }
+  if (provider === 'claude-cli') {
+    out.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1';
+    out.DISABLE_AUTOUPDATER = '1';
   }
   return out;
 }
@@ -61,12 +61,13 @@ export interface LlmOptions {
 }
 
 export function createLlm(opts: LlmOptions): Llm {
-  const env = opts.env ?? process.env;
+  const sourceEnv = opts.env ?? process.env;
+  const env = cliEnv(sourceEnv, opts.provider);
   const model = opts.model ?? DEFAULT_LLM_MODELS[opts.provider];
   const timeoutMs = opts.timeoutMs ?? LLM_TIMEOUT_MS;
   const notes: string[] = [];
   if (opts.provider === 'claude-cli') {
-    const bin = env.QA_CLAUDE_BIN?.trim() || 'claude';
+    const bin = sourceEnv.QA_CLAUDE_BIN?.trim() || 'claude';
     return {
       provider: opts.provider,
       model,
@@ -74,7 +75,11 @@ export function createLlm(opts: LlmOptions): Llm {
       async complete(prompt, { signal }) {
         const work = mkdtempSync(join(tmpdir(), 'qa-plan-'));
         try {
-          const args = ['-p', '--model', model, '--output-format', 'json', '--tools', '', '--no-session-persistence'];
+          const auth = await runCli(bin, [...CLAUDE_SUBSCRIPTION_FLAGS, 'auth', 'status'], { stdin: '', cwd: work, env, signal, timeoutMs: Math.min(timeoutMs, 10_000) });
+          let subscriptionLogin = false;
+          try { subscriptionLogin = auth.code === 0 && isClaudeSubscriptionLogin(JSON.parse(auth.stdout)); } catch { /* Invalid or unknown credentials remain blocked. */ }
+          if (!subscriptionLogin) throw new Error('Claude 구독 계정으로 Claude Code CLI에 로그인해야 합니다. API key·Console·외부 제공자로 전환하지 않으며 원문은 전송하지 않았습니다.');
+          const args = [...CLAUDE_SUBSCRIPTION_FLAGS, '-p', '--model', model, '--output-format', 'json', '--tools', '', '--disallowedTools', '*', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--no-chrome', '--disable-slash-commands', '--no-session-persistence'];
           const r = await runCli(bin, args, { stdin: prompt, cwd: work, env, signal, timeoutMs });
           if (r.code !== 0) throw new Error(`claude CLI 실패 (종료 코드 ${r.code}): ${tail(r.stderr || r.stdout)}`);
           let envelope: { is_error?: boolean; subtype?: string; result?: unknown };
@@ -93,7 +98,7 @@ export function createLlm(opts: LlmOptions): Llm {
       },
     };
   }
-  const bin = env.QA_CODEX_BIN?.trim() || 'codex';
+  const bin = sourceEnv.QA_CODEX_BIN?.trim() || 'codex';
   let schemaRejected = false;
   return {
     provider: opts.provider,
@@ -169,7 +174,7 @@ async function runCli(
   const signal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
   if (signal.aborted) throw new Error('LLM 호출이 취소되었습니다');
   return await new Promise<CliResult>((resolve, reject) => {
-    const child = spawn(bin, args, { cwd: opts.cwd, env: cliEnv(opts.env), stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawn(bin, args, { cwd: opts.cwd, env: opts.env, stdio: ['pipe', 'pipe', 'pipe'] });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
     const bytes = { stdout: 0, stderr: 0 };
