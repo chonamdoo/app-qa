@@ -1,0 +1,13 @@
+id: agentflow-launch-smoke
+name: AgentFlow 앱 실행 및 첫 화면 고정 문구 확인
+app: agentflow
+platforms:
+  - android
+  - ios
+tags:
+  - smoke
+  - p0
+start: launch
+reset: relaunch
+steps:
+  - assertText: 홈

@@ -1,10 +1,10 @@
 // Runner programmatic API (architecture §10): the CLI, the engine server and the planner all call these.
-import { existsSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { existsSync, statSync } from 'node:fs';
+import { join, relative, resolve, sep } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { PATHS } from '../core/config.ts';
+import { expandHome, PATHS } from '../core/config.ts';
 import type { EventSink } from '../core/events.ts';
-import { newRunId, sha256, writeJson, writeSecure } from '../core/fsx.ts';
+import { assertValidRunId, newRunId, sha256, writeJson, writeJsonAtomic, writeSecure } from '../core/fsx.ts';
 import { PLATFORM_INFO, PLATFORMS } from '../core/platform.ts';
 import type { DeviceInfo, Driver, Platform, ScreenModel, Verdict, WebTarget } from '../core/types.ts';
 import { acquireDeviceLock, acquireDisplayLock, clearDisplayUnknown, createDriver, failureStatus, markDisplayUnknown, pickDevice, readDisplayUnknown, type DisplayUnknown } from '../drivers/index.ts';
@@ -33,11 +33,13 @@ export { appTarget } from './engine.ts';
 export interface RunResult {
   runId: string;
   runDir: string;
+  summary: RunSummary;
   counts: Record<Verdict, number>;
   qaCounts: Record<QaStatus, number>;
   tests: TestResult[];
   reportPath: string;
   junitPath: string | null;
+  resultJsonPath: string | null;
   /** Run-relative `web-qa/plan.json` + `result.json` (check-run v1) when the run had website results, else empty. */
   webQa: string[];
 }
@@ -48,6 +50,8 @@ export interface RunOptions {
   deviceIds?: Partial<Record<Platform, string>>;
   tags?: string[];
   junit?: boolean;
+  runId?: string;
+  resultJson?: string;
   events?: EventSink;
   signal?: AbortSignal;
 }
@@ -338,6 +342,14 @@ function webBuildId(profiles: readonly AppProfile[]): string {
   return `config-${sha256(JSON.stringify(config)).slice(0, 16)}`;
 }
 
+function resolveResultJsonPath(raw: string | undefined): string | null {
+  if (raw === undefined) return null;
+  if (raw.trim() === '') throw new Error('--result-json 경로가 비어 있습니다');
+  const file = resolve(expandHome(raw));
+  if (existsSync(file) && statSync(file).isDirectory()) throw new Error(`--result-json 경로가 디렉터리입니다: ${file}`);
+  return file;
+}
+
 function finishRun(
   store: RunStore,
   d: RunnerDeps,
@@ -348,6 +360,7 @@ function finishRun(
     platform: RunSummary['platform'];
     slots: Map<Platform, Slot>;
     junit: boolean;
+    resultJson: string | null;
     profiles: readonly AppProfile[];
   },
   tests: TestResult[],
@@ -372,9 +385,10 @@ function finishRun(
   store.writeRecord('summary.json', summary, 'report');
   const { reportPath, junitPath } = writeReports(store.runDir, summary, { junit: meta.junit, root: d.root });
   const webQa = writeWebQa(store.runDir, summary, { buildId: webBuildId(meta.profiles), runnerExitCode: exitCodeFor(counts) });
+  if (meta.resultJson) writeJsonAtomic(meta.resultJson, summary);
   store.emit({ type: 'run.finished', runId: store.runId, counts, reportPath, junitPath });
   store.writeManifest();
-  return { runId: store.runId, runDir: store.runDir, counts, qaCounts, tests, reportPath, junitPath, webQa };
+  return { runId: store.runId, runDir: store.runDir, summary, counts, qaCounts, tests, reportPath, junitPath, resultJsonPath: meta.resultJson, webQa };
 }
 
 /**
@@ -385,9 +399,10 @@ function finishRun(
  */
 export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Promise<RunResult> {
   const d = resolveDeps(deps);
+  const runId = opts.runId !== undefined ? assertValidRunId(opts.runId) : newRunId();
+  const resultJson = resolveResultJsonPath(opts.resultJson);
   const requested: readonly Platform[] = opts.platform === 'all' ? PLATFORMS : [opts.platform];
   const loaded = loadTests(opts.paths, { root: d.root, appsDir: d.appsDir, tags: opts.tags });
-  const runId = newRunId();
   const store = new RunStore(join(d.runsDir, runId), runId, opts.events);
   const startedAt = new Date().toISOString();
   const t0 = d.clock.now();
@@ -572,7 +587,7 @@ export async function runTests(opts: RunOptions, deps?: Partial<RunnerDeps>): Pr
   }
   ordered.push(...early);
   const profiles = loaded.tests.map((t) => t.profile);
-  return finishRun(store, d, { kind: 'run', startedAt, t0, platform: opts.platform, slots, junit: opts.junit ?? false, profiles }, ordered);
+  return finishRun(store, d, { kind: 'run', startedAt, t0, platform: opts.platform, slots, junit: opts.junit ?? false, resultJson, profiles }, ordered);
 }
 
 /** Smoke-test pseudo spec: relaunch, no DSL steps (the session drives smoke itself). */
@@ -677,7 +692,7 @@ export async function runSmoke(opts: SmokeOptions, deps?: Partial<RunnerDeps>): 
     releaseDisplay(d, display, store);
   }
   store.emit({ type: 'test.finished', runId, testId: result.id, platform: result.platform, verdict: result.verdict, reason: result.reason, durationMs: result.durationMs });
-  return finishRun(store, d, { kind: 'smoke', startedAt, t0, platform: opts.platform, slots, junit: false, profiles: [profile] }, [result]);
+  return finishRun(store, d, { kind: 'smoke', startedAt, t0, platform: opts.platform, slots, junit: false, resultJson: null, profiles: [profile] }, [result]);
 }
 
 /**

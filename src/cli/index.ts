@@ -36,7 +36,7 @@ const COMMANDS: Record<string, CommandInfo> = {
     module: './commands/run.ts',
     fn: 'cmdRun',
     summary: '테스트 실행 → 판정·리포트',
-    usage: `qa run [경로...] [--platform ${PLATFORM_CHOICE_LIST}] [--device <플랫폼>:<id>] [--tag <t>] [--junit]`,
+    usage: `qa run [경로...] [--platform ${PLATFORM_CHOICE_LIST}] [--device <플랫폼>:<id>] [--tag <t>] [--junit] [--run-id <id>] [--result-json <파일>]`,
   },
   smoke: {
     module: './commands/smoke.ts',

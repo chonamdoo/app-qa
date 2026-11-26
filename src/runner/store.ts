@@ -2,7 +2,7 @@
 // action journal, and the manifest of everything written.
 import { join, sep } from 'node:path';
 import type { EventSink, QaEvent, QaEventBody } from '../core/events.ts';
-import { appendJsonl, ensureDir, writeJsonAtomic, writeSecure } from '../core/fsx.ts';
+import { appendJsonl, createDirExclusive, writeJsonAtomic, writeSecure } from '../core/fsx.ts';
 import { updateManifest, type ManifestKind } from '../report/manifest.ts';
 
 export class RunStore implements EventSink {
@@ -13,7 +13,7 @@ export class RunStore implements EventSink {
   private seq = 0;
 
   constructor(runDir: string, runId: string, sink?: EventSink) {
-    this.runDir = ensureDir(runDir);
+    this.runDir = createDirExclusive(runDir);
     this.runId = runId;
     this.sink = sink;
   }

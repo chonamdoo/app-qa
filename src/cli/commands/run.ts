@@ -1,19 +1,21 @@
-// `qa run [paths...] --platform <platform>|all --device <platform>:<id> --tag <t> --junit`
+// `qa run [paths...] --platform <platform>|all --device <platform>:<id> --tag <t> --junit --run-id <id> --result-json <file>`
 import { parseArgs } from 'node:util';
 import { consoleSink, exitCodeFor, formatCounts, formatQaCounts } from '../../report/console.ts';
-import { runTests } from '../../runner/index.ts';
+import { runTests, type RunnerDeps } from '../../runner/index.ts';
 import { SpecError } from '../../spec/load.ts';
 import { parseDevices, parsePlatform, PLATFORM_CHOICE_LIST } from '../platforms.ts';
 
-const USAGE = `사용법: qa run [경로...] [--platform ${PLATFORM_CHOICE_LIST}] [--device <id>] [--tag <태그>] [--junit]
+const USAGE = `사용법: qa run [경로...] [--platform ${PLATFORM_CHOICE_LIST}] [--device <id>] [--tag <태그>] [--junit] [--run-id <id>] [--result-json <파일>]
   경로: *.e2e.yaml 파일 또는 디렉터리 (기본 tests/)
   --platform all: 각 테스트의 앱 프로필이 가진 플랫폼 전부 (앱: android/ios, 웹: 프로필 web.platforms)
   --device: 한 플랫폼이면 기기 ID, 여러 플랫폼이면 <플랫폼>:<id> (예: android:emulator-5554, 반복 가능)
   --tag: 해당 태그가 있는 테스트만 (반복 가능)
   --junit: junit.xml도 생성
+  --run-id: 실행 ID를 고정하고 디렉터리를 배타 생성 (이미 있으면 종료 코드 2)
+  --result-json: RunSummary JSON을 지정한 파일에 원자적으로 기록
 종료 코드: 0 = 모두 통과, 1 = 실패·판정 불가·오류 있음, 2 = 사용법·환경 오류`;
 
-export async function cmdRun(argv: string[]): Promise<number> {
+export async function cmdRun(argv: string[], deps?: Partial<RunnerDeps>): Promise<number> {
   let parsed;
   try {
     parsed = parseArgs({
@@ -25,6 +27,8 @@ export async function cmdRun(argv: string[]): Promise<number> {
         device: { type: 'string', multiple: true, default: [] },
         tag: { type: 'string', multiple: true, default: [] },
         junit: { type: 'boolean', default: false },
+        'run-id': { type: 'string' },
+        'result-json': { type: 'string' },
         help: { type: 'boolean', short: 'h' },
       },
     });
@@ -54,21 +58,27 @@ export async function cmdRun(argv: string[]): Promise<number> {
   };
   process.once('SIGINT', onSigint);
   try {
-    const result = await runTests({
-      paths: positionals,
-      platform,
-      deviceIds,
-      tags: values.tag.length ? values.tag : undefined,
-      junit: values.junit,
-      events: consoleSink(),
-      signal: controller.signal,
-    });
+    const result = await runTests(
+      {
+        paths: positionals,
+        platform,
+        deviceIds,
+        tags: values.tag.length ? values.tag : undefined,
+        junit: values.junit,
+        runId: values['run-id'],
+        resultJson: values['result-json'],
+        events: consoleSink(),
+        signal: controller.signal,
+      },
+      deps,
+    );
     const specErrors = result.tests.filter((t) => t.code === 'spec_invalid');
     for (const t of specErrors) console.error(`\n테스트 파일 오류:\n${t.reason}`);
     console.log(`\n결과: ${formatCounts(result.counts) || '실행된 테스트 없음'}`);
     console.log(`QA 상태: ${formatQaCounts(result.qaCounts)}`);
     console.log(`리포트: ${result.reportPath}`);
     if (result.junitPath) console.log(`JUnit: ${result.junitPath}`);
+    if (result.resultJsonPath) console.log(`결과 JSON: ${result.resultJsonPath}`);
     return exitCodeFor(result.counts);
   } catch (err) {
     console.error(err instanceof SpecError ? `테스트 파일 오류:\n${err.message}` : `실행할 수 없습니다: ${err instanceof Error ? err.message : String(err)}`);

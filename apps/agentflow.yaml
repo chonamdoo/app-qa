@@ -1,0 +1,14 @@
+id: agentflow
+name: AgentFlow
+build: release
+android:
+  package: com.agentflow.mobile
+  activity: .MainActivity
+ios:
+  bundleId: app.agentflow.ios
+risk:
+  deny: []
+  allow: []
+redact: []
+volatile: []
+docs: []
