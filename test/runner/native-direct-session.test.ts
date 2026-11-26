@@ -1,21 +1,23 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { copyFileSync, cpSync, existsSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { it } from 'node:test';
 import { createExecutionAdmission } from '../../src/core/admission.ts';
 import { createAgentClient } from '../../src/core/agent-client.ts';
 import { ensureDir, sha256, writeJsonAtomic } from '../../src/core/fsx.ts';
+import { resolveOwnedChromeHost } from '../../src/drivers/owned-chrome.ts';
 import { createAgentService } from '../../src/runner/index.ts';
 import { fixture } from '../fixtures/project-fixture.ts';
 
-it('opens an owned Chrome direct session under its exact admission scope and disposes executed source before releasing it', { skip: process.env.QA_OWNED_CHROME_FIXTURE !== '1', timeout: 60_000 }, async t => {
+it('opens an owned Chrome direct session under its exact admission scope and disposes executed source before releasing it', { skip: process.env.QA_OWNED_CHROME_FIXTURE !== '1' || process.platform !== 'darwin' || process.arch !== 'arm64', timeout: 60_000 }, async t => {
+  const { executable } = resolveOwnedChromeHost(process.cwd());
   const f = await fixture(t, { retain: true });
   for (const name of ['src', 'bin']) cpSync(join(process.cwd(), name), join(f.root, name), { recursive: true });
   for (const name of ['package.json', 'package-lock.json']) copyFileSync(join(process.cwd(), name), join(f.root, name));
   symlinkSync(join(process.cwd(), 'node_modules'), join(f.root, 'node_modules'));
   const tools = ensureDir(join(f.root, '.tools', 'chromedriver'));
-  copyFileSync(join(process.cwd(), '.tools', 'chromedriver', 'chromedriver-mac-arm64_v156.0.8078.80'), join(tools, 'chromedriver-mac-arm64_v156.0.8078.80'));
+  copyFileSync(executable, join(tools, basename(executable)));
   const admission = createExecutionAdmission(join(f.root, '.qa', 'direct-admission'));
   const profileId = randomUUID();
   const service = createAgentService({ root: f.root, appsDir: join(f.root, 'apps'), runsDir: join(f.root, '.qa', 'runs'), inventoryDir: join(f.root, '.qa', 'inventory'), fixturesDir: join(f.root, 'fixtures'), ocr: null, admission,

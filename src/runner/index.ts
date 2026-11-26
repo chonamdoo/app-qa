@@ -17,6 +17,7 @@ import type { AppTarget, DeviceInfo, Driver, Platform, ScreenModel, Verdict, Web
 import { acquireDeviceLock, createDriver, failureStatus, listDevices, pickDevice } from '../drivers/index.ts';
 import { createGuestMachineBackend } from '../drivers/vm/backend.ts';
 import { DesktopWebDriver } from '../drivers/desktop.ts';
+import { probeOwnedChrome } from '../drivers/owned-chrome.ts';
 import { prepareTargetRecording, startTargetRecording } from '../drivers/recording.ts';
 import { GuestDesktopDriver } from '../drivers/vm/driver.ts';
 import { JevClient } from '../jev/client.ts';
@@ -267,6 +268,7 @@ export function createAgentService(partial: Partial<RunnerDeps> = {}, events?: E
     if (stopping && !instances) throw new AgentExecutionError('engine_stopping', '엔진이 종료 중임');
     instances ??= createDesktopInstances({
       root: d.root, backend: createGuestMachineBackend(d.root), profiles: () => profiles, admissionDirectory: d.admission.directory, nativeRecovery: chromeAttemptRecovery,
+      chromeProbe: () => probeOwnedChrome(d.root),
       cancelExecution: async sessionId => {
         const held = [...legacy.values()].find(entry => entry.sessionId === sessionId);
         if (held) {
