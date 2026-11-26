@@ -22,9 +22,13 @@ node bin/qa.ts setup --browsers   # 모바일 브라우저 준비 + 실제 guest
 node bin/qa.ts doctor         # 준비 상태 조회; 모델·보정 상태는 직접 실행과 구분
 ```
 
+### Apple Silicon Mac의 소유 Chrome
+
+`owned-chrome` 프로필은 `/Applications/Google Chrome.app`을 별도의 headless 프로필로 실행하며 개인 브라우저 세션을 사용하지 않는다. [Chrome for Testing](https://googlechromelabs.github.io/chrome-for-testing/)의 `mac-arm64` ChromeDriver 중 설치된 Chrome과 전체 버전 번호가 같은 실행 파일을 `.tools/chromedriver/chromedriver-mac-arm64_v<version>`에 설치한다. Chrome이 업데이트되면 새 버전에 맞춰 다시 준비한다. 다른 버전의 드라이버로 대체하거나 실행 중 자동 다운로드하지 않는다.
+
 ### 실제 guest 브라우저
 
-데스크톱 Chrome·Safari는 QAutra가 소유한 macOS guest 안에서만 실행한다. 호스트 브라우저나 WKWebView로 대체하지 않는다. 호스트 Safari의 원격 자동화·Accessibility·화면 녹화 권한을 요구하지 않는다.
+`macos-guest` 프로필은 QAutra가 소유한 macOS guest의 실제 Chrome·Safari를 실행한다. 호스트 브라우저나 WKWebView로 대체하지 않는다. 호스트 Safari의 원격 자동화·Accessibility·화면 녹화 권한을 요구하지 않는다.
 
 1. `bash scripts/build-mac.sh`로 native helper와 guest agent를 포함한 앱을 빌드한다.
 2. Mac 앱의 **환경 및 기기**에서 웹 프로필과 **인스턴스 생성**을 구분한다. 프로필 등록은 VM 생성이나 준비 완료가 아니다. Apple 복원 이미지는 별도로 내려받으며 라이선스가 적용된다.

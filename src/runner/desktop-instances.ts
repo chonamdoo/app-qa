@@ -24,7 +24,7 @@ export function createDesktopInstances(options: {
   backend: GuestMachineBackend;
   profiles: () => readonly InstanceProfile[];
   cancelExecution?: (executionId: string) => Promise<void>;
-  chromeProbe?: () => OwnedChromeProbe;
+  chromeProbe: () => OwnedChromeProbe;
   maximumActiveChromeContexts?: number;
   admissionDirectory?: string;
   nativeRecovery?: ChromeAttemptRecovery;

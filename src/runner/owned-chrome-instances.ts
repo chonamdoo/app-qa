@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { accessSync, closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
-import { hostname, release } from 'node:os';
+import { closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
 import { ensureDir, writeAtomic } from '../core/fsx.ts';
@@ -101,23 +100,10 @@ function checkOrigins(origins: readonly string[]): void {
   }
 }
 
-export function probeOwnedChrome(root: string): OwnedChromeProbe {
-  const workerId = `local:${hostname()}:${process.getuid?.() ?? 'unknown'}:${process.platform}:${process.arch}`;
-  const osVersion = release();
-  if (process.platform !== 'darwin' || process.arch !== 'arm64') return { available: false, workerId, osVersion, reason: 'This owned Chrome adapter requires macOS on Apple Silicon; another engine is not substituted.' };
-  try {
-    accessSync('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', constants.X_OK);
-    accessSync(join(root, '.tools/chromedriver/chromedriver-mac-arm64_v156.0.8078.80'), constants.X_OK);
-    return { available: true, workerId, osVersion, reason: null };
-  } catch {
-    return { available: false, workerId, osVersion, reason: 'Actual Chrome and the project-local ChromeDriver must be prepared. No VM or personal browser is adopted.' };
-  }
-}
-
 export function createOwnedChromeInstances(options: {
   root: string;
   profiles: () => readonly InstanceProfile[];
-  probe?: () => OwnedChromeProbe;
+  probe: () => OwnedChromeProbe;
   cancelExecution?: (sessionId: string) => Promise<void>;
   maximumActiveContexts?: number;
   admissionDirectory?: string;
@@ -181,7 +167,7 @@ export function createOwnedChromeInstances(options: {
     save(record);
   }
   function probe(): OwnedChromeProbe {
-    const result = z.strictObject({ available: z.boolean(), reason: z.string().nullable(), workerId: z.string().min(1).max(512), osVersion: z.string().min(1).max(256) }).parse(options.probe?.() ?? probeOwnedChrome(root));
+    const result = z.strictObject({ available: z.boolean(), reason: z.string().nullable(), workerId: z.string().min(1).max(512), osVersion: z.string().min(1).max(256) }).parse(options.probe());
     assertOwner();
     return result;
   }

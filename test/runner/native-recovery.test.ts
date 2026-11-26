@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { createExecutionAdmission } from '../../src/core/admission.ts';
 import { sha256, writeJsonAtomic } from '../../src/core/fsx.ts';
 import { ExecutionRecoveryViewSchema } from '../../src/core/recovery.ts';
+import { resolveOwnedChromeHost } from '../../src/drivers/owned-chrome.ts';
 import { regressionGrantSubjectSha256 } from '../../src/policy/regression-grant.ts';
 import { baselineEntities, changedEntities, fixture } from '../fixtures/project-fixture.ts';
 
@@ -33,6 +34,7 @@ async function observation(mode: string, root: string) {
 }
 
 it('recovers original native evidence and backend authority after controller death without replaying QA or changing its outcome', { skip: !available, timeout: 120_000 }, async t => {
+  const { executable } = resolveOwnedChromeHost(process.cwd());
   const retained = process.env.QAUTRA_RETAIN_NATIVE_RECOVERY === '1';
   const f = await fixture(t, { retain: true, leaseTtlMs: 20_000 });
   const instanceId = randomUUID(), profileId = randomUUID(), requestId = randomUUID();
@@ -46,7 +48,7 @@ it('recovers original native evidence and backend authority after controller dea
   for (const name of ['package.json', 'package-lock.json']) copyFileSync(join(process.cwd(), name), join(f.root, name));
   symlinkSync(join(process.cwd(), 'node_modules'), join(f.root, 'node_modules'));
   mkdirSync(join(f.root, '.tools', 'chromedriver'), { recursive: true, mode: 0o700 });
-  copyFileSync(join(process.cwd(), '.tools', 'chromedriver', 'chromedriver-mac-arm64_v156.0.8078.80'), join(f.root, '.tools', 'chromedriver', 'chromedriver-mac-arm64_v156.0.8078.80'));
+  copyFileSync(executable, join(f.root, '.tools', 'chromedriver', basename(executable)));
   writeJsonAtomic(join(f.root, 'apps', 'shop.yaml'), { id: 'shop', name: 'Original authority fixture', web: { url: f.origin, origins: [f.origin], platforms: ['desktop-chrome'], viewport: { width: 1280, height: 800 } } });
   writeJsonAtomic(join(f.root, 'tests', 'owned-recovery.e2e.yaml'), { id: 'owned-recovery', name: 'Owned controller loss', app: 'shop', platforms: ['desktop-chrome'], steps: [{ launch: true }, { type: '독립 QA 한글 123', into: { id: 'note' } }, { assertText: '독립 QA 한글 123' }, { tap: { id: 'commit' } }, { assertText: 'Committed' }, { wait: 10_000 }] });
   writeJsonAtomic(join(f.root, 'native-recovery.json'), { root: f.root, instanceId, profileId, requestId, target: f.subject.target, grantId: f.grant.grantId, subjectSha256: regressionGrantSubjectSha256(f.subject) });

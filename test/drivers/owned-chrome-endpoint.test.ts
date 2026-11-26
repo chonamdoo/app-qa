@@ -7,9 +7,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { ChromeNativeStatusSchema } from '../../src/core/chrome-owner.ts';
-import { OwnedChromeStartupError, startOwnedChromeEndpoint } from '../../src/drivers/owned-chrome.ts';
+import { OwnedChromeStartupError, resolveOwnedChromeHost, startOwnedChromeEndpoint } from '../../src/drivers/owned-chrome.ts';
 
-const enabled = process.env.QA_OWNED_CHROME_FIXTURE === '1';
+const enabled = process.env.QA_OWNED_CHROME_FIXTURE === '1' && process.platform === 'darwin' && process.arch === 'arm64';
+
+test('refuses a prepared directory that only has a driver for another Chrome version', { skip: !enabled }, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'qautra-chrome-version-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const drivers = join(root, '.tools', 'chromedriver');
+  await mkdir(drivers, { recursive: true });
+  await writeFile(join(drivers, 'chromedriver-mac-arm64_v0.0.0.0'), '', { mode: 0o700 });
+  assert.throws(() => resolveOwnedChromeHost(root), /Google Chrome \d+(?:\.\d+){3} requires an executable/);
+});
 
 test('a failed profile removal never becomes a successful close acknowledgement', { skip: !enabled || process.getuid?.() === 0, timeout: 30_000 }, async () => {
   const endpoint = await startOwnedChromeEndpoint();

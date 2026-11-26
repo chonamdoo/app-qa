@@ -1,12 +1,12 @@
-import { spawn } from 'node:child_process';
-import { constants } from 'node:fs';
-import { access, chmod, mkdir, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { execFileSync, spawn } from 'node:child_process';
+import { accessSync, constants } from 'node:fs';
+import { chmod, mkdir, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
+import { hostname, release, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { RefusedError, StepError } from './base.ts';
 import type { ChromeNativeStatus, ChromeProcessFact } from '../core/chrome-owner.ts';
-import { PATHS } from '../core/config.ts';
+import { ROOT } from '../core/config.ts';
 
 export interface OwnedChromeEndpoint {
   readonly url: string;
@@ -85,12 +85,44 @@ async function readDevToolsPort(profile: string): Promise<number | null> {
   } finally { await file.close(); }
 }
 
+const chromeBundle = '/Applications/Google Chrome.app/Contents';
+
+export function resolveOwnedChromeHost(root: string): { binary: string; executable: string } {
+  if (process.platform !== 'darwin' || process.arch !== 'arm64') {
+    throw new RefusedError('This owned Chrome adapter requires macOS on Apple Silicon; another engine is not substituted.');
+  }
+  const binary = join(chromeBundle, 'MacOS', 'Google Chrome');
+  let version: string;
+  try {
+    accessSync(binary, constants.X_OK);
+    version = execFileSync('/usr/bin/plutil', ['-extract', 'CFBundleShortVersionString', 'raw', '-o', '-', join(chromeBundle, 'Info.plist')],
+      { encoding: 'utf8', timeout: 2000, maxBuffer: 4096, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    throw new RefusedError('Cannot verify the installed version of Google Chrome in /Applications.');
+  }
+  if (!/^\d{1,10}(?:\.\d{1,10}){3}$/.test(version)) throw new RefusedError('The installed Google Chrome version is invalid.');
+  const name = `chromedriver-mac-arm64_v${version}`;
+  const executable = join(root, '.tools', 'chromedriver', name);
+  try { accessSync(executable, constants.X_OK); }
+  catch { throw new RefusedError(`Google Chrome ${version} requires an executable .tools/chromedriver/${name}.`); }
+  return { binary, executable };
+}
+
+export function probeOwnedChrome(root: string): { available: boolean; reason: string | null; workerId: string; osVersion: string } {
+  const workerId = `local:${hostname()}:${process.getuid?.() ?? 'unknown'}:${process.platform}:${process.arch}`;
+  const osVersion = release();
+  try {
+    resolveOwnedChromeHost(root);
+    return { available: true, workerId, osVersion, reason: null };
+  } catch (error) {
+    if (!(error instanceof RefusedError)) throw error;
+    return { available: false, workerId, osVersion, reason: error.message };
+  }
+}
+
 export async function startOwnedChromeEndpoint(): Promise<OwnedChromeEndpoint> {
   const startedAt = performance.now();
-  const binary = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-  const executable = join(PATHS.tools, 'chromedriver', 'chromedriver-mac-arm64_v156.0.8078.80');
-  try { await Promise.all([access(binary), access(executable)]); }
-  catch { throw new RefusedError('소유 headless Chrome 실행에 필요한 실제 Chrome binary 또는 프로젝트 로컬 ChromeDriver가 없습니다.'); }
+  const { binary, executable } = resolveOwnedChromeHost(ROOT);
   const profile = await mkdtemp(join(tmpdir(), 'qautra-chrome-'));
   const args = ['--headless=new', '--enable-automation', '--no-first-run', '--no-default-browser-check', '--disable-search-engine-choice-screen', '--disable-sync', '--password-store=basic', '--use-mock-keychain', '--lang=ko-KR', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'];
   let browser: ReturnType<typeof launchOwnedChild> | null = null;
