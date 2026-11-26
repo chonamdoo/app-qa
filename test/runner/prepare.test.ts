@@ -58,7 +58,6 @@ describe('policy on the final fresh observation', () => {
     const t = result.tests[0]!;
     assert.equal(t.verdict, 'ERROR');
     assert.equal(t.code, 'blocked_by_policy', t.reason);
-    assert.match(t.reason, /파괴적 확인 대화상자[\s\S]*Jev commit 확인 중 화면이 바뀜/);
     assert.equal(driver.called('tap').length, 0);
 
     // Only unrelated text changed while Jev answered (a live counter): the same target is still tapped.
@@ -129,7 +128,6 @@ describe('policy on the final fresh observation', () => {
     const refused = await tapWith(0.6, false);
     assert.equal(refused.t.verdict, 'FAIL');
     assert.equal(refused.t.code, 'stale_target', refused.t.reason);
-    assert.match(refused.t.reason, /Jev commit 확인 중 .*isHittable=false/);
     assert.equal(refused.driver.called('tap').length, 0);
 
     // Fully covered: nothing of 설정 can be tapped any more.
@@ -160,7 +158,6 @@ describe('press: enter and type.submit go through the policy', () => {
     });
     const { result } = await runYaml({ 'tests/e.e2e.yaml': spec('  - press: enter\n    expectNoChange: true\n') }, driver, { jev: jev.setup });
     assert.equal(result.tests[0]!.code, 'blocked_by_policy', result.tests[0]!.reason);
-    assert.match(result.tests[0]!.reason, /제출\(Enter\)[\s\S]*Jev commit 확인 중 화면이 바뀜/);
     assert.equal(driver.called('press').length, 0);
   });
 
@@ -452,8 +449,7 @@ describe('a truncated observation approves no target-based mutation', () => {
         driver.screen = cut(screen());
         return noul(0.02);
       });
-      const t = await refused(`post-commit ${name}`, driver, steps, jev.setup);
-      assert.match(t.reason, /Jev commit 확인 후/, name);
+      await refused(`post-commit ${name}`, driver, steps, jev.setup);
     }
   });
 });

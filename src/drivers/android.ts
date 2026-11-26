@@ -6,12 +6,14 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { unexpectedResponse } from '../appium/client.ts';
 import { adb, adbShell, shq } from '../appium/exec.ts';
 import { PLATFORM_INFO } from '../core/platform.ts';
+import { ProjectFixtureError, type ProjectFixtureNativeIdentity } from '../core/project-fixture.ts';
 import type { ActionOutcome, AppTarget, NativeTarget, RawNode, Rect, TypeOutcome, WebTarget } from '../core/types.ts';
 import { parseAndroidSource } from '../observe/android.ts';
 import { navigationProblem } from './appid.ts';
-import { AppiumDriver, assertNoWebLaunchOptions, PERMISSION_GROUPS, RefusedError, StepError, type FieldValue, type Key, type LaunchOptions } from './base.ts';
+import { AppiumDriver, assertNoWebLaunchOptions, PERMISSION_GROUPS, RefusedError, StepError, type FieldValue, type Key, type LaunchOptions, type NativeFixtureMailbox } from './base.ts';
 import { androidChromeChecks, prepareAndroidChrome, readinessProblem } from './browser-prep.ts';
 import { androidLogArgs, LogCapture } from './logs.ts';
+import { nativeBuildManifestSha256 } from './native-fixture-mailbox.ts';
 
 const KEYCODES: Record<Key, number> = { enter: 66, back: 4, tab: 61, escape: 111, delete: 67 };
 const KEYCODE_PASTE = 279;
@@ -63,6 +65,67 @@ export class AndroidDriver extends AppiumDriver {
   private readonly ownedReverse = new Set<string>();
   /** Device clock minus host clock (ms), from the last `measureClockOffset`; null until measured. */
   private clockOffsetMs: number | null = null;
+
+  protected async nativeFixtureBuildSha256(applicationId: string): Promise<string> {
+    const paths = (await adbShell(this.deviceId, ['pm', 'path', applicationId])).trim().split(/\r?\n/).map(line => line.startsWith('package:') ? line.slice(8) : '');
+    if (paths.length === 0 || paths.length > 100 || paths.some(path => !/^\/data\/app\/[A-Za-z0-9_./=+~-]+\.apk$/.test(path) || path.includes('/../'))) throw new ProjectFixtureError('fixture_client_unverified');
+    const files: { name: string; sha256: string }[] = [];
+    for (const path of paths) {
+      const value = await adbShell(this.deviceId, ['sha256sum', path]);
+      const match = /^([a-f0-9]{64})\s+/.exec(value);
+      if (!match) throw new ProjectFixtureError('fixture_client_unverified');
+      files.push({ name: path.slice(path.lastIndexOf('/') + 1), sha256: match[1]! });
+    }
+    return nativeBuildManifestSha256(files);
+  }
+
+  protected async openNativeFixtureMailbox(identity: ProjectFixtureNativeIdentity): Promise<NativeFixtureMailbox> {
+    const app = identity.applicationId;
+    const root = 'files/qautra-fixture';
+    const directory = `${root}/${identity.sessionId}`;
+    const command = (script: string, input?: Uint8Array) => adbShell(this.deviceId, ['run-as', app, 'sh', '-c', script], { timeoutMs: 10000, ...(input ? { input } : {}) });
+    const appUid = (await command('id -u')).trim();
+    if (!/^[1-9]\d*$/.test(appUid)) throw new ProjectFixtureError('fixture_client_unverified');
+    const privateFile = (path: string) => `test -f ${shq(path)} && test ! -L ${shq(path)} && test "$(stat -c '%h:%a:%u' ${shq(path)})" = ${shq(`1:600:${appUid}`)}`;
+    const sealed = (path: string) => `${privateFile(`${path}.committed`)} && test "$(stat -c '%s' ${shq(`${path}.committed`)})" = 0`;
+    const readyPath = `${root}/ready.json`;
+    const ready = await command(`test -d ${shq(root)} && test ! -L ${shq(root)} && test "$(stat -c '%a:%u' ${shq(root)})" = ${shq(`700:${appUid}`)} && ${sealed(readyPath)} && ${privateFile(readyPath)} && cat ${shq(readyPath)}`);
+    const marker: unknown = JSON.parse(ready);
+    if (!marker || typeof marker !== 'object' || !('schema' in marker) || marker.schema !== 'qautra/native-private-mailbox/v2' || !('applicationId' in marker) || marker.applicationId !== app) throw new ProjectFixtureError('fixture_native_bootstrap_unsupported');
+    await command(`umask 077; mkdir ${shq(directory)}`);
+    const directoryIdentity = (await command(`stat -c '%d:%i' ${shq(directory)}`)).trim();
+    if (!/^[0-9]+:[0-9]+$/.test(directoryIdentity)) throw new ProjectFixtureError('fixture_client_unverified');
+    const boundary = `test ! -L ${shq(root)} && test ! -L ${shq(directory)} && test "$(stat -c '%d:%i' ${shq(directory)})" = ${shq(directoryIdentity)}`;
+    const scoped = (script: string, input?: Uint8Array) => command(`${boundary} && { ${script}; }`, input);
+    const owned = new Set<string>(['bootstrap.json']);
+    let closed = false;
+    const file = (name: string) => {
+      if (closed || !/^(?:bootstrap\.json|[a-f0-9]{64}\.(?:request|claimed|response)\.json)$/.test(name)) throw new ProjectFixtureError('fixture_input_invalid');
+      return `${directory}/${name}`;
+    };
+    return {
+      async write(name, value) {
+        const path = file(name);
+        if (Buffer.byteLength(value) > 16384) throw new ProjectFixtureError('fixture_input_invalid');
+        owned.add(name);
+        if (name.endsWith('.request.json')) { owned.add(name.replace('.request.', '.claimed.')); owned.add(name.replace('.request.', '.response.')); }
+        await scoped(`umask 077; set -C; exec 3> ${shq(path)} || exit 1; cat >&3; result=$?; exec 3>&-; test "$result" = 0 && ${boundary} && ${privateFile(path)} && : > ${shq(`${path}.committed`)}`, Buffer.from(value));
+      },
+      async read(name) {
+        const path = file(name);
+        const value = await scoped(`if test ! -e ${shq(`${path}.committed`)}; then printf MISSING; else ${sealed(path)} && ${privateFile(path)} && identity="$(stat -c '%d:%i:%s:%Y' ${shq(path)})" && dd if=${shq(path)} bs=262145 count=1 2>/dev/null && ${sealed(path)} && test "$(stat -c '%d:%i:%s:%Y' ${shq(path)})" = "$identity"; fi`);
+        if (value === 'MISSING') return null;
+        if (Buffer.byteLength(value) > 262144) throw new ProjectFixtureError('fixture_response_invalid');
+        return value;
+      },
+      async close() {
+        if (closed) throw new ProjectFixtureError('fixture_state_invalid');
+        for (const name of owned) await scoped(`rm -f ${shq(`${directory}/${name}.committed`)} ${shq(`${directory}/${name}`)}`);
+        await scoped(`rmdir ${shq(directory)}`);
+        closed = true;
+      },
+    };
+  }
 
   protected capabilities(_app: AppTarget): Record<string, unknown> {
     return {

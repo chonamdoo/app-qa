@@ -1,11 +1,11 @@
 // Read-only views over the project state the UI browses: runs (.qa/runs), plans (tests/generated), app profiles (apps/).
-import { existsSync, globSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, globSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 import { expandHome } from '../core/config.ts';
-import { sha256 } from '../core/fsx.ts';
+import { readJsonl, sha256 } from '../core/fsx.ts';
 import { PLATFORMS } from '../core/platform.ts';
 import type { Platform, Verdict } from '../core/types.ts';
 import { loadAppProfile } from '../spec/load.ts';
@@ -157,6 +157,7 @@ const StoredEvent = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('run.started'),
     ...EventBase,
+    originJobID: z.string().uuid().optional(),
     tests: z.array(z.object({ id: z.string(), name: z.string(), platforms: z.array(PlatformValue) })),
     devices: z.array(z.object({ platform: PlatformValue, id: z.string(), name: z.string() })),
   }),
@@ -165,30 +166,44 @@ const StoredEvent = z.discriminatedUnion('type', [
 ]);
 type StoredEvent = z.infer<typeof StoredEvent>;
 
-/**
- * Events of the `wanted` types; a line that mentions one of them but fails to parse or validate (torn last line after a
- * crash, hand edits, older formats) is skipped and counted, never passed on.
- */
-function parseJsonl(text: string, wanted: readonly StoredEvent['type'][]): { events: StoredEvent[]; invalid: number } {
-  const types: ReadonlySet<string> = new Set(wanted);
+interface EventJournal {
+  state: 'missing' | 'valid' | 'incomplete' | 'corrupt' | 'unreadable';
+  code: string | null;
+  error: string | null;
+}
+
+function readEventJournal(file: string): { events: StoredEvent[]; invalid: number; journal: EventJournal } {
+  let records: unknown[];
+  try {
+    records = readJsonl(file);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code ?? 'ERR_EVENT_JOURNAL_READ';
+    const state = code === 'ERR_FSX_TORN_JSONL' ? 'incomplete' : code === 'ERR_FSX_INVALID_JSONL' ? 'corrupt' : 'unreadable';
+    return {
+      events: [],
+      invalid: 1,
+      journal: { state, code, error: error instanceof Error ? error.message : 'Event journal could not be read' },
+    };
+  }
   const events: StoredEvent[] = [];
   let invalid = 0;
-  for (const line of text.split('\n')) {
-    if (!line || !wanted.some((type) => line.includes(`"${type}"`))) continue;
-    let value: unknown;
-    try {
-      value = JSON.parse(line);
-    } catch {
+  for (const value of records) {
+    if (typeof value !== 'object' || value === null || !('type' in value) || typeof value.type !== 'string') {
       invalid++;
       continue;
     }
-    // A line of another type that merely quotes a wanted one (e.g. a log message) is not ours to judge.
-    if (typeof value === 'object' && value !== null && 'type' in value && typeof value.type === 'string' && !types.has(value.type)) continue;
+    if (value.type !== 'run.started' && value.type !== 'run.finished' && value.type !== 'test.finished') continue;
     const parsed = StoredEvent.safeParse(value);
     if (parsed.success) events.push(parsed.data);
     else invalid++;
   }
-  return { events, invalid };
+  return {
+    events,
+    invalid,
+    journal: invalid
+      ? { state: 'corrupt', code: 'ERR_EVENT_JOURNAL_SCHEMA', error: 'Event journal contains invalid run or test records' }
+      : { state: 'valid', code: null, error: null },
+  };
 }
 
 export interface RunListItem {
@@ -196,13 +211,15 @@ export interface RunListItem {
   runDir: string;
   startedAt: string;
   finished: boolean;
+  originJobID: string | null;
   counts: Record<Verdict, number> | null;
   tests: { id: string; name: string; platforms: Platform[] }[];
   devices: { platform: Platform; id: string; name: string }[];
   reportPath: string | null;
   hasEvents: boolean;
-  /** events.jsonl lines of the types read here that were skipped as malformed. */
+  /** Invalid records, or one journal-level framing/read error when records cannot be counted safely. */
   invalidEventLines: number;
+  eventJournal: EventJournal;
 }
 
 /** Most recent runs first (run ids sort by start time). */
@@ -218,13 +235,15 @@ export async function listRuns(runsDir: string, limit = 200): Promise<RunListIte
     dirs.map(async (runId): Promise<RunListItem> => {
       const runDir = join(runsDir, runId);
       const eventsFile = join(runDir, 'events.jsonl');
-      const hasEvents = existsSync(eventsFile);
-      const { events, invalid } = hasEvents ? parseJsonl(await readFile(eventsFile, 'utf8'), ['run.started', 'run.finished']) : { events: [], invalid: 0 };
+      const hasEvents = lstatSync(eventsFile, { throwIfNoEntry: false }) !== undefined;
+      const { events, invalid, journal } = hasEvents
+        ? readEventJournal(eventsFile)
+        : { events: [], invalid: 0, journal: { state: 'missing', code: null, error: null } satisfies EventJournal };
       let started: Extract<StoredEvent, { type: 'run.started' }> | undefined;
       let finished: Extract<StoredEvent, { type: 'run.finished' }> | undefined;
       for (const e of events) {
         if (e.type === 'run.started') started = e;
-        else if (e.type === 'run.finished') finished = e;
+        else if (e.type === 'run.finished' && journal.state === 'valid') finished = e;
       }
       const report = join(runDir, 'report.html');
       return {
@@ -232,12 +251,14 @@ export async function listRuns(runsDir: string, limit = 200): Promise<RunListIte
         runDir,
         startedAt: started?.ts ?? (await stat(runDir)).mtime.toISOString(),
         finished: finished !== undefined,
+        originJobID: started?.originJobID ?? null,
         counts: finished?.counts ?? null,
         tests: started?.tests ?? [],
         devices: started?.devices ?? [],
-        reportPath: finished?.reportPath ?? (existsSync(report) ? report : null),
+        reportPath: journal.state === 'valid' ? finished?.reportPath ?? (existsSync(report) ? report : null) : null,
         hasEvents,
         invalidEventLines: invalid,
+        eventJournal: journal,
       };
     }),
   );
@@ -313,18 +334,24 @@ export interface PlanView {
   plan: PlanFile;
   docs: { path: string; kind: string; state: 'same' | 'changed' | 'missing' }[];
   tests: PlanTestView[];
-  /** Malformed test.finished lines skipped while collecting `results`. */
+  /** Invalid records, or one journal-level error for each journal whose records cannot be counted safely. */
   invalidEventLines: number;
+  eventJournalErrors: { runId: string; journal: EventJournal }[];
 }
 
-/** Most recent test.finished per `testId platform` across the latest runs, and the malformed lines skipped. */
-async function latestResults(runsDir: string, runLimit: number): Promise<{ latest: Map<string, PlanTestView['results'][number]>; invalid: number }> {
+/** A broken journal cannot supply verdicts, even when it contains individually valid completion records. */
+async function latestResults(runsDir: string, runLimit: number): Promise<{ latest: Map<string, PlanTestView['results'][number]>; invalid: number; errors: PlanView['eventJournalErrors'] }> {
   const latest = new Map<string, PlanTestView['results'][number]>();
   let invalid = 0;
+  const errors: PlanView['eventJournalErrors'] = [];
   for (const run of await listRuns(runsDir, runLimit)) {
     if (!run.hasEvents) continue;
-    const parsed = parseJsonl(await readFile(join(run.runDir, 'events.jsonl'), 'utf8'), ['test.finished']);
+    const parsed = readEventJournal(join(run.runDir, 'events.jsonl'));
     invalid += parsed.invalid;
+    if (parsed.journal.state !== 'valid') {
+      errors.push({ runId: run.runId, journal: parsed.journal });
+      continue;
+    }
     for (const e of parsed.events) {
       if (e.type !== 'test.finished') continue;
       const key = `${e.testId} ${e.platform}`;
@@ -332,7 +359,7 @@ async function latestResults(runsDir: string, runLimit: number): Promise<{ lates
       if (!prev || prev.ts < e.ts) latest.set(key, { platform: e.platform, verdict: e.verdict, runId: e.runId, ts: e.ts });
     }
   }
-  return { latest, invalid };
+  return { latest, invalid, errors };
 }
 
 export async function readPlanView(opts: { root: string; generatedDir: string; runsDir: string; appsDir: string; app: string }): Promise<PlanView | { error: string } | null> {
@@ -347,7 +374,7 @@ export async function readPlanView(opts: { root: string; generatedDir: string; r
     if (!existsSync(file) || !statSync(file).isFile()) return { path: doc.path, kind: doc.kind, state: 'missing' };
     return { path: doc.path, kind: doc.kind, state: sha256(readFileSync(file)) === doc.sha256 ? 'same' : 'changed' };
   });
-  const { latest: results, invalid: invalidEventLines } = await latestResults(opts.runsDir, 30);
+  const { latest: results, invalid: invalidEventLines, errors: eventJournalErrors } = await latestResults(opts.runsDir, 30);
   // A test without `platforms` runs on every platform of the plan's app profile; if the profile does not load, every platform.
   let appPlatforms: Platform[];
   try {
@@ -381,5 +408,5 @@ export async function readPlanView(opts: { root: string; generatedDir: string; r
       };
     }),
   );
-  return { app: opts.app, planPath, plan, docs, tests, invalidEventLines };
+  return { app: opts.app, planPath, plan, docs, tests, invalidEventLines, eventJournalErrors };
 }

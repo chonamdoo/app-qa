@@ -1,8 +1,5 @@
-// Device discovery: `adb devices -l` + getprop, `xcrun simctl list -j devices`, and this Mac's desktop browsers.
-import { existsSync } from 'node:fs';
-import { adb, adbShell, CommandError, run, xcrun } from '../appium/exec.ts';
-import { DESKTOP_BROWSERS, desktopBrowserVersion, type DesktopPlatform } from '../appium/setup.ts';
-import { PLATFORM_INFO, PLATFORMS } from '../core/platform.ts';
+import { adb, adbShell, CommandError, xcrun } from '../appium/exec.ts';
+import { PLATFORM_INFO } from '../core/platform.ts';
 import type { DeviceInfo, Platform } from '../core/types.ts';
 
 export interface AdbDeviceLine {
@@ -91,23 +88,8 @@ async function androidDevices(): Promise<DeviceInfo[]> {
   );
 }
 
-/** Desktop browsers of this Mac, one device each (id = platform): booted when the browser and its WebDriver binary exist. */
-async function desktopDevices(): Promise<DeviceInfo[]> {
-  if (process.platform !== 'darwin') return [];
-  const macos = (await run('/usr/bin/sw_vers', ['-productVersion'], { allowFail: true, timeoutMs: 10_000 })).stdout.toString('utf8').trim();
-  const desktops = PLATFORMS.filter((p): p is DesktopPlatform => PLATFORM_INFO[p].host === 'desktop');
-  return Promise.all(
-    desktops.map(async (platform): Promise<DeviceInfo> => {
-      const { name, webdriver } = DESKTOP_BROWSERS[platform];
-      const version = await desktopBrowserVersion(platform);
-      const ready = version !== null && (webdriver === null || existsSync(webdriver));
-      return { platform, id: platform, name: version ? `${name} ${version}` : `${name} (설치되지 않음)`, osVersion: macos, state: ready ? 'booted' : 'offline', kind: 'browser' };
-    }),
-  );
-}
-
 /**
- * Android devices/emulators known to adb, available iOS simulators and desktop browsers (booted first).
+ * Android devices/emulators known to adb and available iOS simulators (booted first).
  * A platform whose host tool is missing (no adb / no xcrun) is skipped; other failures throw.
  */
 export async function listDevices(platform?: Platform): Promise<DeviceInfo[]> {
@@ -121,7 +103,6 @@ export async function listDevices(platform?: Platform): Promise<DeviceInfo[]> {
         .catch((err) => (missingTool(err) ? [] : Promise.reject(err))),
     );
   }
-  if (!host || host === 'desktop') jobs.push(desktopDevices());
   const all = (await Promise.all(jobs)).flat().filter((d) => !platform || d.platform === platform);
   const rank = { booted: 0, offline: 1, shutdown: 2 };
   return all.sort((a, b) => rank[a.state] - rank[b.state] || a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name));
@@ -135,13 +116,13 @@ export function chooseDevice(devices: DeviceInfo[], platform: Platform, id?: str
     const d = mine.find((x) => x.id === id);
     if (!d) throw new Error(`${platform} 디바이스 '${id}'를 찾을 수 없습니다. \`qa devices\`로 확인하세요.`);
     if (d.state === 'booted') return d;
-    if (info.host === 'desktop') throw new Error(`${d.name}을(를) 사용할 수 없습니다 (브라우저 또는 WebDriver 없음, \`qa doctor\`로 확인).`);
+    if (info.host === 'desktop') throw new Error(`${d.name}을(를) 사용할 수 없습니다. 엔진의 guest context 상태를 확인하세요 (\`qa doctor\`).`);
     throw new Error(`${platform} 디바이스 '${id}' (${d.name})가 부팅되어 있지 않습니다 (상태: ${d.state}).`);
   }
   const booted = mine.filter((d) => d.state === 'booted');
   if (booted.length === 1) return booted[0]!;
   if (booted.length === 0) {
-    if (info.host === 'desktop') throw new Error(`${info.label}을(를) 사용할 수 없습니다. 브라우저 설치를 확인하세요 (\`qa doctor\`).`);
+    if (info.host === 'desktop') throw new Error(`${info.label} guest context를 사용할 수 없습니다. QAutra 인스턴스 화면에서 준비하세요 (\`qa doctor\`).`);
     throw new Error(`부팅된 ${info.host === 'android' ? 'Android 에뮬레이터/기기' : 'iOS 시뮬레이터'}가 없습니다.`);
   }
   throw new Error(`부팅된 ${platform} 디바이스가 여러 개입니다. --device로 지정하세요: ${booted.map((d) => `${d.id} (${d.name})`).join(', ')}`);

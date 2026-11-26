@@ -20,7 +20,7 @@ export type QaEventBody =
   | { type: 'job.queued'; jobId: string; kind: JobKind; title: string }
   | { type: 'job.started'; jobId: string; kind: JobKind }
   | { type: 'job.finished'; jobId: string; kind: JobKind; ok: boolean; message: string; resultPath: string | null }
-  | { type: 'run.started'; runId: string; runDir: string; tests: { id: string; name: string; platforms: Platform[]; steps: string[] }[]; devices: { platform: Platform; id: string; name: string }[] }
+  | { type: 'run.started'; runId: string; runDir: string; originJobID?: string; tests: { id: string; name: string; platforms: Platform[]; steps: string[] }[]; devices: { platform: Platform; id: string; name: string }[] }
   | ({ type: 'test.started'; name: string } & Omit<StepRef, 'index'>)
   | ({ type: 'step.started'; label: string } & StepRef)
   | ({ type: 'observe'; screenshot: string | null; candidates: number; sparse: boolean; overflow: boolean; ocr: boolean } & StepRef)
@@ -76,11 +76,12 @@ export type ActionKind =
   | 'terminate'
   | 'reset';
 
-export type JobKind = 'run' | 'smoke' | 'plan' | 'calibrate' | 'capture';
+export type JobKind = 'run' | 'smoke' | 'plan' | 'calibrate' | 'capture' | 'inspect';
 
 export type QaEvent = QaEventBody & Base;
 
 export interface EventSink {
+  readonly originJobID?: string;
   emit(event: QaEventBody): void;
 }
 

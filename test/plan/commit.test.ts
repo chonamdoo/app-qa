@@ -268,22 +268,21 @@ const gen2: Generation = {
 };
 const gen2Files: Record<string, string> = { ...Object.fromEntries(gen2.tests), 'plan.json': `${JSON.stringify(gen2.plan, null, 2)}\n` };
 
-/** Every fs call that can change a directory entry, plus `openSync` (the fsync opens), so a failure there is injected too. */
-const ENTRY_OPS = ['linkSync', 'mkdirSync', 'openSync', 'renameSync', 'rmdirSync', 'rmSync', 'unlinkSync'] as const;
+/** Every directory-entry mutation and durability barrier, including failures opening a directory for fsync. */
+const ENTRY_OPS = ['fsyncSync', 'linkSync', 'mkdirSync', 'openSync', 'renameSync', 'rmdirSync', 'rmSync', 'unlinkSync'] as const;
 type EntryOp = (typeof ENTRY_OPS)[number];
 
 /**
  * Runs `fn` with every `ENTRY_OPS` call routed through `around` — in every module: the builtin ESM bindings are re-synced,
  * so `import { renameSync } from 'node:fs'` sees the patch. Calls made while `around` runs go straight through.
- * `fsyncSync` becomes a no-op: it only matters for power loss, which no test can simulate, and costs ~80 ms per run.
+ * Successful fsyncs are simulated; injected failures still exercise the durability barriers.
  */
 function interceptFs(around: (op: EntryOp, args: unknown[], call: () => unknown) => unknown, fn: () => void): void {
-  const patchable = fs as unknown as Record<EntryOp | 'fsyncSync', (...args: unknown[]) => unknown>;
-  const originals = (['fsyncSync', ...ENTRY_OPS] as const).map((op) => [op, patchable[op]] as const);
+  const patchable = fs as unknown as Record<EntryOp, (...args: unknown[]) => unknown>;
+  const originals = ENTRY_OPS.map((op) => [op, patchable[op]] as const);
   let inside = false;
-  patchable.fsyncSync = () => {};
   for (const op of ENTRY_OPS) {
-    const original = patchable[op];
+    const original = op === 'fsyncSync' ? () => {} : patchable[op];
     patchable[op] = (...args) => {
       if (inside) return original(...args);
       inside = true;
@@ -315,9 +314,12 @@ function unreadable(planDir: string, committed: boolean): string[] {
 
 /** The staging `commitGeneration(…, 'p2', …)` of this process uses. */
 const STAGE = `staging-${process.pid}-${PROCESS_STARTED_AT_MS}-p2`;
-/** The commit point: the `committed` state landing in the staging (checked after the call ran). */
-const isCommit = (planDir: string, op: EntryOp, args: unknown[]) =>
-  op === 'renameSync' && args[1] === join(planDir, '.qa', STAGE, 'state') && readFileSync(args[1], 'utf8') === 'committed';
+/** Read the transaction record, not syscall paths: durable writes may resolve OS-owned directory aliases. */
+function recoversNew(planDir: string): boolean {
+  const state = join(planDir, '.qa', STAGE, 'state');
+  if (existsSync(state)) return readFileSync(state, 'utf8') === 'committed';
+  return JSON.parse(readFileSync(join(planDir, 'plan.json'), 'utf8')).createdAt === T2;
+}
 const describeCall = (planDir: string, op: EntryOp, args: unknown[]) => `${op} ${relative(planDir, String(args[0]))}`;
 
 /** A copy of `planDir` as a process killed right now leaves it: its staging and its plan lock belong to the dead pid `dead`. */
@@ -330,107 +332,173 @@ function frozen(planDir: string, dead: number): string {
 }
 
 describe('plan generation swap', () => {
-  test('every previous file stays readable (old or new version) after every call, and a kill after any call recovers to exactly one generation', () => {
-    const planDir = tempDir();
-    put(planDir, gen1);
-    const dead = deadPid();
-    const gaps: string[] = [];
-    const kills: { step: string; committed: boolean; dir: string }[] = [];
-    let committed = false;
-    const lock = acquirePlanLock(planDir, 'tteonam');
-    interceptFs(
-      (op, args, call) => {
-        const result = call();
-        committed ||= isCommit(planDir, op, args);
-        const step = `#${kills.length + 1} ${describeCall(planDir, op, args)}`;
-        for (const gap of unreadable(planDir, committed)) gaps.push(`${step}: ${gap}`);
-        kills.push({ step, committed, dir: frozen(planDir, dead) });
-        return result;
-      },
-      () => commitGeneration(lock, 'p2', gen2, () => {}),
-    );
-    lock.release();
-    assert.deepEqual(gaps, []);
-    assert.deepEqual(files(planDir), gen2Files);
-    assert.ok(!existsSync(join(planDir, '.qa')));
-    assert.ok(kills.some((k) => !k.committed) && kills.some((k) => k.committed));
-    for (const { step, committed, dir } of kills) {
-      recover(dir);
-      assert.deepEqual(files(dir), committed ? gen2Files : gen1, `killed after ${step}`);
-    }
-  });
-
-  test('a failure at any call up to the commit restores the previous generation (same bytes, same inodes, nothing left behind), and a kill at any call of that rollback recovers to it too', () => {
-    const counting = tempDir();
-    put(counting, gen1);
-    let calls = 0;
-    let commitCall = 0;
-    const lock = acquirePlanLock(counting, 'tteonam');
-    interceptFs(
-      (op, args, call) => {
-        calls++;
-        const result = call();
-        if (isCommit(counting, op, args)) commitCall = calls;
-        return result;
-      },
-      () => commitGeneration(lock, 'p2', gen2, () => {}),
-    );
-    lock.release();
-    assert.ok(commitCall > 0);
-
-    const dead = deadPid();
-    // Up to the directory fsync that makes the `committed` state durable (the call after its rename). This includes
-    // failures after the plan.json rename, whose rollback starts from the new plan.json.
-    for (let fail = 1; fail <= commitCall + 1; fail++) {
+  test('every previous file stays readable (old or new version) after every operation, and every crash recovers one complete generation', () => {
+    interceptFs((_op, _args, invoke) => invoke(), () => {
       const planDir = tempDir();
       put(planDir, gen1);
-      const held = acquirePlanLock(planDir, 'tteonam');
-      const before = inodes(planDir);
-      const state = join(planDir, '.qa', STAGE, 'state');
+      const dead = deadPid();
       const gaps: string[] = [];
-      let call = 0;
-      let failed = '';
       const kills: { step: string; committed: boolean; dir: string }[] = [];
-      try {
-        assert.throws(
-          () =>
+      const lock = acquirePlanLock(planDir, 'tteonam');
+      interceptFs(
+        (op, args, invoke) => {
+          const result = invoke();
+          const committed = recoversNew(planDir);
+          const step = `#${kills.length + 1} ${describeCall(planDir, op, args)}`;
+          for (const gap of unreadable(planDir, committed)) gaps.push(`${step}: ${gap}`);
+          kills.push({ step, committed, dir: frozen(planDir, dead) });
+          return result;
+        },
+        () => commitGeneration(lock, 'p2', gen2, () => {}),
+      );
+      lock.release();
+      assert.deepEqual(gaps, []);
+      assert.deepEqual(files(planDir), gen2Files);
+      assert.ok(!existsSync(join(planDir, '.qa')));
+      assert.ok(kills.some((k) => !k.committed) && kills.some((k) => k.committed));
+      for (const { step, committed, dir } of kills) {
+        recover(dir);
+        assert.deepEqual(files(dir), committed ? gen2Files : gen1, `killed after ${step}`);
+      }
+    });
+  });
+
+  test('failure at every publication or cleanup operation and crashes during its rollback preserve one complete recoverable generation', () => {
+    interceptFs((_op, _args, invoke) => invoke(), () => {
+      const counting = tempDir();
+      put(counting, gen1);
+      const points: { step: string; committed: boolean }[] = [];
+      const lock = acquirePlanLock(counting, 'tteonam');
+      interceptFs(
+        (op, args, invoke) => {
+          points.push({ step: describeCall(counting, op, args), committed: recoversNew(counting) });
+          return invoke();
+        },
+        () => commitGeneration(lock, 'p2', gen2, () => {}),
+      );
+      lock.release();
+      assert.ok(points.some((point) => point.committed) && points.some((point) => !point.committed));
+
+      const dead = deadPid();
+      for (const [fail, point] of points.entries()) {
+        const planDir = tempDir();
+        put(planDir, gen1);
+        const held = acquirePlanLock(planDir, 'tteonam');
+        const before = inodes(planDir);
+        const gaps: string[] = [];
+        const kills: { step: string; committed: boolean; dir: string }[] = [];
+        let call = 0;
+        let failed = false;
+        try {
+          assert.throws(() =>
             interceptFs(
               (op, args, invoke) => {
-                if (++call === fail) {
-                  failed = `#${fail} ${describeCall(planDir, op, args)}`;
+                if (call++ === fail) {
+                  failed = true;
                   throw new Error('주입된 실패');
                 }
                 const result = invoke();
-                for (const gap of unreadable(planDir, false)) gaps.push(`#${call} ${describeCall(planDir, op, args)}: ${gap}`);
-                // A kill during the undo that follows. Read-only opens (the fsyncs) leave nothing new to recover from.
-                if (failed && !(op === 'openSync' && args[1] === 'r')) {
-                  const committed = existsSync(state) && readFileSync(state, 'utf8') === 'committed';
-                  kills.push({ step: `#${call} ${describeCall(planDir, op, args)}`, committed, dir: frozen(planDir, dead) });
+                const committed = recoversNew(planDir);
+                const step = `#${call} ${describeCall(planDir, op, args)}`;
+                for (const gap of unreadable(planDir, committed)) gaps.push(`${step}: ${gap}`);
+                if (failed && op !== 'openSync' && op !== 'fsyncSync') {
+                  kills.push({ step, committed, dir: frozen(planDir, dead) });
                 }
                 return result;
               },
               () => commitGeneration(held, 'p2', gen2, () => {}),
             ),
-          /(\(기존 계획은 그대로\)|이전 계획으로 되돌렸습니다): 주입된 실패$/,
+          );
+          assert.ok(failed, `fault not reached: ${point.step}`);
+          assert.deepEqual(gaps, [], `failed at ${point.step}`);
+        } finally {
+          held.release();
+        }
+        const committed = recoversNew(planDir);
+        if (!point.committed) assert.equal(committed, false, `precommit failure: ${point.step}`);
+        recover(planDir);
+        assert.deepEqual(files(planDir), committed ? gen2Files : gen1, `failed at ${point.step}`);
+        if (!committed) {
+          for (const rel of Object.keys(gen1)) {
+            assert.equal(statSync(join(planDir, rel), { bigint: true }).ino, before.get(rel), `failed at ${point.step}: ${rel}`);
+          }
+        }
+        for (const { step, committed, dir } of kills) {
+          recover(dir);
+          assert.deepEqual(files(dir), committed ? gen2Files : gen1, `failed at ${point.step}, killed after ${step}`);
+        }
+      }
+    });
+  });
+
+  test('a durability failure after publishing plan.json and the committed state rolls back without losing old files', () => {
+    interceptFs((_op, _args, invoke) => invoke(), () => {
+      const planDir = tempDir();
+      put(planDir, gen1);
+      const held = acquirePlanLock(planDir, 'tteonam');
+      const before = inodes(planDir);
+      let failed = false;
+      let published: string | undefined;
+      try {
+        assert.throws(() =>
+          interceptFs(
+            (op, _args, invoke) => {
+              if (!failed && op === 'fsyncSync' && recoversNew(planDir)) {
+                failed = true;
+                published = readFileSync(join(planDir, 'plan.json'), 'utf8');
+                throw new Error('커밋 내구성 실패');
+              }
+              return invoke();
+            },
+            () => commitGeneration(held, 'p2', gen2, () => {}),
+          ),
         );
-        assert.deepEqual(gaps, [], `failed at ${failed}`);
-        assert.deepEqual(inodes(planDir), before, `failed at ${failed}`);
+        assert.ok(failed);
+        assert.equal(published, gen2Files['plan.json']);
+        assert.deepEqual(inodes(planDir), before);
       } finally {
         held.release();
       }
-      assert.deepEqual(files(planDir), gen1, `failed at ${failed}`);
-      // Once `rolling-back` replaced the state, only the previous generation can come back; before that (a failure after
-      // the `committed` rename landed) the swap is complete and recovery finishes that commit instead. Recovery runs
-      // through `interceptFs` only to skip the fsyncs.
-      interceptFs(
-        (_op, _args, invoke) => invoke(),
-        () => {
-          for (const { step, committed, dir } of kills) {
-            recover(dir);
-            assert.deepEqual(files(dir), committed ? gen2Files : gen1, `failed at ${failed}, killed after ${step}`);
-          }
-        },
-      );
-    }
+      assert.deepEqual(files(planDir), gen1);
+    });
+  });
+
+  test('cleanup retains the committed recovery record until stale test deletion is durable, and recovery never rolls it back', () => {
+    interceptFs((_op, _args, invoke) => invoke(), () => {
+      const planDir = tempDir();
+      const retired = 'retired/c.e2e.yaml';
+      const generation = { ...gen2, stale: [...gen2.stale, retired] };
+      put(planDir, { ...gen1, [retired]: 'c1' });
+      const parent = statSync(planDir, { bigint: true });
+      const held = acquirePlanLock(planDir, 'tteonam');
+      let failed = false;
+      let retained = false;
+      let committed = false;
+      try {
+        assert.throws(() =>
+          interceptFs(
+            (op, args, invoke) => {
+              const syncing = op === 'fsyncSync' ? fs.fstatSync(args[0] as number, { bigint: true }) : undefined;
+              if (!failed && syncing !== undefined && syncing.dev === parent.dev && syncing.ino === parent.ino && !existsSync(join(planDir, 'retired'))) {
+                failed = true;
+                retained = existsSync(join(planDir, '.qa', STAGE, 'manifest.json'));
+                committed = recoversNew(planDir);
+                throw new Error('정리 내구성 실패');
+              }
+              return invoke();
+            },
+            () => commitGeneration(held, 'p2', generation, () => {}),
+          ),
+        );
+        assert.ok(failed);
+        assert.ok(retained, 'prune is not durable yet');
+        assert.ok(committed);
+        for (const [rel, text] of Object.entries(gen2Files)) assert.equal(readFileSync(join(planDir, rel), 'utf8'), text);
+      } finally {
+        held.release();
+      }
+      recover(planDir);
+      assert.deepEqual(files(planDir), gen2Files);
+    });
   });
 });

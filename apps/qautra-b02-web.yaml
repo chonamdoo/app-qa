@@ -1,0 +1,17 @@
+id: qautra-b02-web
+name: QAutra B02 Web Fixture
+build: dev
+web:
+  url: http://127.0.0.1:41837/
+  origins: [http://127.0.0.1:41837]
+  viewport: {width: 1280, height: 800}
+  platforms: [android, ios, desktop-chrome, desktop-safari]
+agent:
+  data: synthetic-fixture
+  screenshots: true
+  deviceIds:
+    - guest:22e13c3c-bc9d-42a2-879b-1806f32aa8bd
+    - emulator-5580
+    - CDF4D3C8-8C4D-46AB-9ECB-22492FBA4552
+  mutations: [tap, type, clear, tapAt, scroll, back, open]
+  coordinates: true

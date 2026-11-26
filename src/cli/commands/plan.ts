@@ -1,10 +1,11 @@
 // `qa plan --app <id> [docs...] [--text "..."] [--llm claude-cli|codex-cli] [--model m] [--approve] [--run [--platform p]]`
 import { relative, sep } from 'node:path';
 import { parseArgs } from 'node:util';
+import { connectEngineClient } from '../../core/agent-client.ts';
 import { ROOT } from '../../core/config.ts';
 import type { QaEventBody } from '../../core/events.ts';
 import { generatePlan, LLM_PROVIDERS } from '../../plan/index.ts';
-import { runTests } from '../../runner/index.ts';
+import { CliJobCancelled, readJobRunSummary, runEngineJob } from '../engine.ts';
 import { parsePlatform } from '../platforms.ts';
 
 export async function cmdPlan(argv: string[]): Promise<number> {
@@ -54,6 +55,8 @@ export async function cmdPlan(argv: string[]): Promise<number> {
     },
   };
   try {
+    const client = values.run ? await connectEngineClient() : null;
+    if (controller.signal.aborted) throw new CliJobCancelled('계획 생성을 시작하기 전에 취소했습니다.');
     const result = await generatePlan({
       app: values.app,
       docs: positionals,
@@ -78,19 +81,24 @@ export async function cmdPlan(argv: string[]): Promise<number> {
       for (const u of plan.untestable) console.log(`  ${u.requirement}: ${u.reason}`);
     }
     for (const d of result.dropped) console.log(`폐기: ${d.label} (${d.covers.join(', ')}): ${d.errors.join('; ')}`);
-    if (!values.run) return 0;
+    if (!values.run || !client) return 0;
     if (!result.testFiles.length) {
       console.error('qa plan --run: 실행할 생성 테스트가 없습니다');
       return 1;
     }
-    const run = await runTests({ paths: result.testFiles, platform, signal: controller.signal });
-    console.log(`실행 ${run.runId}: ${Object.entries(run.counts).map(([k, v]) => `${k} ${v}`).join(' · ')}\n리포트: ${run.reportPath}`);
+    const job = await runEngineJob({ kind: 'run', params: { paths: result.testFiles, platform, deviceIds: {} } }, { client, signal: controller.signal });
+    const run = await readJobRunSummary(client, job);
+    if (!run) {
+      console.error(job.message ?? 'qa plan --run: 엔진이 실행 요약을 남기지 않았습니다');
+      return 1;
+    }
+    console.log(`실행 ${run.runId}: ${Object.entries(run.counts).map(([k, v]) => `${k} ${v}`).join(' · ')}\n리포트: ${job.resultPath}`);
     // Fail closed: exit 0 only when something ran and every result is PASS.
     const total = Object.values(run.counts).reduce((a, b) => a + b, 0);
     return total > 0 && run.counts.PASS === total ? 0 : 1;
   } catch (err) {
     console.error(`qa plan: ${(err as Error).message}`);
-    return 1;
+    return err instanceof CliJobCancelled || controller.signal.aborted ? 130 : 1;
   } finally {
     process.off('SIGINT', onSignal);
   }

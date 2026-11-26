@@ -20,11 +20,12 @@ export class RunStore implements EventSink {
 
   /** Forwards to the caller's sink and appends to events.jsonl (paths in events are relative to the run dir). */
   emit(event: QaEventBody): void {
-    const full = { ...event, ts: new Date().toISOString(), seq: ++this.seq } as QaEvent;
+    const body = event.type === 'run.started' && this.sink?.originJobID ? { ...event, originJobID: this.sink.originJobID } : event;
+    const full = { ...body, ts: new Date().toISOString(), seq: ++this.seq } as QaEvent;
     appendJsonl(join(this.runDir, 'events.jsonl'), full);
     this.tracked.set('events.jsonl', 'events');
     try {
-      this.sink?.emit(event);
+      this.sink?.emit(body);
     } catch {
       // Subscribers must not throw; a broken UI stream never aborts a run.
     }

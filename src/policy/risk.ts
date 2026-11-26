@@ -71,6 +71,8 @@ export interface RiskAssessment {
   risky: boolean;
   /** The target has no label, so its effect cannot be judged (tapAt, unnamed icon). */
   unknown: boolean;
+  /** A fixture grant can cover business effects, not unknown targets, explicit denials or system actions. */
+  boundary: 'none' | 'business' | 'host-system' | 'deny' | 'unknown';
   /** Korean, one per rule that fired. */
   reasons: string[];
 }
@@ -81,9 +83,9 @@ const EN_PATTERNS: readonly { word: string; re: RegExp }[] = RISK_KEYWORDS_EN.ma
 }));
 
 /**
- * Risk of acting on an element labelled `label`. `null`/blank → risky + unknown. `risk.allow` lists exact labels that are
- * known safe despite a keyword hit (it does not lift the confirm-dialog rule); `risk.deny` adds substrings.
- * `contextTexts` are the other visible texts of the screen (destructive dialog detection).
+ * Risk of acting on an element labelled `label`. `null`/blank → risky + unknown. Exact `risk.allow` labels exempt
+ * business keywords only; explicit denials, system actions and destructive confirmations retain their boundaries.
+ * `contextTexts` are the other visible texts of the screen.
  */
 export function labelRisk(
   label: string | null,
@@ -91,22 +93,38 @@ export function labelRisk(
   contextTexts: readonly string[] = [],
 ): RiskAssessment {
   const norm = label === null ? '' : normLabel(label);
-  if (!norm) return { risky: true, unknown: true, reasons: ['라벨 없는 대상 — 위험 여부를 알 수 없음'] };
-  const reasons: string[] = [];
+  if (!norm) return { risky: true, unknown: true, boundary: 'unknown', reasons: ['라벨 없는 대상 — 위험 여부를 알 수 없음'] };
+  const assessment: RiskAssessment = { risky: false, unknown: false, boundary: 'none', reasons: [] };
   const allowed = (risk?.allow ?? []).some((a) => normLabel(a) === norm);
-  if (!allowed) {
-    for (const word of RISK_KEYWORDS_KO) if (norm.includes(word)) reasons.push(`위험 키워드 "${word}"`);
-    for (const { word, re } of EN_PATTERNS) if (re.test(norm)) reasons.push(`위험 키워드 "${word}"`);
-    for (const word of risk?.deny ?? []) {
-      const w = normLabel(word);
-      if (w && norm.includes(w)) reasons.push(`앱 프로필 deny "${word}"`);
+  for (const word of RISK_KEYWORDS_KO) {
+    const system = word === '전화' || word === '권한 허용';
+    if (norm.includes(word) && (!allowed || system)) {
+      assessment.reasons.push(`위험 키워드 "${word}"`);
+      if (system) assessment.boundary = 'host-system';
+      else if (assessment.boundary === 'none') assessment.boundary = 'business';
     }
   }
-  if (CONFIRM_LABELS.includes(norm)) {
-    const hit = contextTexts.map((t) => DESTRUCTIVE_CONTEXT.find((re) => re.test(t))).find((re) => re !== undefined);
-    if (hit) reasons.push(`파괴적 확인 대화상자 문맥(${hit.source})의 확인 버튼`);
+  for (const { word, re } of EN_PATTERNS) {
+    const system = word === 'call';
+    if (re.test(norm) && (!allowed || system)) {
+      assessment.reasons.push(`위험 키워드 "${word}"`);
+      if (system) assessment.boundary = 'host-system';
+      else if (assessment.boundary === 'none') assessment.boundary = 'business';
+    }
   }
-  return { risky: reasons.length > 0, unknown: false, reasons };
+  for (const word of risk?.deny ?? []) {
+    const normalized = normLabel(word);
+    if (normalized && norm.includes(normalized)) { assessment.reasons.push(`앱 프로필 deny "${word}"`); assessment.boundary = 'deny'; }
+  }
+  if (CONFIRM_LABELS.includes(norm)) {
+    const hit = contextTexts.map((text) => DESTRUCTIVE_CONTEXT.find((pattern) => pattern.test(text))).find((pattern) => pattern !== undefined);
+    if (hit) {
+      assessment.reasons.push(`파괴적 확인 대화상자 문맥(${hit.source})의 확인 버튼`);
+      if (assessment.boundary === 'none') assessment.boundary = 'business';
+    }
+  }
+  assessment.risky = assessment.reasons.length > 0;
+  return assessment;
 }
 
 /** Deterministic risk of a resolved candidate on the current screen (Jev commit is layered on by the runner). */

@@ -33,10 +33,10 @@ export function renderJunit(summary: RunSummary): string {
     const n = (v: TestResult['verdict']) => tests.filter((t) => t.verdict === v).length;
     const time = tests.reduce((sum, t) => sum + t.durationMs, 0) / 1000;
     return [
-      `  <testsuite name="app-qa ${p}" tests="${tests.length}" failures="${n('FAIL') + n('INCONCLUSIVE')}" errors="${n('ERROR')}" skipped="${n('SKIPPED')}" time="${time.toFixed(3)}" timestamp="${summary.startedAt}">`,
+      `  <testsuite name="QAutra ${p}" tests="${tests.length}" failures="${n('FAIL') + n('INCONCLUSIVE')}" errors="${n('ERROR')}" skipped="${n('SKIPPED')}" time="${time.toFixed(3)}" timestamp="${summary.startedAt}">`,
       ...tests.map(testcase),
       '  </testsuite>',
     ].join('\n');
   });
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites name="app-qa ${xmlEscape(summary.runId)}">\n${suites.join('\n')}\n</testsuites>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites name="QAutra ${xmlEscape(summary.runId)}">\n${suites.join('\n')}\n</testsuites>\n`;
 }

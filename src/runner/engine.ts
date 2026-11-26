@@ -50,13 +50,15 @@ import { findTabs, screenSlug, writeInventory } from './inventory.ts';
 import { navigationProblem } from '../policy/navigation.ts';
 import { assessRisk, labelRisk, type RiskAssessment } from '../policy/risk.ts';
 import { qaStatus } from '../report/status.ts';
-import { ActionPreparer, TRUNCATED_TARGET, type Approval, type Mutation, type Obs, type Refusal } from './prepare.ts';
+import { ActionPreparer, TRUNCATED_TARGET, type Approval, type Mutation, type Obs, type Refusal, type ScopedAuthority } from './prepare.ts';
 import { asSelector, notFoundDiagnostics, resolveDeterministic, stateMatches, targetText, type TargetQuery, type TargetSpec } from './resolve.ts';
 import { groupData, judgeLines, type LineMatch } from './rule.ts';
 import { EvidenceSanitizer, maskValue, SanitizedStore } from './sanitize.ts';
 import { expandStep, UnsetVariableError } from './steps.ts';
 import type { RunStore } from './store.ts';
 import { worstVerdict } from './verdict.ts';
+import { AgentExecutionError } from '../core/agent.ts';
+import { launchOperations } from './lifecycle.ts';
 
 export interface Clock {
   /** Monotonic milliseconds. */
@@ -72,6 +74,19 @@ export interface JevSetup {
 }
 
 export type OcrFn = (png: Uint8Array, screen: Rect) => Promise<OcrLine[]>;
+
+export interface DirectSessionAuthority extends ScopedAuthority {
+  check(): void;
+  resolveTarget(model: ScreenModel): Candidate | null;
+  beforeDispatch(kind: ActionKind, detail: { point?: Point; to?: Point; text?: string }): Promise<void>;
+  dispatching(): void;
+  finished(outcome: ActionOutcome): void;
+}
+
+export interface FrozenSessionAuthority extends Omit<DirectSessionAuthority, 'resolveTarget'> {
+  bindings: Readonly<Record<string, string>>;
+  assertion(path: string, result: { verdict: Verdict; code: string | null; reason: string }, evidenceDir: string): void;
+}
 
 export interface SessionEnv {
   runId: string;
@@ -89,6 +104,10 @@ export interface SessionEnv {
   /** Posix path of the test file relative to the project root (for results). */
   relFile: string | null;
   signal?: AbortSignal;
+  direct?: DirectSessionAuthority;
+  frozen?: FrozenSessionAuthority;
+  onUncertain?: (reason: string) => void;
+  continuity?: { lastActionAt: number | null; recentScroll: boolean };
 }
 
 type TextMatchSpec = z.infer<typeof TextMatch>;
@@ -106,7 +125,7 @@ const DEFAULT_BUDGET = { steps: 80, seconds: 600, jevCalls: 120 };
 /** Findings whose FAIL attaches crash artifacts (the app died or was replaced). */
 const CRASH_KINDS: Record<string, true> = { app_not_foreground: true, crash_dialog: true, anr_dialog: true, rn_redbox: true };
 const LINE_BREAK = /[\r\n]/;
-const TYPED_LINE_BREAK: RiskAssessment = { risky: true, unknown: false, reasons: ['줄바꿈은 제출(Enter)이 될 수 있음'] };
+const TYPED_LINE_BREAK: RiskAssessment = { risky: true, unknown: false, boundary: 'unknown', reasons: ['줄바꿈은 제출(Enter)이 될 수 있음'] };
 
 const HEALTH_LABEL: Record<HealthFinding['kind'], string> = {
   app_not_foreground: '앱이 포그라운드가 아님',
@@ -141,6 +160,7 @@ interface StepCtx {
   index: number;
   /** Display path: "3", "3.2", "3.w1.1". */
   path: string;
+  definitionPath: string;
   label: string;
   phase: Phase;
   dir: string;
@@ -273,6 +293,7 @@ export class TestSession {
     this.preparer = new ActionPreparer<StepCtx>({
       profile: test.profile,
       clock: env.clock,
+      ...(env.direct || env.frozen ? { authority: env.direct ?? env.frozen } : {}),
       observe: (ocr, screenshot) => this.observe({ ocr, screenshot }),
       recentScroll: () => this.recentScroll,
       isHittable: async (p, target) => env.driver.isHittable?.(p, target),
@@ -289,6 +310,27 @@ export class TestSession {
     this.interruptCounts = (test.spec.when ?? []).map(() => 0);
     this.interruptFp = (test.spec.when ?? []).map(() => null);
     this.testDir = `${test.id}/${platform}`;
+  }
+
+  async agentStart(): Promise<StepResult> {
+    if (!this.env.direct) throw new Error('Direct execution needs a scoped authority');
+    if (this.startedIso) throw new Error('Session already started');
+    this.begin();
+    return this.execLeaf(0, '세션 시작', 'setup', (ctx) => this.doLaunch(ctx, { reset: 'none' }, DEFAULT_TIMEOUT_MS));
+  }
+
+  async agentObserve(): Promise<Obs> {
+    return this.observe({ screenshot: true });
+  }
+
+  async agentStep(step: StepSpec): Promise<StepResult> {
+    if (!this.env.direct || !this.startedIso) throw new Error('Direct session is not initialized');
+    const index = this.seq + 1;
+    return this.execStep(step, { index, path: String(index), phase: 'main', file: this.test.file, optional: false, interrupts: false });
+  }
+
+  agentResult(): TestResult {
+    return this.finish();
   }
 
   /** The test's `run.started` entry, sanitized like every event: implicit start + setup + steps + teardown labels. */
@@ -309,22 +351,26 @@ export class TestSession {
       ['setup', setup],
       ['main', spec.steps],
     ] as const) {
-      for (const step of list) {
+      for (const [position, step] of list.entries()) {
         const i = index++;
         if (stopped) continue;
-        const r = await this.execStep(step, { index: i, path: String(i + 1), phase, file: this.test.file, optional: false, interrupts: true });
+        const r = await this.execStep(step, { index: i, path: String(i + 1), definitionPath: `${phase === 'main' ? 'steps' : phase}[${position}]`, phase, file: this.test.file, optional: false, interrupts: true });
         if (r.verdict !== 'PASS' && r.verdict !== 'SKIPPED') stopped = true;
       }
     }
-    for (const step of spec.teardown ?? []) {
+    for (const [position, step] of (spec.teardown ?? []).entries()) {
       const i = index++;
-      const r = await this.execStep(step, { index: i, path: String(i + 1), phase: 'teardown', file: this.test.file, optional: false, interrupts: false });
+      const r = await this.execStep(step, { index: i, path: String(i + 1), definitionPath: `teardown[${position}]`, phase: 'teardown', file: this.test.file, optional: false, interrupts: false });
       if (r.verdict !== 'PASS' && r.verdict !== 'SKIPPED') {
         this.warnings.push(`정리 단계 실패(판정 불변): ${r.label}: ${r.reason}`);
         break;
       }
     }
     const result = this.finish();
+    if (this.env.continuity) {
+      this.env.continuity.lastActionAt = this.lastActionAt;
+      this.env.continuity.recentScroll = this.recentScroll;
+    }
     this.out.emit({ type: 'test.finished', runId: this.env.runId, testId: result.id, platform: this.platform, verdict: result.verdict, reason: result.reason, durationMs: result.durationMs });
     return result;
   }
@@ -371,7 +417,7 @@ export class TestSession {
             return PASS('이미 선택된 탭 (행동 없음)');
           }
           // Role-identified tree element (deterministic), prepared like any tap on the fresh observation.
-          const t = approved(await this.preparer.target(ctx, { candidate: tab, source: 'selector' }, 'activate', false, null));
+          const t = approved(await this.preparer.target(ctx, { candidate: tab, source: 'selector' }, 'activate', false, null, 'tap'));
           await this.act(ctx, 'tap', { point: t.candidate.tapPoint }, () => this.env.driver.tap(t.candidate.tapPoint));
           moved = true;
           const after = await this.settle(ctx, t.obs, true, DEFAULT_TIMEOUT_MS);
@@ -386,7 +432,7 @@ export class TestSession {
         const i = index++;
         await this.execLeaf(i, `${i + 1} 첫 탭으로 복귀: ${back.name}`, 'main', async (ctx) => {
           await this.observeBefore(ctx);
-          const t = approved(await this.preparer.target(ctx, { candidate: back, source: 'selector' }, 'activate', false, null));
+          const t = approved(await this.preparer.target(ctx, { candidate: back, source: 'selector' }, 'activate', false, null, 'tap'));
           await this.act(ctx, 'tap', { point: t.candidate.tapPoint }, () => this.env.driver.tap(t.candidate.tapPoint));
           await this.settle(ctx, t.obs, true, DEFAULT_TIMEOUT_MS);
           return PASS(`"${back.name}" 탭으로 복귀`);
@@ -398,7 +444,8 @@ export class TestSession {
 
   private begin(): void {
     this.startedAt = this.env.clock.now();
-    this.lastActionAt = this.startedAt;
+    this.lastActionAt = this.env.continuity?.lastActionAt ?? this.startedAt;
+    this.recentScroll = this.env.continuity?.recentScroll ?? false;
     this.startedIso = new Date().toISOString();
     this.out.emit({ type: 'test.started', runId: this.env.runId, testId: this.test.id, platform: this.platform, name: this.test.spec.name });
   }
@@ -470,7 +517,7 @@ export class TestSession {
 
   private async execStep(
     raw: StepSpec,
-    meta: { index: number; path: string; phase: Phase; file: string; optional: boolean; interrupts: boolean },
+    meta: { index: number; path: string; definitionPath?: string; phase: Phase; file: string; optional: boolean; interrupts: boolean },
   ): Promise<StepResult> {
     const label = `${meta.path} ${stepLabel(raw)}`;
     if (raw.platforms && !raw.platforms.includes(this.platform)) {
@@ -479,12 +526,13 @@ export class TestSession {
     return this.execLeaf(meta.index, label, meta.phase, (ctx) => this.dispatch(ctx, raw), meta, stepKind(raw), raw.optional ?? false);
   }
 
-  private newCtx(meta: { index: number; phase: Phase; file: string; optional: boolean; interrupts: boolean }, label: string): StepCtx {
+  private newCtx(meta: { index: number; definitionPath?: string; phase: Phase; file: string; optional: boolean; interrupts: boolean }, label: string): StepCtx {
     const seq = ++this.seq;
     return {
       seq,
       index: meta.index,
       path: label.split(' ', 1)[0]!,
+      definitionPath: meta.definitionPath ?? '',
       label,
       phase: meta.phase,
       dir: `${this.testDir}/step-${String(seq).padStart(2, '0')}`,
@@ -507,7 +555,7 @@ export class TestSession {
     label: string,
     phase: Phase,
     body: (ctx: StepCtx) => Promise<Outcome>,
-    meta: { file: string; optional: boolean; interrupts: boolean } = { file: this.test.file, optional: false, interrupts: false },
+    meta: { file: string; definitionPath?: string; optional: boolean; interrupts: boolean } = { file: this.test.file, optional: false, interrupts: false },
     kind: StepKind | 'start' = 'start',
     ownOptional = false,
   ): Promise<StepResult> {
@@ -518,10 +566,12 @@ export class TestSession {
     let outcome: Outcome;
     try {
       this.env.signal?.throwIfAborted();
+      this.env.frozen?.check();
       if (phase !== 'teardown') this.chargeStep();
       outcome = await body(ctx);
     } catch (err) {
       if (err instanceof StepAbort) outcome = err.outcome;
+      else if (err instanceof AgentExecutionError) outcome = { verdict: 'ERROR', code: err.code, reason: err.message };
       else if (err instanceof UnsetVariableError) outcome = { verdict: 'ERROR', code: 'unset_variable', reason: err.message };
       else if (this.env.signal?.aborted) outcome = { verdict: 'ERROR', code: 'cancelled', reason: '실행이 취소되었습니다' };
       else outcome = { verdict: 'ERROR', code: 'internal', reason: `실행 오류: ${err instanceof Error ? err.message : String(err)}` };
@@ -576,10 +626,10 @@ export class TestSession {
   }
 
   /** Runs a nested step list; returns the first non-passing child outcome (children stop there). */
-  private async runNested(ctx: StepCtx, steps: readonly StepSpec[], path: string, file: string, phase: Phase = ctx.phase): Promise<Outcome> {
+  private async runNested(ctx: StepCtx, steps: readonly StepSpec[], path: string, file: string, phase: Phase = ctx.phase, definitionPath: string = ctx.definitionPath): Promise<Outcome> {
     const verdicts: Verdict[] = [];
     for (const [i, step] of steps.entries()) {
-      const r = await this.execStep(step, { index: ctx.index, path: `${path}.${i + 1}`, phase, file, optional: ctx.optional, interrupts: ctx.interrupts });
+      const r = await this.execStep(step, { index: ctx.index, path: `${path}.${i + 1}`, definitionPath: `${definitionPath}[${i}]`, phase, file, optional: ctx.optional, interrupts: ctx.interrupts });
       verdicts.push(r.verdict);
       if (r.verdict !== 'PASS' && r.verdict !== 'SKIPPED') return { verdict: r.verdict, code: r.code, reason: `${r.label}: ${r.reason}` };
     }
@@ -594,13 +644,13 @@ export class TestSession {
     }
     const remembered = this.vars.get(name);
     if (remembered !== undefined) return remembered;
-    const env = process.env[name];
+    const env = this.env.frozen ? this.env.frozen.bindings[name] : process.env[name];
     if (env !== undefined) this.out.clean.addSecret(env);
     return env;
   };
 
   private async dispatch(ctx: StepCtx, raw: StepSpec): Promise<Outcome> {
-    const step = expandStep(raw, this.lookup);
+    const step = this.env.direct ? raw : expandStep(raw, this.lookup);
     // Containers: children observe and act themselves.
     if ('repeat' in step) return this.doRepeat(ctx, step);
     if ('use' in step) return this.doUse(ctx, step);
@@ -611,6 +661,9 @@ export class TestSession {
     if (ctx.interrupts && (await this.runInterrupts(ctx, obs))) obs = await this.observeBefore(ctx);
     if ('which' in step) return this.doWhich(ctx, step, obs);
     const outcome = await this.leaf(ctx, step, obs);
+    if (this.env.frozen && ('see' in raw || 'seeNot' in raw || 'assertText' in raw || 'assertNoText' in raw || 'checkEach' in raw || 'claim' in raw)) {
+      this.env.frozen.assertion(ctx.definitionPath, outcome, ctx.dir);
+    }
     if (outcome.verdict !== 'PASS' || !step.expect) return outcome;
     const expected = await this.expectations(ctx, Array.isArray(step.expect) ? step.expect : [step.expect], step.timeout);
     return expected.verdict === 'PASS' ? outcome : expected;
@@ -632,7 +685,7 @@ export class TestSession {
     }
     if ('tap' in step || 'longPress' in step) {
       const target = 'tap' in step ? step.tap : step.longPress;
-      const t = await this.approvedTarget(ctx, obs, q(target), 'activate', step.allowRisky, timeout);
+      const t = await this.approvedTarget(ctx, obs, q(target), 'activate', step.allowRisky, timeout, 'tap' in step ? 'tap' : 'longPress');
       const point = t.candidate.tapPoint;
       if ('tap' in step) await this.act(ctx, 'tap', { point }, () => this.env.driver.tap(point));
       else await this.act(ctx, 'longPress', { point }, () => this.env.driver.longPress(point, step.holdMs));
@@ -648,7 +701,7 @@ export class TestSession {
       return PASS(`좌표 ${point.x},${point.y} 탭`);
     }
     if ('type' in step) {
-      const t = await this.approvedTarget(ctx, obs, q(step.into), 'edit', step.allowRisky, timeout);
+      const t = await this.approvedTarget(ctx, obs, q(step.into), 'edit', step.allowRisky, timeout, 'type');
       const point = t.candidate.tapPoint;
       // An observed secure field is secure whatever the DSL says; its value is masked in every later write.
       const secure = step.secure === true || t.candidate.role === 'secure-input';
@@ -664,7 +717,7 @@ export class TestSession {
       return PASS(`"${t.candidate.name}"에 입력 확인 (${typed.path})${step.submit ? ' 후 Enter' : ''}`);
     }
     if ('clear' in step) {
-      const t = await this.approvedTarget(ctx, obs, q(step.clear), 'edit', step.allowRisky, timeout);
+      const t = await this.approvedTarget(ctx, obs, q(step.clear), 'edit', step.allowRisky, timeout, 'clear');
       const point = t.candidate.tapPoint;
       const secure = t.candidate.role === 'secure-input';
       const cleared = await this.act(ctx, 'clear', { point }, async () => this.secureReadBack(await this.env.driver.clearText(point), secure));
@@ -747,6 +800,7 @@ export class TestSession {
 
   private async observe(opts: { screenshot?: boolean; ocr?: 'auto' | 'force' | 'never' } = {}): Promise<Obs> {
     this.env.signal?.throwIfAborted();
+    this.env.direct?.check();
     const snap = await this.env.driver.snapshot({ screenshot: opts.screenshot ?? false });
     this.out.clean.observe(snap);
     const volatile = this.test.profile.volatile;
@@ -813,6 +867,7 @@ export class TestSession {
    * missing calibration start with `uncalibrated`).
    */
   private jevProblem(primitive: CalibratedPrimitive, surface: Surface): string | null {
+    if (this.env.frozen) return 'runtime_model_forbidden: 확정 시나리오는 실행 중 모델 판단을 사용하지 않습니다';
     const { client, calibration, problem } = this.env.jev;
     if (!calibration) return problem ? `uncalibrated: ${problem}` : 'uncalibrated';
     const usable = usableGate(calibration, client?.model ?? JEV_MODEL, primitive, surface);
@@ -825,6 +880,7 @@ export class TestSession {
   }
 
   private async jevCall<T extends { receipt: JevReceipt | null }>(ctx: StepCtx, call: () => Promise<T>): Promise<T> {
+    if (this.env.frozen) throw new StepAbort('ERROR', 'runtime_model_forbidden', '확정 시나리오에서 모델 호출이 거부되었습니다');
     if (this.jevCalls >= this.budget.jevCalls) throw new StepAbort('INCONCLUSIVE', 'budget_exceeded', `예산 초과: Jev 호출 ${this.budget.jevCalls}회`);
     const r = await call();
     if (r.receipt) {
@@ -914,6 +970,9 @@ export class TestSession {
         return { ok: false, outcome: { verdict: 'FAIL', code: 'ambiguous', reason: det.reason }, obs };
       }
       let notFoundReason = det.reason;
+      if (det.kind === 'jev' && this.env.frozen) {
+        return { ok: false, outcome: { verdict: 'ERROR', code: 'runtime_model_forbidden', reason: `확정 시나리오에 결정적 요소 일치가 없음: ${det.reason}` }, obs };
+      }
       if (det.kind === 'jev') {
         jevBlocked = this.jevProblem('grounding', this.app.kind);
         const fp = fingerprint(obs.model);
@@ -957,7 +1016,12 @@ export class TestSession {
    * resolved (unique, or chosen by Jev) or missed on a truncated observation is INCONCLUSIVE: the cut part may hold
    * another of the same name, or the target itself.
    */
-  private async approvedTarget(ctx: StepCtx, obs: Obs, query: TargetQuery, mutation: Mutation, allowRisky: boolean | undefined, timeout: number) {
+  private async approvedTarget(ctx: StepCtx, obs: Obs, query: TargetQuery, mutation: Mutation, allowRisky: boolean | undefined, timeout: number, action: ActionKind) {
+    if (this.env.direct) {
+      const candidate = this.env.direct.resolveTarget(obs.model);
+      if (!candidate) throw new StepAbort('FAIL', 'stale_ref', '관찰한 요소를 같은 identity·위치·상태로 찾지 못함');
+      return approved(await this.preparer.target(ctx, { candidate, source: 'selector' }, mutation, false, null, action));
+    }
     const q: TargetQuery = { ...query, purpose: mutation === 'edit' ? 'edit' : 'act' };
     const r = await this.resolveLoop(ctx, obs, q, { strict: false, deadline: this.deadline(timeout), ocr: true });
     if (r.obs.model.snapshot.depthCapped) {
@@ -969,7 +1033,7 @@ export class TestSession {
     }
     if (!r.ok) throw new StepAbort(r.outcome.verdict, r.outcome.code, r.outcome.reason);
     const reresolve = (fresh: Obs) => this.resolveLoop(ctx, fresh, q, { strict: false, deadline: this.env.clock.now(), ocr: false });
-    return approved(await this.preparer.target(ctx, r, mutation, allowRisky ?? false, reresolve));
+    return approved(await this.preparer.target(ctx, r, mutation, allowRisky ?? false, reresolve, action));
   }
 
   // ───────────────────────── actions ─────────────────────────
@@ -983,16 +1047,26 @@ export class TestSession {
     onRejected?: Outcome,
   ): Promise<T> {
     this.env.signal?.throwIfAborted();
+    const authority = this.env.direct ?? this.env.frozen;
+    authority?.check();
+    await authority?.beforeDispatch(kind, detail);
+    authority?.check();
     const id = `${this.test.id}:${this.platform}:${++this.actionSeq}`;
     const base = { id, runId: this.env.runId, testId: this.test.id, platform: this.platform, step: ctx.seq, label: ctx.label, kind };
     const text = detail.text ?? null;
     this.out.journal({ phase: 'intent', ...base, point: detail.point ?? null, to: detail.to ?? null, text });
+    authority?.dispatching();
     let out: T;
     try {
       out = await run();
     } catch (err) {
       out = { status: 'uncertain', ms: 0, error: err instanceof Error ? err.message : String(err) } as T;
     }
+    if (!out || (out.status !== 'completed' && out.status !== 'rejected' && out.status !== 'uncertain')) {
+      out = { status: 'uncertain', ms: 0, error: 'Invalid driver outcome' } as T;
+    }
+    authority?.finished(out);
+    if (out.status === 'uncertain') this.env.onUncertain?.('input_dispatch_uncertain');
     this.out.journal({ phase: 'outcome', ...base, status: out.status, ms: out.ms, error: out.error ?? null });
     this.emitRef(ctx, { type: 'action', kind, point: detail.point ?? null, to: detail.to ?? null, text, status: out.status, ms: out.ms });
     this.lastActionAt = this.env.clock.now();
@@ -1154,11 +1228,12 @@ export class TestSession {
     const reset = l.reset ?? 'none';
     const opts = { permissions: l.permissions, arguments: l.arguments };
     const custom = l.permissions !== undefined || l.arguments !== undefined;
-    if (reset === 'clear' || reset === 'reinstall') {
-      await this.act(ctx, 'reset', { text: reset }, () => driver.reset(this.app, reset));
-      if (custom) await this.act(ctx, 'terminate', {}, () => driver.terminate(this.app));
-    } else if (reset === 'relaunch') await this.act(ctx, 'terminate', {}, () => driver.terminate(this.app));
-    if (reset === 'none' || reset === 'relaunch' || custom) await this.act(ctx, 'launch', {}, () => driver.launch(this.app, opts));
+    const desktopWeb = this.app.kind === 'web' && (driver.platform === 'desktop-chrome' || driver.platform === 'desktop-safari');
+    for (const operation of launchOperations(reset, custom, desktopWeb)) {
+      if (operation === 'reset') await this.act(ctx, 'reset', { text: reset }, () => driver.reset(this.app, reset as 'clear' | 'reinstall'));
+      else if (operation === 'terminate') await this.act(ctx, 'terminate', {}, () => driver.terminate(this.app));
+      else await this.act(ctx, 'launch', {}, () => driver.launch(this.app, opts));
+    }
     try {
       await driver.startLogs(this.app, this.out.clean.text);
     } catch (err) {
@@ -1385,7 +1460,7 @@ export class TestSession {
     const cap = Math.min(r.times ?? MAX_REPEAT, MAX_REPEAT);
     for (let i = 0; i < cap; i++) {
       if (r.while && !(await this.condition(ctx, r.while))) return PASS(`${i}회 반복 후 조건 해제`);
-      const out = await this.runNested(ctx, r.steps, `${ctx.path}.${i + 1}`, ctx.file);
+      const out = await this.runNested(ctx, r.steps, `${ctx.path}.${i + 1}`, ctx.file, ctx.phase, `${ctx.definitionPath}.repeat[${i + 1}].steps`);
       if (out.verdict !== 'PASS' && out.verdict !== 'SKIPPED') return out;
     }
     if (r.while && r.times === undefined && (await this.condition(ctx, r.while))) {
@@ -1400,7 +1475,7 @@ export class TestSession {
     if (!flow) return { verdict: 'ERROR', code: 'flow_missing', reason: `하위 흐름이 로드되지 않음: ${step.use}` };
     this.scopes.push(step.with ?? {});
     try {
-      const out = await this.runNested(ctx, flow.steps, ctx.path, file);
+      const out = await this.runNested(ctx, flow.steps, ctx.path, file, ctx.phase, `${ctx.definitionPath}.use.steps`);
       return out.verdict === 'PASS' || out.verdict === 'SKIPPED' ? PASS(`하위 흐름 "${flow.name}" 완료`) : out;
     } finally {
       this.scopes.pop();
@@ -1471,7 +1546,7 @@ export class TestSession {
   }
 
   private async expectations(ctx: StepCtx, list: readonly Expectation[], timeout: number | undefined): Promise<Outcome> {
-    for (const exp of list) {
+    for (const [index, exp] of list.entries()) {
       const obs = await this.observe();
       let out: Outcome;
       if ('see' in exp) {
@@ -1480,6 +1555,7 @@ export class TestSession {
       } else if ('text' in exp) out = await this.waitText(ctx, obs, exp.text, true, timeout ?? DEFAULT_TIMEOUT_MS);
       else if ('noText' in exp) out = await this.waitText(ctx, obs, exp.noText, false, timeout ?? DEFAULT_TIMEOUT_MS);
       else out = await this.doClaim(ctx, obs, exp.claim);
+      this.env.frozen?.assertion(`${ctx.definitionPath}.expect[${index}]`, out, ctx.dir);
       if (out.verdict !== 'PASS') return { ...out, reason: `기대 결과 불충족: ${out.reason}` };
     }
     return PASS('기대 결과 충족');
