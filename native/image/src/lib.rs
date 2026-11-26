@@ -1,6 +1,6 @@
 //! Optional synchronous image kernels for app-qa. PNG parsing and inflate stay in Node.
 //! Inputs are borrowed only for this call. Shared backing must not be mutated during a call.
-use napi::{bindgen_prelude::*, Error, Result};
+use napi::{Error, Result, bindgen_prelude::Uint8Array};
 use napi_derive::napi;
 
 #[napi]

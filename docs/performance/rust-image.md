@@ -25,7 +25,7 @@
 
 기본 `auto`는 artifact 두 파일이 모두 없을 때 JS를 선택한다. `js`는 명시적으로 기존 구현을 선택한다. `native`는 모듈 부재도 오류로 취급한다. 모듈/manifest 일부 누락, stale source, 잘못된 API/OS/CPU/hash, load 또는 계산 오류는 catch하여 조용히 JS로 전환하지 않는다. `imageBackendInfo()`로 선택된 capability를 확인한다. 선택은 각 process/worker의 모듈 수명 동안 고정되므로 빌드·재빌드 뒤에는 QA 프로세스를 다시 시작한다.
 
-Linux x64에서 빌드·실행했다. build script에 darwin/win32 library 이름과 x64/arm64 설정은 있지만 해당 플랫폼의 빌드·실행은 미검증이다. 각 플랫폼에서 직접 빌드해야 하며 prebuilt를 배포하지 않는다. 다른 OS/CPU에는 기본 JS가 남는다.
+Linux x64와 macOS arm64에서 빌드·실행했다. macOS에서는 새 checkout에서 모듈 없이 `auto`가 JavaScript를 사용하는지, Rust 빌드 후 native가 기존 JavaScript와 같은 결과를 내는지 확인했다(`test:image`, 1,737개 비교). 성능 수치는 Linux x64 실측값만 기록한다. macOS x64, Linux arm64, Windows는 미검증이다. 각 플랫폼에서 직접 빌드해야 하며 prebuilt를 배포하지 않는다.
 
 ## 동일성 및 스레드 계약
 
@@ -148,4 +148,4 @@ APP_QA_IMAGE_BACKEND=native node --expose-gc scripts/benchmark-image.mjs
 
 `must-avoid-check: pass`. architecture 스킬의 모든 must-avoid 항목을 diff와 대조했다. 계약/정책/판정/기기 action/재시도/잠금/정제/모델 권한 규칙은 바꾸지 않았고, 새 cross-module driver 의존성·전역 설치·외부 JS action·secret 전송·관찰 잘라내기를 추가하지 않았다. 기존 architecture/import cycle 검사도 full suite에서 통과했다.
 
-위 pass는 cloud에서 직접 실행한 local check다. GitHub CI의 통과로 표시하지 않는다. PR head의 check/workflow 결과는 게시 후 PR 설명에서 별도로 기록하며, 미검증 플랫폼이나 확인할 수 없는 로그를 통과라고 추정하지 않는다. draft PR만 만들고 merge/deploy하지 않는다.
+위 결과는 로컬 검증이다. GitHub CI 통과를 뜻하지 않는다. PR의 검증 결과는 PR 설명에 별도로 기록한다.
