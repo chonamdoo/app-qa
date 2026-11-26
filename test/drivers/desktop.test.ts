@@ -773,18 +773,18 @@ describe('project fixture bootstrap (the only non-observing page access)', () =>
   });
 
   /** Runs the witness page script with a fake `location` and `fetch`, as the browser would. */
-  function witnessIn(origin: string, url: string, reply: { ok?: boolean; url?: string; chunks?: Uint8Array[] } = {}): { result: Promise<unknown>; fetched: [string, RequestInit][]; cancelled: () => boolean } {
+  function witnessIn(origin: string, url: string, reply: { ok?: boolean; url?: string; chunks?: readonly Uint8Array[] } = {}): { result: Promise<unknown>; fetched: [string, RequestInit][] } {
     const fetched: [string, RequestInit][] = [];
-    let cancelled = false;
     const chunks = reply.chunks ?? [new TextEncoder().encode('{"fixture":"ready"}')];
+    let nextChunk = 0;
     const fetch = async (target: string, init: RequestInit) => {
       fetched.push([target, init]);
-      return { ok: reply.ok ?? true, url: reply.url ?? target, body: { getReader: () => ({ read: async () => chunks.length ? { value: chunks.shift(), done: false } : { done: true }, cancel: async () => { cancelled = true; } }) } };
+      return { ok: reply.ok ?? true, url: reply.url ?? target, body: { getReader: () => ({ read: async () => nextChunk < chunks.length ? { value: chunks[nextChunk++], done: false } : { done: true } }) } };
     };
     const run = new Function('location', 'fetch', 'args', `return (function () {${DESKTOP_SCRIPTS.fixtureWitness}\n}).apply(null, args);`);
     let result: Promise<unknown>;
     try { result = Promise.resolve(run({ origin }, fetch, [url])); } catch (error) { result = Promise.reject(error); }
-    return { result, fetched, cancelled: () => cancelled };
+    return { result, fetched };
   }
 
   it('the witness script fetches only from a document on the witness origin, with credentials and no redirects', async () => {
@@ -796,14 +796,18 @@ describe('project fixture bootstrap (the only non-observing page access)', () =>
     assert.deepEqual(same.fetched.map(([target, init]) => [target, init.credentials, init.redirect]), [['http://localhost:4173/witness', 'include', 'error']]);
   });
 
-  it('the witness script refuses a failed, redirected, oversized or non-UTF-8 answer', async () => {
-    const url = 'http://localhost:4173/witness';
-    await assert.rejects(witnessIn('http://localhost:4173', url, { ok: false }).result, /fixture_witness_refused/);
-    await assert.rejects(witnessIn('http://localhost:4173', url, { url: 'http://localhost:4173/elsewhere' }).result, /fixture_witness_refused/);
-    const big = witnessIn('http://localhost:4173', url, { chunks: [new Uint8Array(200_000), new Uint8Array(100_000)] });
-    await assert.rejects(big.result, /fixture_witness_size_limit/);
-    assert.equal(big.cancelled(), true);
-    await assert.rejects(witnessIn('http://localhost:4173', url, { chunks: [new Uint8Array([0xff, 0xfe])] }).result, TypeError);
+  it('aborts the witness request on a failed status, mismatched URL, size overflow or invalid UTF-8', async () => {
+    const origin = 'http://localhost:4173', url = `${origin}/witness`;
+    for (const [reply, expected] of [
+      [{ ok: false }, /fixture_witness_refused/],
+      [{ url: `${origin}/elsewhere` }, /fixture_witness_refused/],
+      [{ chunks: [new Uint8Array(200_000), new Uint8Array(100_000)] }, /fixture_witness_size_limit/],
+      [{ chunks: [new Uint8Array([0xff, 0xfe])] }, TypeError],
+    ] as const) {
+      const { result, fetched } = witnessIn(origin, url, reply);
+      await assert.rejects(result, expected);
+      assert.equal(fetched[0]![1].signal?.aborted, true);
+    }
   });
 });
 

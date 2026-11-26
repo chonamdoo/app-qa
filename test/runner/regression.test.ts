@@ -310,23 +310,22 @@ describe('published regression execution boundaries', () => {
       run.state = 'unknown'; run.code = 'execution_unconfirmed';
       run.attempts[0]!.state = 'blocked'; run.attempts[0]!.cleanup = 'unknown'; run.attempts[0]!.runId = 'run-unconfirmed';
     });
-    const blockedDispatch: string[] = [];
-    const stalled = restartWith(t, root, blockedDispatch, () => false);
-    const waiting = await stalled.call({ ...request, requestId: randomUUID() }) as RegressionRun;
+    const dispatched: string[] = [];
+    let recovered = false;
+    const service = restartWith(t, root, dispatched, attempt => recovered && attempt.attemptId === original.attempts[0]!.attemptId);
+    const waiting = await service.call({ ...request, requestId: randomUUID() }) as RegressionRun;
+    service.resourcesReconciled();
     await setImmediate();
-    assert.equal((await stalled.call({ method: 'regression.status', requestId: waiting.requestId }) as RegressionRun).state, 'queued');
-    const preflight = await stalled.call({ method: 'regression.preflight', revisionIds: request.revisionIds, targets: request.targets, authorizations: request.authorizations, evidence: request.evidence }) as RegressionPreflight;
+    assert.equal((await service.call({ method: 'regression.status', requestId: waiting.requestId }) as RegressionRun).state, 'queued');
+    const preflight = await service.call({ method: 'regression.preflight', revisionIds: request.revisionIds, targets: request.targets, authorizations: request.authorizations, evidence: request.evidence }) as RegressionPreflight;
     assert.equal(preflight.checks.find(check => check.category === 'capacity')!.code, 'execution_reconciliation_required');
-    assert.deepEqual(blockedDispatch, []);
-    await stalled.shutdown();
+    assert.deepEqual(dispatched, []);
 
-    const dispatched: string[] = [], checked: string[] = [];
-    const reconciled = restartWith(t, root, dispatched, attempt => { checked.push(attempt.attemptId); return true; });
-    const next = await reconciled.call({ ...request, requestId: randomUUID() }) as RegressionRun;
-    await terminal(reconciled, next.requestId);
-    assert.ok(checked.includes(original.attempts[0]!.attemptId));
-    assert.deepEqual(dispatched, [next.attempts[0]!.attemptId]);
-    assert.equal((await reconciled.call({ method: 'regression.status', requestId: original.requestId }) as RegressionRun).state, 'unknown');
+    recovered = true;
+    service.resourcesReconciled();
+    await terminal(service, waiting.requestId);
+    assert.deepEqual(dispatched, [waiting.attempts[0]!.attemptId]);
+    assert.equal((await service.call({ method: 'regression.status', requestId: original.requestId }) as RegressionRun).state, 'unknown');
   });
 
   it('keeps blocking the queue while an unknown run has an unknown attempt without verified recovery', async t => {

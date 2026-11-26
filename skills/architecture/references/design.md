@@ -198,6 +198,7 @@ Jev 0.69s/`jev-1.13.0`/한국어 OK · Choice 255개(none 포함) OK, 256개 →
 - 실행 순서는 코드가 확정 suite/chain 순서와 접수 순서·명시 우선순위로 결정한다. 기본 독립 흐름 동시 상한은 로컬 사용자 전체에 1이며 UI·CLI·MCP·SDK·direct script·runner 내부 fan-out이 같은 admission과 자원 권위를 통과한다. AI는 병렬 판단·dependency·충돌 범위를 확정하지 않는다.
 - 점유는 준비 시작부터 진단 보존·필수 증거 최종화·정리 완료까지 유지한다. 공유 backend는 로컬 잠금만으로 보호됐다고 표현하지 않는다. 종료·효과·초기 상태가 미확인이면 자원을 격리하며 lease 만료·PID 종료·늦은 응답만으로 재사용하지 않는다.
 - 동일 request identity와 동일 내용은 같은 접수 기록을 조회하고 다른 내용 재사용은 conflict다. 재시작은 durable 기록과 journal·소유권 세대를 대조하는 복구로 시작하며 과거 대기/진행/unknown 작업을 자동 재전송하지 않는다.
+- 같은 엔진에서 복구가 확인되면 이미 접수된 대기 요청을 재개한다. 원 `unknown` 실행 기록은 바꾸거나 재실행하지 않는다.
 - 첫 필수 변경 전 유효 영상 프레임과 recorder readiness를 확인한다. 연속 segment·행동/수집 시각·gap·회수·최종화·재생 가능성을 기록한다. recorder가 상실되면 다음 변경을 차단하며 preview 단절과 구별한다. 정지 화면 반복이나 저장 프레임 UI를 실제 영상 녹화로 표시하지 않는다.
 - 녹화 도구 `ffmpeg`/`ffprobe`만 프로젝트 로컬 원칙의 예외다. 녹화마다 engine `PATH`, 그다음 `/opt/homebrew/bin`, `/usr/local/bin`에서 실행 가능한 일반 파일을 한 번 찾아(`resolveMediaTools`, `src/drivers/recording-media.ts`) 같은 절대 경로를 캡처와 검증에 쓴다. 찾지 못하면 녹화를 시작하지 않는다. 녹화·검증 실패 진단에는 해석한 경로를 남기고, 성공 segment 기록에는 도구 경로를 넣지 않는다.
 - 업무 판정·실행 확실성·영상/증거·정리·조건 비교는 별도 상태다. 모든 필수 검증의 receipt와 사전 분모를 대조하고 필수 영상·정리·확실성을 함께 확인한 경우에만 전체 PASS다. 원 FAIL/unknown은 새 attempt의 PASS로 덮지 않는다.

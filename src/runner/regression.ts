@@ -231,6 +231,7 @@ export function createRegressionService(deps: RegressionDependencies) {
     void promise.catch(() => { closing = true; }).finally(() => { running = null; pump(); });
   };
   return {
+    resourcesReconciled: pump,
     async call(input: RegressionRequest, context: AgentCallContext = {}): Promise<unknown> {
       const parsed = RegressionRequestSchema.safeParse(input);
       if (!parsed.success) fail('invalid_request', '회귀 실행 요청의 형식이 올바르지 않습니다');

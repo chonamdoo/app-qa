@@ -89,11 +89,14 @@ return (async () => {
       const { value, done } = await reader.read();
       if (done) break;
       total += value.byteLength;
-      if (total > 262144) { await reader.cancel(); throw new Error('fixture_witness_size_limit'); }
+      if (total > 262144) throw new Error('fixture_witness_size_limit');
       text += decoder.decode(value, { stream: true });
     }
     return JSON.parse(text + decoder.decode());
-  } finally { clearTimeout(timer); }
+  } finally {
+    clearTimeout(timer);
+    controller.abort();
+  }
 })();`,
 } as const;
 

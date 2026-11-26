@@ -479,8 +479,11 @@ export function createAgentService(partial: Partial<RunnerDeps> = {}, events?: E
             if (status.state === 'unknown') await d.admission.reconcile();
             profiles = await partial.instanceProfiles?.() ?? [];
             instanceRecovery = await desktop().reconcileOwnedChrome();
+            const result = recoveryView();
+            regressions?.resourcesReconciled();
+            return { ok: true, result, meta };
           }
-          return { ok: true, result: recoveryView(request.method === 'execution.status' ? request.attemptId : undefined), meta };
+          return { ok: true, result: recoveryView(request.attemptId), meta };
         }
         if (instanceRequest(request)) {
           if (context.scriptId || context.allowedSessionIds) throw new AgentExecutionError('scope_denied', '코드 묶음은 인스턴스 생성·부팅·자원 권한을 확장할 수 없습니다.');
